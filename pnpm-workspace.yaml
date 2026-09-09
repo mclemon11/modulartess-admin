@@ -1,0 +1,8 @@
+# Archivo de configuración de pnpm. Este repositorio NO es un monorepo:
+# no se declaran paquetes ni se enlazan otros repositorios.
+#
+# `unrs-resolver` es una dependencia transitiva de eslint-config-next. Su script
+# de instalación no es necesario para ejecutar ESLint aquí, así que se deniega
+# de forma explícita en lugar de aprobarlo.
+allowBuilds:
+  unrs-resolver: false
