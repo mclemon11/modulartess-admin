@@ -100,7 +100,7 @@ las reglas comerciales, en contradicción directa con la decisión 3. Si existie
 en WooCommerce, se tratarían como una migración puntual hacia el backend, nunca como una integración
 permanente del panel.
 
-### 5. Autenticación y autorización: flujo acordado, mecanismo pendiente
+### 5. Autenticación y autorización: flujo acordado
 
 En esta fase no se implementa autenticación ni autorización, y **no se implementa ningún login
 simulado**.
@@ -113,10 +113,17 @@ El flujo acordado es:
 4. El servidor Next.js invoca el backend en Cloud Run con su identidad de ejecución.
 5. El backend verifica la identidad administrativa y aplica autorización y reglas de negocio.
 
-El **mecanismo exacto** para transportar y verificar la identidad Firebase entre el BFF y el backend
-queda **pendiente de una ADR específica**. Esta decisión no fija encabezados, cookies, endpoints ni
-esquemas de tokens: elegirlos aquí, sin haber analizado las opciones, sería fijar por escrito un
-diseño que nadie ha decidido.
+Cuando se escribió esta decisión, el mecanismo de transporte de la identidad entre el BFF y el
+backend estaba sin decidir. **Ya no lo está**: el backend definió e implementó los endpoints `POST`
+y `GET /v1/admin/auth/session`, con la sesión interna en el encabezado
+`x-modulartess-admin-session`, `Authorization` reservado para el IAM de Cloud Run, el claim firmado
+`modulartess_admin_role=super_admin` como requisito, y una duración de `28800` segundos verificada
+comprobando la revocación. Esa superficie está **desactivada en staging**.
+
+El fondo de esta ADR no cambia: el panel no fija por sí mismo ese contrato. Lo que resta del lado
+del panel —la ADR local del BFF, la cookie `__Host-` concreta, CSRF y `Origin`, la copia OpenAPI y
+la implementación— se registrará en su propia ADR. Ver `../architecture/current-status.md` para el
+estado vigente.
 
 Motivos para no implementar nada todavía: un login falso genera confianza infundada en una pantalla
 que no protege nada, y suele sobrevivir más de lo previsto. Es preferible que el panel declare de

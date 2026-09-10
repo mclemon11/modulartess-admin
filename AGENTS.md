@@ -55,17 +55,35 @@ El panel **nunca**:
 
 El backend NestJS es la **única autoridad** sobre datos, validación y reglas de negocio.
 
-### 2.1 Firebase Authentication: la única excepción futura en el navegador
+### 2.1 Firebase Authentication: la única integración de Firebase en el navegador
 
-En una fase posterior el panel **sí podrá** usar el SDK cliente de Firebase, exclusivamente para
-**Firebase Authentication**. Esa es la única excepción permitida al uso de Firebase dentro del
-navegador, y no habilita ninguna otra.
+El panel usa el SDK cliente de Firebase **exclusivamente para Firebase Authentication**. Es la
+única integración de Firebase permitida dentro del navegador, y no habilita ninguna otra. Está
+implementada: ver `docs/decisions/0002-firebase-auth-closed-sign-in.md`.
 
-Queda prohibido de forma permanente, incluso después de esa fase: el SDK cliente de Firestore, el
-SDK cliente de Cloud Storage, `firebase-admin`, el acceso directo a Firestore o Cloud Storage y
-cualquier credencial de cuenta de servicio.
+Solo se importan `firebase/app` y `firebase/auth`. Queda prohibido de forma **permanente**: el SDK
+cliente de Firestore, el SDK cliente de Cloud Storage, Analytics, Messaging, `firebase-admin`, el
+acceso directo a Firestore o Cloud Storage y cualquier credencial de cuenta de servicio. El panel
+no crea colecciones ni documentos.
 
-**Firebase no se instala todavía.** Ver la sección 5.
+Reglas de uso, también permanentes:
+
+- El acceso es **cerrado**: no hay registro público, ni enlaces de «Crear cuenta», ni proveedores
+  federados, ni autenticación anónima, ni cambio o restablecimiento de contraseña.
+- La persistencia se fija a `inMemoryPersistence` **antes** de autenticar. Ni la sesión de
+  Firebase, ni el correo, ni la contraseña, ni el UID, ni ningún token se escriben en
+  `localStorage`, `sessionStorage`, cookies accesibles desde JavaScript, logs o URLs.
+- El `languageCode` del SDK se fija **explícitamente a `es`** antes de autenticar y antes de
+  enviar cualquier correo. Prohibido `useDeviceLanguage()`: el idioma del navegador es una fuente
+  variable.
+- La exclusión de operaciones **no** se apoya en el estado de React. Un candado síncrono (`useRef`)
+  se toma antes del primer `await`; `busy` queda solo para la representación visual. Cuando una
+  operación ya produjo un efecto externo que no debe repetirse, el candado se sella y ningún fallo
+  posterior lo reabre.
+- Los errores de credenciales producen **un único mensaje genérico en español**. Nunca se muestran
+  mensajes que permitan enumerar cuentas ni códigos de Firebase.
+- El correo de verificación se envía **solo** cuando la persona lo pide de forma explícita, nunca
+  de forma automática.
 
 ## 3. Contrato con el backend
 
@@ -109,18 +127,31 @@ El flujo previsto es:
 4. El servidor Next.js invoca el backend en Cloud Run con su identidad de ejecución.
 5. El backend verifica la identidad administrativa y aplica autorización y reglas de negocio.
 
-El mecanismo exacto para transportar y verificar la identidad Firebase entre el BFF y el backend
-**sigue pendiente de una ADR específica**. Hasta que exista, no se inventan encabezados, cookies,
-endpoints ni mecanismos de tokens.
+El backend **ya definió e implementó** su lado del contrato de sesión administrativa:
+
+- Endpoints `POST` y `GET /v1/admin/auth/session`.
+- La sesión interna viaja en el encabezado `x-modulartess-admin-session`.
+- `Authorization` queda **reservado para el IAM de Cloud Run** y no se usa para la sesión de la
+  persona.
+- El backend exige el claim firmado `modulartess_admin_role=super_admin`.
+- La sesión dura `28800` segundos y se verifica **comprobando la revocación**.
+- Esa superficie permanece **desactivada en staging**.
+
+Ese contrato es la referencia, y no se contradice ni se reinventa desde aquí. En este repositorio
+siguen pendientes: la copia versionada del contrato OpenAPI, los tipos generados desde ella, la
+**ADR local del BFF**, la definición de la cookie `__Host-` concreta, las defensas de CSRF y
+comprobación de `Origin`, y la implementación de la frontera. Hasta que esa ADR local exista no se
+fijan aquí el nombre de la cookie, sus atributos ni el esquema de CSRF.
 
 ## 5. Dependencias
 
 - Gestor de paquetes: **pnpm** (versión fijada en `packageManager`).
 - Node.js `>=22.0.0`.
 - Se añade una dependencia solo cuando es **necesaria ahora**, no por anticipación.
-- Prohibido añadir, en esta fase: Tailwind, Redux, el SDK de Firebase, `openapi-fetch` o cualquier
-  cliente de base de datos. El SDK de Firebase se incorporará únicamente cuando se implemente
-  Firebase Auth, y solo para autenticación.
+- El SDK modular `firebase` está instalado y se usa **solo** para Authentication (`firebase/app` y
+  `firebase/auth`).
+- Prohibido añadir, en esta fase: Tailwind, Redux, `openapi-fetch` o cualquier cliente de base de
+  datos.
 - Prohibido añadir, de forma permanente: `firebase-admin` y cualquier cliente directo de Firestore
   o Cloud Storage.
 - Las versiones de Next.js, React y TypeScript se mantienen alineadas con el frontend público.
@@ -135,9 +166,12 @@ endpoints ni mecanismos de tokens.
 ## 7. Seguridad
 
 - Nunca se comitean archivos `.env` reales, claves JSON, certificados ni credenciales.
-- `.env.example` documenta nombres de variables, jamás valores. En esta fase no hay ninguna
-  variable necesaria.
-- Ninguna variable `NEXT_PUBLIC_*` puede contener información sensible: se expone al navegador.
+- `.env.example` es una **plantilla versionada**: documenta nombres de variables con el valor
+  vacío, jamás valores reales, y nunca se rellena copiando desde otro archivo. Los valores locales
+  viven en `.env` o `.env.local`, ambos ignorados por Git.
+- Ninguna variable `NEXT_PUBLIC_*` puede contener información sensible: se expone al navegador. Las
+  cuatro variables de Firebase Auth son identificadores públicos del cliente, no secretos; aun así
+  sus valores nunca se comitean.
 - La URL del backend no es un secreto, pero tampoco se publica al navegador del panel: no vive en
   ninguna variable `NEXT_PUBLIC_*`, ni en la configuración de cliente, ni en el bundle. La futura
   variable que la contenga será exclusivamente server-side.
@@ -148,7 +182,9 @@ endpoints ni mecanismos de tokens.
   incremental.
 - `docs/architecture/current-status.md` se actualiza al cerrar cada fase.
 - Antes de dar por terminado un cambio deben pasar: `pnpm format:check`, `pnpm lint`,
-  `pnpm typecheck` y `pnpm build`.
+  `pnpm typecheck`, `pnpm test` y `pnpm build`.
+- Las pruebas son unitarias y puras (Vitest): no usan credenciales reales ni acceden a Firebase por
+  red.
 
 ## 9. Autoría
 

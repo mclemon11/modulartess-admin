@@ -62,3 +62,13 @@
   font-family: var(--font-mono);
   font-size: 0.8125rem;
 }
+
+.footer {
+  margin: var(--space-lg) 0 0;
+  font-size: 0.9375rem;
+}
+
+.footer a {
+  color: var(--color-accent);
+  font-weight: 500;
+}

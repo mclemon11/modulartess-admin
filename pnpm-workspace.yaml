@@ -4,5 +4,12 @@
 # `unrs-resolver` es una dependencia transitiva de eslint-config-next. Su script
 # de instalación no es necesario para ejecutar ESLint aquí, así que se deniega
 # de forma explícita en lugar de aprobarlo.
+#
+# `@firebase/util` y `protobufjs` llegan como dependencias transitivas del SDK
+# `firebase`. Sus scripts de instalación solo hacen falta para productos que este
+# panel no usa (Firestore y su capa gRPC). Aquí únicamente se usa Firebase
+# Authentication, así que también se deniegan de forma explícita.
 allowBuilds:
   unrs-resolver: false
+  '@firebase/util': false
+  protobufjs: false

@@ -1,7 +1,11 @@
+import Link from 'next/link';
+
 import styles from './page.module.css';
 
 const scope = [
-  { label: 'Autenticación y autorización', value: 'pendiente' },
+  { label: 'Inicio de sesión con Firebase Auth', value: 'implementado' },
+  { label: 'Verificación del correo', value: 'implementado' },
+  { label: 'Sesión administrativa y frontera BFF', value: 'pendiente' },
   { label: 'Contrato OpenAPI con el backend', value: 'pendiente' },
   { label: 'Catálogo, pedidos e inventario', value: 'pendiente' },
   { label: 'Acceso directo a Firestore o Cloud Storage', value: 'no aplica' },
@@ -15,8 +19,8 @@ export default function HomePage() {
         <h1 className={styles.title}>Panel administrativo en configuración</h1>
         <p className={styles.description}>
           Este repositorio contiene la base técnica del panel administrativo privado de Modulartess.
-          Todavía no expone funcionalidad operativa: el backend NestJS es la autoridad de datos y de
-          reglas comerciales.
+          Ya autentica cuentas con Firebase Authentication, pero todavía no expone funcionalidad
+          operativa: el backend NestJS es la autoridad de datos y de reglas comerciales.
         </p>
         <ul className={styles.list}>
           {scope.map((entry) => (
@@ -26,6 +30,9 @@ export default function HomePage() {
             </li>
           ))}
         </ul>
+        <p className={styles.footer}>
+          <Link href="/iniciar-sesion">Ir a iniciar sesión</Link>
+        </p>
       </section>
     </main>
   );

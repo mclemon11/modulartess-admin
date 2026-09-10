@@ -10,7 +10,7 @@ claves de servicio.
 
 El navegador habla con dos destinos, y solo con dos:
 
-- **Firebase Auth**, para obtener su identidad (previsto, todavía no implementado).
+- **Firebase Auth**, para obtener su identidad (implementado).
 - **El servidor Next.js del panel**, para todo lo demás.
 
 El navegador del panel **no** recibe la URL del backend ni la consume directamente: esa URL no
@@ -24,6 +24,8 @@ Aplicación Next.js con App Router. Su servidor es la **frontera BFF** del siste
 Responsabilidades:
 
 - Renderizar vistas y formularios administrativos, con Server Components por defecto.
+- Servir `/iniciar-sesion` y `/verificar-correo`. Ambas páginas son Server Components; el único
+  componente cliente es el formulario, porque necesita estado e interacción.
 - Validar la forma de la entrada en el cliente **solo** como ayuda de usabilidad.
 - Ejecutar, **desde el servidor**, llamadas HTTP tipadas contra el backend NestJS, usando la
   identidad de ejecución del propio servicio. En una fase posterior, la URL del backend vivirá en
@@ -57,23 +59,41 @@ Es la **autoridad** del sistema:
 - Es el único componente que lee y escribe en Firestore y Cloud Storage.
 - Publica su superficie mediante OpenAPI.
 
-### 4. Firebase Auth (previsto, todavía no implementado)
+### 4. Firebase Auth (implementado, solo autenticación)
 
-Firebase Authentication será el proveedor de identidad del operador. Es la **única excepción futura
-permitida** al uso de Firebase dentro del navegador: el panel podrá incorporar el SDK cliente de
-Firebase exclusivamente para autenticación.
+Firebase Authentication es el proveedor de identidad del operador y la **única integración de
+Firebase permitida** dentro del navegador. El panel importa `firebase/app` y `firebase/auth`, y
+nada más.
 
-Queda prohibido de forma permanente, también después de esa fase:
+Queda prohibido de forma permanente:
 
 - el SDK cliente de Firestore;
 - el SDK cliente de Cloud Storage;
+- Analytics y Messaging;
 - `firebase-admin`;
 - el acceso directo a Firestore o Cloud Storage;
 - cualquier credencial de cuenta de servicio en el panel.
 
-El SDK de Firebase **aún no está instalado**.
+Lo que **sí** está implementado hoy:
 
-Flujo previsto:
+- Inicio de sesión cerrado con correo y contraseña. No hay registro público ni recuperación de
+  contraseña.
+- Inicialización diferida, con una app Firebase de nombre explícito, que no rompe `next build`
+  cuando falta configuración.
+- `inMemoryPersistence` fijada antes de autenticar: la sesión de Firebase no se persiste en el
+  navegador.
+- Mensajes de error genéricos que no permiten enumerar cuentas.
+- Verificación del correo bajo petición explícita, con `signOut` posterior.
+
+Lo que **no** está implementado, y este documento no debe dar por hecho:
+
+- La obtención de ID tokens y su intercambio por una sesión.
+- La cookie de sesión HttpOnly del panel.
+- Cualquier llamada al backend desde el panel.
+- El claim `super_admin`: **no se ejecutó ningún bootstrap**, y una cuenta autenticada no lo tiene
+  garantizado. Ese aprovisionamiento se resuelve fuera de este repositorio.
+
+Flujo previsto una vez exista la frontera BFF:
 
 1. El navegador se autentica mediante Firebase Auth.
 2. El navegador se comunica con el servidor Next.js del panel.
@@ -81,9 +101,19 @@ Flujo previsto:
 4. El servidor Next.js invoca el backend en Cloud Run con su identidad de ejecución.
 5. El backend verifica la identidad administrativa y aplica autorización y reglas de negocio.
 
-El mecanismo exacto para transportar y verificar la identidad Firebase entre el BFF y el backend
-**sigue pendiente de una ADR específica**. Hasta que exista, este documento no define encabezados,
-cookies, endpoints ni mecanismos de tokens: hacerlo sería inventar el diseño antes de decidirlo.
+Hoy, en este repositorio, solo existe el paso 1.
+
+El lado del backend **ya está definido e implementado**: `POST` y `GET
+/v1/admin/auth/session`, sesión interna en el encabezado `x-modulartess-admin-session`,
+`Authorization` reservado para el IAM de Cloud Run, claim firmado
+`modulartess_admin_role=super_admin` exigido, duración de `28800` segundos verificada comprobando
+la revocación, y la superficie **desactivada en staging**.
+
+Lo que falta es del lado del panel: la copia versionada del contrato OpenAPI, los tipos generados
+desde ella, la **ADR local del BFF**, la cookie `__Host-` concreta con sus atributos, las defensas
+de CSRF y `Origin`, y la implementación. Mientras esa ADR local no exista, este documento no fija
+el nombre de la cookie, sus atributos ni el esquema de CSRF: hacerlo sería adelantar un diseño que
+todavía no se ha decidido aquí.
 
 ### 5. Firestore y Cloud Storage
 
@@ -113,14 +143,15 @@ que es quien decide destino, nombre y permisos.
 ┌────────────────────────────┐        ┌──────────────────────────┐
 │ Navegador (administrador)  │───────▶│ Firebase Auth            │
 │                            │◀───────│ Identidad del operador   │
-└─────────────┬──────────────┘        │ (previsto)               │
+└─────────────┬──────────────┘        │ (implementado)           │
               │ HTTPS                 └──────────────────────────┘
               ▼
 ┌────────────────────────────┐
 │ Servidor Next.js — BFF     │  Presentación, formularios,
 │ (este repositorio)         │  frontera hacia el backend
 └─────────────┬──────────────┘
-              │ HTTPS interno · identidad de ejecución · contrato OpenAPI
+              ╎ HTTPS interno · identidad de ejecución · contrato OpenAPI
+              ╎ (pendiente: todavía no existe esta llamada)
               ▼
 ┌────────────────────────────┐
 │ Backend NestJS             │  Autoridad de negocio,
@@ -142,6 +173,8 @@ deliberada y no por fase pendiente:
 
 ## Consecuencias
 
+- El panel autentica personas reales, pero todavía no autoriza a nadie: no hay superficie
+  administrativa que proteger ni sesión propia del panel.
 - El panel puede desplegarse y auditarse sin acceso a la infraestructura de datos.
 - Una vulnerabilidad en el panel no expone credenciales de base de datos ni de almacenamiento.
 - El backend rechaza cualquier invocación anónima: su protección es IAM, no la oscuridad de su URL.

@@ -6,10 +6,14 @@
   --color-text-muted: #5c5c66;
   --color-accent: #2f5bd7;
 
+  --radius-sm: 8px;
   --radius-md: 10px;
+  --radius-lg: 16px;
+  --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 1rem;
   --space-lg: 2rem;
+  --space-xl: 3rem;
 
   --font-sans:
     system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji',
@@ -28,6 +32,32 @@
     --color-text-muted: #a1a1ad;
     --color-accent: #8aa6ff;
   }
+}
+
+/*
+ * Identidad Modulartess: violeta sobre superficie clara.
+ *
+ * Estas variables se definen solo en `:root` y no se redefinen en el bloque de esquema oscuro:
+ * las pantallas de autenticación mantienen a propósito un fondo claro y constante, igual que el
+ * diseño aprobado del panel.
+ */
+:root {
+  --color-brand: #6d28d9;
+  --color-brand-strong: #5b21b6;
+  --color-brand-soft: #f4f1fe;
+  --color-brand-border: #ded5fb;
+  --color-brand-contrast: #ffffff;
+  --color-brand-ring: rgb(109 40 217 / 24%);
+
+  --color-canvas-light: #f5f3fb;
+  --color-surface-light: #ffffff;
+  --color-border-light: #e6e1f2;
+  --color-text-light: #1b1830;
+  --color-text-light-muted: #575070;
+
+  --color-danger: #a4262c;
+  --color-danger-soft: #fdf0f0;
+  --color-danger-border: #f1cfd1;
 }
 
 *,
