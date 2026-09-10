@@ -76,6 +76,12 @@ Reglas de uso, también permanentes:
 - El `languageCode` del SDK se fija **explícitamente a `es`** antes de autenticar y antes de
   enviar cualquier correo. Prohibido `useDeviceLanguage()`: el idioma del navegador es una fuente
   variable.
+- El cierre de la sesión cliente se **intenta siempre**, y un `signOut` fallido **no** se trata
+  como inocuo: `inMemoryPersistence` sobrevive mientras viva el documento. Sin cierre confirmado, la
+  navegación posterior debe ser **`location.replace`**. Prohibidos como fallback `router.push` (no
+  destruye el documento) y `location.assign` (lo deja restaurable desde la BFCache al pulsar Atrás).
+  Si hace falta comunicar algo tras esa recarga, solo se admite un código fijo de una lista cerrada
+  en la URL; nunca el correo, el UID, un token ni la contraseña.
 - La exclusión de operaciones **no** se apoya en el estado de React. Un candado síncrono (`useRef`)
   se toma antes del primer `await`; `busy` queda solo para la representación visual. Cuando una
   operación ya produjo un efecto externo que no debe repetirse, el candado se sella y ningún fallo
@@ -127,7 +133,7 @@ El flujo previsto es:
 4. El servidor Next.js invoca el backend en Cloud Run con su identidad de ejecución.
 5. El backend verifica la identidad administrativa y aplica autorización y reglas de negocio.
 
-El backend **ya definió e implementó** su lado del contrato de sesión administrativa:
+El backend definió e implementó su lado del contrato de sesión administrativa:
 
 - Endpoints `POST` y `GET /v1/admin/auth/session`.
 - La sesión interna viaja en el encabezado `x-modulartess-admin-session`.
@@ -135,13 +141,25 @@ El backend **ya definió e implementó** su lado del contrato de sesión adminis
   persona.
 - El backend exige el claim firmado `modulartess_admin_role=super_admin`.
 - La sesión dura `28800` segundos y se verifica **comprobando la revocación**.
-- Esa superficie permanece **desactivada en staging**.
+- El contrato **no** publica ningún `DELETE` de esa ruta.
 
-Ese contrato es la referencia, y no se contradice ni se reinventa desde aquí. En este repositorio
-siguen pendientes: la copia versionada del contrato OpenAPI, los tipos generados desde ella, la
-**ADR local del BFF**, la definición de la cookie `__Host-` concreta, las defensas de CSRF y
-comprobación de `Origin`, y la implementación de la frontera. Hasta que esa ADR local exista no se
-fijan aquí el nombre de la cookie, sus atributos ni el esquema de CSRF.
+El lado del panel también está implementado: ver
+`docs/decisions/0003-admin-session-bff.md`. Reglas permanentes que salen de ahí:
+
+- La sesión vive en una única cookie llamada `__Host-modulartess-admin-session`, con `HttpOnly`,
+  `Secure`, `SameSite=Strict`, `Path=/` y **sin `Domain`**.
+- Su expiración nunca supera el `expiresAt` del backend ni los `28800` segundos del contrato, y
+  **no hay renovación silenciosa**.
+- `POST` y `DELETE` del BFF validan `Origin` de forma **exacta** contra una variable server-only.
+- Cada lectura protegida verifica la sesión con `GET` contra el backend. Un `401` o `403` borra la
+  cookie local.
+- `DELETE` cierra la sesión **local** borrando la cookie. No se inventa ningún `DELETE` en el
+  backend.
+- El navegador nunca recibe el material de sesión: ni en JSON, ni en encabezados legibles, ni en
+  logs, ni en la URL.
+
+**El backend desplegado sigue con `ADMIN_AUTH_MODE=disabled`**, así que el recorrido en Cloud Run
+todavía no está verificado. Ver `docs/architecture/current-status.md`.
 
 ## 5. Dependencias
 
@@ -150,8 +168,14 @@ fijan aquí el nombre de la cookie, sus atributos ni el esquema de CSRF.
 - Se añade una dependencia solo cuando es **necesaria ahora**, no por anticipación.
 - El SDK modular `firebase` está instalado y se usa **solo** para Authentication (`firebase/app` y
   `firebase/auth`).
-- Prohibido añadir, en esta fase: Tailwind, Redux, `openapi-fetch` o cualquier cliente de base de
-  datos.
+- `openapi-fetch` está instalado y **permitido solo en módulos `server-only` del BFF**. Queda
+  **prohibido en Client Components**: el navegador no llama nunca al backend. Esta regla sustituye
+  la prohibición temporal anterior (ver `docs/decisions/0003-admin-session-bff.md`).
+- `google-auth-library` está instalado y se usa **solo** para obtener el identity token IAM de
+  Cloud Run, desde un módulo `server-only`.
+- `server-only` está instalado y es la barrera de la frontera: los módulos del BFF empiezan con
+  `import 'server-only'`, de modo que una importación desde el cliente rompe el build.
+- Prohibido añadir, en esta fase: Tailwind, Redux o cualquier cliente de base de datos.
 - Prohibido añadir, de forma permanente: `firebase-admin` y cualquier cliente directo de Firestore
   o Cloud Storage.
 - Las versiones de Next.js, React y TypeScript se mantienen alineadas con el frontend público.

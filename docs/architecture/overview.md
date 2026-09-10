@@ -24,12 +24,21 @@ Aplicación Next.js con App Router. Su servidor es la **frontera BFF** del siste
 Responsabilidades:
 
 - Renderizar vistas y formularios administrativos, con Server Components por defecto.
-- Servir `/iniciar-sesion` y `/verificar-correo`. Ambas páginas son Server Components; el único
-  componente cliente es el formulario, porque necesita estado e interacción.
+- Servir `/iniciar-sesion`, `/verificar-correo` y `/panel`. Todas son Server Components; los únicos
+  componentes cliente son el formulario y el botón de cerrar sesión, porque necesitan interacción.
 - Validar la forma de la entrada en el cliente **solo** como ayuda de usabilidad.
-- Ejecutar, **desde el servidor**, llamadas HTTP tipadas contra el backend NestJS, usando la
-  identidad de ejecución del propio servicio. En una fase posterior, la URL del backend vivirá en
-  una variable **exclusivamente server-side** del BFF.
+- Exponer las tres rutas de la frontera de sesión: `POST`, `GET` y `DELETE`
+  `/api/admin/auth/session`. Son el **único** camino del navegador hacia la superficie
+  administrativa.
+- Ejecutar, **desde el servidor**, llamadas HTTP tipadas contra el backend NestJS con
+  `openapi-fetch` y los tipos generados desde la copia comiteada del contrato, usando la identidad
+  de ejecución del propio servicio.
+- Guardar la sesión administrativa en la cookie `__Host-modulartess-admin-session`, que el
+  JavaScript del navegador no puede leer.
+
+La URL del backend vive en `MODULARTESS_BACKEND_URL`, una variable **exclusivamente server-side**.
+El módulo del cliente empieza con `import 'server-only'`: si un Client Component lo importara, el
+build fallaría.
 
 Fuera de su responsabilidad, de forma permanente:
 
@@ -52,6 +61,19 @@ Dentro del flujo administrativo, el único componente que lo invoca es el servid
 panel, con su identidad de ejecución. Fuera de este panel, el backend también es consumido por el
 frontend público mediante su propia identidad: el BFF administrativo no es su único consumidor.
 
+Los dos canales de cada petición administrativa nunca se mezclan:
+
+| Canal                         | Transporta                                  |
+| ----------------------------- | ------------------------------------------- |
+| `Authorization`               | **Solo** el identity token IAM de Cloud Run |
+| `x-modulartess-admin-session` | **Solo** la sesión de la persona            |
+
+En esta superficie no hay ningún service token.
+
+**El despliegue actual sigue con `ADMIN_AUTH_MODE=disabled`**: en ese estado la superficie
+administrativa responde `404`, y el panel lo traduce a un estado controlado. El recorrido real en
+Cloud Run todavía no se ha verificado.
+
 Es la **autoridad** del sistema:
 
 - Verifica la identidad administrativa de cada petición y aplica la autorización.
@@ -59,7 +81,7 @@ Es la **autoridad** del sistema:
 - Es el único componente que lee y escribe en Firestore y Cloud Storage.
 - Publica su superficie mediante OpenAPI.
 
-### 4. Firebase Auth (implementado, solo autenticación)
+### 4. Firebase Auth (implementado, solo autenticación de identidad)
 
 Firebase Authentication es el proveedor de identidad del operador y la **única integración de
 Firebase permitida** dentro del navegador. El panel importa `firebase/app` y `firebase/auth`, y
@@ -85,35 +107,34 @@ Lo que **sí** está implementado hoy:
 - Mensajes de error genéricos que no permiten enumerar cuentas.
 - Verificación del correo bajo petición explícita, con `signOut` posterior.
 
-Lo que **no** está implementado, y este documento no debe dar por hecho:
+Además, el ID token que Firebase emite tras un inicio de sesión verificado se envía **solo** al
+BFF del panel, y el cierre de la sesión cliente de Firebase se **intenta** inmediatamente después,
+salga bien o mal el intercambio. Ese ID token no se guarda en ningún sitio.
 
-- La obtención de ID tokens y su intercambio por una sesión.
-- La cookie de sesión HttpOnly del panel.
-- Cualquier llamada al backend desde el panel.
-- El claim `super_admin`: **no se ejecutó ningún bootstrap**, y una cuenta autenticada no lo tiene
-  garantizado. Ese aprovisionamiento se resuelve fuera de este repositorio.
+El cierre no se da por hecho. `inMemoryPersistence` guarda la sesión en memoria del **documento**,
+no de la pestaña, así que una navegación del enrutador no la descarta: si `signOut` fallara y el
+panel navegase por SPA, Firebase seguiría autenticado en la misma página. Por eso un `signOut` sin
+confirmar fuerza una **navegación completa con `location.replace`**, que destruye el documento y
+con él ese estado. Es la única defensa que no depende de que el SDK coopere. Se usa `replace` y no
+`assign` porque `assign` dejaría la página anterior en el historial, desde donde la BFCache podría
+restaurarla con su memoria intacta al pulsar Atrás.
 
-Flujo previsto una vez exista la frontera BFF:
+Lo que Firebase **no** hace: no concede autorización. El rol administrativo lo verifica el backend
+en cada lectura protegida.
 
-1. El navegador se autentica mediante Firebase Auth.
-2. El navegador se comunica con el servidor Next.js del panel.
-3. El servidor Next.js actúa como frontera BFF.
-4. El servidor Next.js invoca el backend en Cloud Run con su identidad de ejecución.
-5. El backend verifica la identidad administrativa y aplica autorización y reglas de negocio.
+Recorrido completo, implementado de extremo a extremo en este repositorio:
 
-Hoy, en este repositorio, solo existe el paso 1.
+1. El navegador se autentica mediante Firebase Auth y obtiene un ID token reciente.
+2. El navegador envía ese ID token **solo** al BFF del panel (`POST /api/admin/auth/session`).
+3. El BFF invoca `POST /v1/admin/auth/session` con el identity token IAM en `Authorization`.
+4. El backend devuelve la sesión únicamente en `x-modulartess-admin-session`.
+5. El BFF la guarda en la cookie `__Host-modulartess-admin-session` y devuelve al navegador solo
+   `principal` y `expiresAt`.
+6. La sesión cliente de Firebase se cierra.
+7. Cada lectura protegida verifica la sesión con `GET /v1/admin/auth/session`, que comprueba la
+   revocación. Un `401` o `403` borra la cookie.
 
-El lado del backend **ya está definido e implementado**: `POST` y `GET
-/v1/admin/auth/session`, sesión interna en el encabezado `x-modulartess-admin-session`,
-`Authorization` reservado para el IAM de Cloud Run, claim firmado
-`modulartess_admin_role=super_admin` exigido, duración de `28800` segundos verificada comprobando
-la revocación, y la superficie **desactivada en staging**.
-
-Lo que falta es del lado del panel: la copia versionada del contrato OpenAPI, los tipos generados
-desde ella, la **ADR local del BFF**, la cookie `__Host-` concreta con sus atributos, las defensas
-de CSRF y `Origin`, y la implementación. Mientras esa ADR local no exista, este documento no fija
-el nombre de la cookie, sus atributos ni el esquema de CSRF: hacerlo sería adelantar un diseño que
-todavía no se ha decidido aquí.
+Las decisiones del lado del panel están en `../decisions/0003-admin-session-bff.md`.
 
 ### 5. Firestore y Cloud Storage
 
@@ -148,10 +169,11 @@ que es quien decide destino, nombre y permisos.
               ▼
 ┌────────────────────────────┐
 │ Servidor Next.js — BFF     │  Presentación, formularios,
-│ (este repositorio)         │  frontera hacia el backend
+│ (este repositorio)         │  cookie __Host- de sesión
 └─────────────┬──────────────┘
-              ╎ HTTPS interno · identidad de ejecución · contrato OpenAPI
-              ╎ (pendiente: todavía no existe esta llamada)
+              │ Authorization: identity token IAM
+              │ x-modulartess-admin-session: sesión de la persona
+              │ contrato OpenAPI (copia comiteada)
               ▼
 ┌────────────────────────────┐
 │ Backend NestJS             │  Autoridad de negocio,
@@ -173,8 +195,13 @@ deliberada y no por fase pendiente:
 
 ## Consecuencias
 
-- El panel autentica personas reales, pero todavía no autoriza a nadie: no hay superficie
-  administrativa que proteger ni sesión propia del panel.
+- El panel autentica personas reales y mantiene una sesión administrativa real, verificada por el
+  backend en cada lectura protegida.
+- El material de sesión no existe para el JavaScript del navegador en ningún momento.
+- Cada lectura protegida cuesta una llamada al backend. Es el precio de que la revocación sea
+  inmediata.
+- El recorrido está comprobado con dobles locales, pero **no verificado en Cloud Run**: el backend
+  desplegado sigue con `ADMIN_AUTH_MODE=disabled`.
 - El panel puede desplegarse y auditarse sin acceso a la infraestructura de datos.
 - Una vulnerabilidad en el panel no expone credenciales de base de datos ni de almacenamiento.
 - El backend rechaza cualquier invocación anónima: su protección es IAM, no la oscuridad de su URL.

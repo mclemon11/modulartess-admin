@@ -1,7 +1,30 @@
 # 0002 — Inicio de sesión cerrado con Firebase Authentication
 
 - Fecha: 2026-09-10
-- Estado: Aceptada
+- Estado: Aceptada · **parcialmente superada**, ver la nota de estado
+
+## Nota de estado (2026-09-10)
+
+El contexto histórico de esta ADR se conserva íntegro, pero dos afirmaciones suyas ya no describen
+el estado actual:
+
+- **El bootstrap sí se ejecutó.** La primera cuenta administrativa existe, tiene el correo
+  verificado y **su claim `super_admin` ya fue asignado**. El bootstrap del backend quedó en
+  `completed` y no puede repetirse. La decisión 9 («una cuenta verificada tampoco entra al panel»)
+  reflejaba el estado de aquel momento, no una restricción permanente.
+- **El intercambio de sesión está implementado.** La sección «Lo que esta decisión NO hace» sigue
+  siendo cierta _sobre esta ADR_, pero lo que enumeraba ya existe: lo decide e implementa
+  [`0003-admin-session-bff.md`](./0003-admin-session-bff.md). Tras un inicio de sesión verificado,
+  el panel obtiene un ID token reciente, lo canjea en su BFF y navega a `/panel`; la pantalla que
+  decía «llega en la fase siguiente» se retiró.
+- **El cierre de la sesión cliente se intenta siempre, pero no se da por garantizado.** Un
+  `signOut` fallido no es inocuo: `inMemoryPersistence` sobrevive mientras viva el documento. La
+  garantía real, y su respaldo por navegación completa, están en la decisión 11 de la ADR 0003.
+
+Sigue vigente todo lo demás: acceso cerrado, `inMemoryPersistence`, idioma fijado a español,
+mensajes que no permiten enumerar cuentas, verificación del correo solo a petición y candados
+síncronos.
+
 - Relacionada con: [`0001-admin-application-boundary.md`](./0001-admin-application-boundary.md)
 
 ## Contexto

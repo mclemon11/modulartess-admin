@@ -1,0 +1,1286 @@
+{
+  "components": {
+    "schemas": {
+      "AdminPrincipalDto": {
+        "properties": {
+          "role": {
+            "enum": ["super_admin"],
+            "example": "super_admin",
+            "type": "string"
+          },
+          "uid": {
+            "description": "Firebase Authentication user id.",
+            "type": "string"
+          }
+        },
+        "required": ["uid", "role"],
+        "type": "object"
+      },
+      "AdminSessionCreatedDto": {
+        "properties": {
+          "expiresAt": {
+            "description": "Session expiry. There is no silent renewal: a new session requires a new sign-in.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "principal": {
+            "$ref": "#/components/schemas/AdminPrincipalDto"
+          }
+        },
+        "required": ["principal", "expiresAt"],
+        "type": "object"
+      },
+      "AdminSessionDto": {
+        "properties": {
+          "principal": {
+            "$ref": "#/components/schemas/AdminPrincipalDto"
+          }
+        },
+        "required": ["principal"],
+        "type": "object"
+      },
+      "AdminSessionRequestDto": {
+        "properties": {
+          "idToken": {
+            "description": "Firebase ID token obtained by the admin panel client SDK and forwarded by its server-side BFF. The browser never calls this endpoint directly.",
+            "maxLength": 4096,
+            "minLength": 32,
+            "type": "string"
+          }
+        },
+        "required": ["idToken"],
+        "type": "object"
+      },
+      "CatalogFacetOptionDto": {
+        "properties": {
+          "count": {
+            "example": 2,
+            "minimum": 0,
+            "type": "number"
+          },
+          "label": {
+            "example": "Zona de maquillaje",
+            "type": "string"
+          },
+          "value": {
+            "example": "zona-maquillaje",
+            "type": "string"
+          }
+        },
+        "required": ["value", "label", "count"],
+        "type": "object"
+      },
+      "CatalogFacetsDto": {
+        "properties": {
+          "availability": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogFacetOptionDto"
+            },
+            "type": "array"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogFacetOptionDto"
+            },
+            "type": "array"
+          },
+          "finishes": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogFacetOptionDto"
+            },
+            "type": "array"
+          },
+          "productTypes": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogFacetOptionDto"
+            },
+            "type": "array"
+          },
+          "sizes": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogFacetOptionDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["categories", "productTypes", "availability", "sizes", "finishes"],
+        "type": "object"
+      },
+      "CatalogPriceDto": {
+        "properties": {
+          "amountMinor": {
+            "description": "Amount in the currency minor unit. COP has exponent 0, so this equals whole pesos.",
+            "example": 1490000,
+            "minimum": 0,
+            "type": "number"
+          },
+          "currency": {
+            "enum": ["COP"],
+            "example": "COP",
+            "type": "string"
+          }
+        },
+        "required": ["amountMinor", "currency"],
+        "type": "object"
+      },
+      "CatalogProductSummaryDto": {
+        "properties": {
+          "badges": {
+            "description": "Descriptive labels derived from backend data. Never a sales claim.",
+            "example": ["72 combinaciones"],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "category": {
+            "example": "zona-maquillaje",
+            "type": "string"
+          },
+          "commercialStatus": {
+            "enum": ["available", "coming_soon"],
+            "example": "available",
+            "type": "string"
+          },
+          "detailAvailable": {
+            "example": true,
+            "type": "boolean"
+          },
+          "finishes": {
+            "example": ["Roble claro"],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "example": "Tocador Aura",
+            "type": "string"
+          },
+          "productType": {
+            "example": "tocador",
+            "type": "string"
+          },
+          "publicId": {
+            "example": "prod_demo_tocador_aura",
+            "type": "string"
+          },
+          "shortDescription": {
+            "type": "string"
+          },
+          "sizes": {
+            "example": ["80 cm", "100 cm"],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "slug": {
+            "description": "Detail slug, or null when the product has no published detail page yet.",
+            "example": "tocador-aura",
+            "nullable": true,
+            "type": "string"
+          },
+          "startingPrice": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CatalogPriceDto"
+              }
+            ],
+            "description": "Null while the product has no authoritative price in the backend.",
+            "nullable": true,
+            "type": "object"
+          },
+          "tones": {
+            "example": ["Roble claro", "Nogal"],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "publicId",
+          "slug",
+          "name",
+          "category",
+          "productType",
+          "shortDescription",
+          "commercialStatus",
+          "detailAvailable",
+          "startingPrice",
+          "tones",
+          "sizes",
+          "finishes",
+          "badges"
+        ],
+        "type": "object"
+      },
+      "CatalogResponseDto": {
+        "properties": {
+          "facets": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CatalogFacetsDto"
+              }
+            ],
+            "description": "Counts per dimension, computed ignoring the filter of that same dimension."
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogProductSummaryDto"
+            },
+            "type": "array"
+          },
+          "page": {
+            "description": "Effective page. A request beyond the last page is clamped to it.",
+            "example": 1,
+            "minimum": 1,
+            "type": "number"
+          },
+          "pageSize": {
+            "example": 12,
+            "maximum": 24,
+            "minimum": 1,
+            "type": "number"
+          },
+          "total": {
+            "example": 4,
+            "minimum": 0,
+            "type": "number"
+          },
+          "totalPages": {
+            "example": 1,
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": ["items", "total", "page", "pageSize", "totalPages", "facets"],
+        "type": "object"
+      },
+      "CheckoutCustomerDto": {
+        "properties": {
+          "address": {
+            "example": "Calle 10 # 20-30",
+            "type": "string"
+          },
+          "city": {
+            "example": "Cali",
+            "type": "string"
+          },
+          "department": {
+            "example": "Valle del Cauca",
+            "type": "string"
+          },
+          "document": {
+            "example": "123456789",
+            "type": "string"
+          },
+          "email": {
+            "example": "cliente@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "fullName": {
+            "example": "Cliente Demo",
+            "type": "string"
+          },
+          "phone": {
+            "example": "3001234567",
+            "type": "string"
+          }
+        },
+        "required": ["fullName", "email", "phone", "document", "address", "city", "department"],
+        "type": "object"
+      },
+      "CheckoutRequestDto": {
+        "properties": {
+          "customer": {
+            "$ref": "#/components/schemas/CheckoutCustomerDto"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "productId": {
+            "example": "prod_demo_tocador_aura",
+            "type": "string"
+          },
+          "quantity": {
+            "example": 1,
+            "maximum": 10,
+            "minimum": 1,
+            "type": "number"
+          },
+          "variantId": {
+            "example": "var_001",
+            "type": "string"
+          }
+        },
+        "required": ["idempotencyKey", "productId", "variantId", "quantity", "customer"],
+        "type": "object"
+      },
+      "DemoProductDto": {
+        "properties": {
+          "currency": {
+            "enum": ["COP"],
+            "example": "COP",
+            "type": "string"
+          },
+          "description": {
+            "deprecated": true,
+            "description": "Deprecated: kept only for the first published contract. Mirrors shortDescription. New consumers must read shortDescription and longDescription.",
+            "type": "string"
+          },
+          "id": {
+            "example": "prod_demo_tocador_aura",
+            "type": "string"
+          },
+          "longDescription": {
+            "description": "Long PLAIN-TEXT description with paragraphs separated by a blank line. Will map from WooCommerce description. Never contains markup: clients must not inject it as HTML.",
+            "type": "string"
+          },
+          "name": {
+            "example": "Tocador Aura",
+            "type": "string"
+          },
+          "shortDescription": {
+            "description": "Short plain-text summary. Will map from WooCommerce short_description.",
+            "type": "string"
+          },
+          "slug": {
+            "example": "tocador-aura",
+            "type": "string"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/ProductVariantDto"
+            },
+            "maxItems": 72,
+            "minItems": 72,
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "description",
+          "shortDescription",
+          "longDescription",
+          "currency",
+          "variants"
+        ],
+        "type": "object"
+      },
+      "ErrorIssueDto": {
+        "properties": {
+          "message": {
+            "example": "Invalid email address",
+            "type": "string"
+          },
+          "path": {
+            "example": ["customer", "email"],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["path", "message"],
+        "type": "object"
+      },
+      "ErrorResponseDto": {
+        "properties": {
+          "code": {
+            "example": "invalid_request",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorIssueDto"
+            },
+            "type": "array"
+          },
+          "message": {
+            "example": "The request is invalid",
+            "type": "string"
+          }
+        },
+        "required": ["code", "message"],
+        "type": "object"
+      },
+      "HealthResponseDto": {
+        "properties": {
+          "integrationMode": {
+            "enum": ["mock", "staging", "production"],
+            "example": "mock",
+            "type": "string"
+          },
+          "status": {
+            "enum": ["ok"],
+            "example": "ok",
+            "type": "string"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": ["status", "integrationMode", "timestamp"],
+        "type": "object"
+      },
+      "OrderTimelineItemDto": {
+        "properties": {
+          "label": {
+            "example": "Pago confirmado",
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "order_received",
+              "payment_pending",
+              "payment_confirmed",
+              "validation",
+              "manual_review",
+              "order_confirmed",
+              "in_production",
+              "ready_for_dispatch",
+              "shipping_quote_required",
+              "shipment_created",
+              "shipped",
+              "delivered",
+              "incident",
+              "cancelled"
+            ],
+            "example": "payment_confirmed",
+            "type": "string"
+          }
+        },
+        "required": ["status", "label", "occurredAt"],
+        "type": "object"
+      },
+      "ProductAttributeDto": {
+        "properties": {
+          "name": {
+            "example": "Acabado",
+            "type": "string"
+          },
+          "value": {
+            "example": "Roble claro",
+            "type": "string"
+          }
+        },
+        "required": ["name", "value"],
+        "type": "object"
+      },
+      "ProductVariantDto": {
+        "properties": {
+          "attributes": {
+            "items": {
+              "$ref": "#/components/schemas/ProductAttributeDto"
+            },
+            "type": "array"
+          },
+          "available": {
+            "example": true,
+            "type": "boolean"
+          },
+          "id": {
+            "example": "var_001",
+            "type": "string"
+          },
+          "priceCop": {
+            "example": 1490000,
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": ["id", "attributes", "priceCop", "available"],
+        "type": "object"
+      },
+      "PublicOrderDto": {
+        "properties": {
+          "customerName": {
+            "example": "Cliente Demo",
+            "type": "string"
+          },
+          "customerVisibleLabel": {
+            "example": "En validación",
+            "type": "string"
+          },
+          "isSimulation": {
+            "enum": [true],
+            "example": true,
+            "type": "boolean"
+          },
+          "productName": {
+            "example": "Tocador Aura",
+            "type": "string"
+          },
+          "publicId": {
+            "example": "ord_0123456789abcdef0123456789abcdef",
+            "type": "string"
+          },
+          "quantity": {
+            "example": 1,
+            "type": "number"
+          },
+          "status": {
+            "enum": [
+              "order_received",
+              "payment_pending",
+              "payment_confirmed",
+              "validation",
+              "manual_review",
+              "order_confirmed",
+              "in_production",
+              "ready_for_dispatch",
+              "shipping_quote_required",
+              "shipment_created",
+              "shipped",
+              "delivered",
+              "incident",
+              "cancelled"
+            ],
+            "example": "order_confirmed",
+            "type": "string"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/OrderTimelineItemDto"
+            },
+            "type": "array"
+          },
+          "totalCop": {
+            "example": 1490000,
+            "type": "number"
+          },
+          "variantLabel": {
+            "example": "Acabado: Roble claro · Ancho: 80 cm · Espejo: Redondo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publicId",
+          "customerName",
+          "productName",
+          "variantLabel",
+          "quantity",
+          "totalCop",
+          "status",
+          "customerVisibleLabel",
+          "timeline",
+          "isSimulation"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "adminSession": {
+        "in": "header",
+        "name": "x-modulartess-admin-session",
+        "type": "apiKey"
+      },
+      "serviceToken": {
+        "in": "header",
+        "name": "x-service-token",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "contact": {},
+    "description": "Versioned HTTP contract for the Modulartess backend. One document, two surfaces: public operations under /v1/demo and administrative operations under /v1/admin, separated by path and tag. Demo operations use mock adapters only. Administrative operations are server-to-server: the admin panel BFF calls them with a Cloud Run IAM identity token in Authorization and carries the administrative session in a separate internal header. A browser never calls this API directly.",
+    "title": "Modulartess Backend API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Check process health",
+        "tags": ["health"]
+      }
+    },
+    "/v1/admin/auth/session": {
+      "get": {
+        "description": "Server-to-server only. Verifies the session with revocation checking on every call. Never returns nor rotates the session material.",
+        "operationId": "AdminAuthController_readSession",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSessionDto"
+                }
+              }
+            },
+            "description": "",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store on this surface, including error responses.",
+                "schema": {
+                  "enum": ["no-store"],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required. One indistinguishable response for a missing, empty, malformed, oversized, expired or revoked session and a disabled user.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store on this surface, including error responses.",
+                "schema": {
+                  "enum": ["no-store"],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden: the session is valid but no longer carries the administrative role.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store on this surface, including error responses.",
+                "schema": {
+                  "enum": ["no-store"],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "not_found: the administrative surface is disabled in this deployment.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store on this surface, including error responses.",
+                "schema": {
+                  "enum": ["no-store"],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_auth_unavailable: the identity provider could not be reached.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store on this surface, including error responses.",
+                "schema": {
+                  "enum": ["no-store"],
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read the verified administrative principal",
+        "tags": ["admin-auth"]
+      },
+      "post": {
+        "description": "Server-to-server only: called by the admin panel BFF, never by a browser. Requires a sign-in no older than 300 seconds and the signed administrative role claim. The session material is returned only in the x-modulartess-admin-session response header and never in the body. Sessions last 28800 seconds and are not silently renewed.",
+        "operationId": "AdminAuthController_createSession",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSessionRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSessionCreatedDto"
+                }
+              }
+            },
+            "description": "Session created. The session material is in the response header, not in this body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store on this surface, including error responses.",
+                "schema": {
+                  "enum": ["no-store"],
+                  "type": "string"
+                }
+              },
+              "x-modulartess-admin-session": {
+                "description": "Firebase session cookie value for the panel BFF to store as an HttpOnly __Host- cookie. Never exposed to browser JavaScript and never returned in the body.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "invalid_request: the body is absent, carries unknown fields, or the idToken is malformed or out of size range.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store on this surface, including error responses.",
+                "schema": {
+                  "enum": ["no-store"],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required. One indistinguishable response for an invalid, expired or revoked token, a disabled user, and a sign-in older than 300 seconds.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store on this surface, including error responses.",
+                "schema": {
+                  "enum": ["no-store"],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden: the identity is authenticated but lacks the administrative role.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store on this surface, including error responses.",
+                "schema": {
+                  "enum": ["no-store"],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "not_found: the administrative surface is disabled in this deployment.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store on this surface, including error responses.",
+                "schema": {
+                  "enum": ["no-store"],
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "example": "ThrottlerException: Too Many Requests",
+                      "type": "string"
+                    },
+                    "statusCode": {
+                      "enum": [429],
+                      "type": "number"
+                    }
+                  },
+                  "required": ["statusCode", "message"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The exchange is rate limited to 10 requests per minute. The body is the framework throttler payload, not the standard error DTO, and a Retry-After header carries the window in seconds.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store on this surface, including error responses.",
+                "schema": {
+                  "enum": ["no-store"],
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds until the limit resets.",
+                "schema": {
+                  "example": "60",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_auth_unavailable: the identity provider could not be reached, or the server is misconfigured.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store on this surface, including error responses.",
+                "schema": {
+                  "enum": ["no-store"],
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Exchange a Firebase ID token for an administrative session",
+        "tags": ["admin-auth"]
+      }
+    },
+    "/v1/demo/checkout": {
+      "post": {
+        "operationId": "DemoController_checkout",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOrderDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "The idempotency key is in progress, was reused with a different payload, or belongs to an attempt that needs review"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "The checkout store is in an inconsistent state and needs review"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "Checkout is temporarily unavailable; the same idempotency key can be retried"
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          }
+        ],
+        "summary": "Run the paid-order vertical slice using mock adapters",
+        "tags": ["demo"]
+      }
+    },
+    "/v1/demo/orders/{publicId}": {
+      "get": {
+        "operationId": "DemoController_getOrder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publicId",
+            "required": true,
+            "schema": {
+              "example": "ord_0123456789abcdef0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOrderDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "The stored order could not be read because it failed validation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "The order store is temporarily unavailable"
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          }
+        ],
+        "summary": "Read the customer-safe mock order projection",
+        "tags": ["demo"]
+      }
+    },
+    "/v1/demo/products": {
+      "get": {
+        "operationId": "CatalogController_listProducts",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "example": 12,
+              "maximum": 24,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "example": 1,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "enum": ["featured", "newest", "name_asc", "name_desc"],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "availability",
+            "required": false,
+            "schema": {
+              "enum": ["available", "coming_soon"],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "finish",
+            "required": false,
+            "schema": {
+              "example": "roble-claro",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "example": "100-cm",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "productType",
+            "required": false,
+            "schema": {
+              "example": "tocador",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "example": "zona-maquillaje",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Free text search",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          }
+        ],
+        "summary": "List the demonstrative catalogue with filters, sorting, pagination and facets",
+        "tags": ["demo"]
+      }
+    },
+    "/v1/demo/products/{slug}": {
+      "get": {
+        "operationId": "CatalogController_getProduct",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "example": "tocador-aura",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoProductDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          }
+        ],
+        "summary": "Return a customer-safe demo product with 72 variants",
+        "tags": ["demo"]
+      }
+    }
+  },
+  "servers": [],
+  "tags": [
+    {
+      "description": "Process health.",
+      "name": "health"
+    },
+    {
+      "description": "Public surface: catalogue reads.",
+      "name": "catalog"
+    },
+    {
+      "description": "Public surface: the mock-adapter vertical slice.",
+      "name": "demo"
+    },
+    {
+      "description": "Administrative surface: session exchange and verification. Server-to-server only, called by the panel BFF and never by a browser. Disabled unless ADMIN_AUTH_MODE=firebase.",
+      "name": "admin-auth"
+    }
+  ]
+}

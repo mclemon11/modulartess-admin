@@ -4,6 +4,17 @@ import { useId, useRef, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
+// Import de solo tipos: se borra al compilar, así que no adelanta la carga del SDK.
+import type { Auth } from 'firebase/auth';
+
+import { completeSignIn } from '@/features/session/complete-sign-in';
+import { exchangeIdTokenForSession } from '@/features/session/exchange-session';
+import {
+  createNavigationTargets,
+  planPostAuthNavigation,
+  runNavigationPlan,
+} from '@/features/session/post-auth-navigation';
+import { describeExchangeFailure } from '@/features/session/session-messages';
 import { applyAdminAuthLanguage } from '@/lib/firebase/auth-language';
 import { readFirebaseConfigFromEnv } from '@/lib/firebase/config';
 
@@ -36,12 +47,32 @@ type PendingUser = {
   readonly emailVerified: boolean;
 };
 
+/**
+ * Cierra la sesión cliente de Firebase.
+ *
+ * Devuelve `true` **solo** si `signOut` confirmó el cierre. Un fallo no se oculta ni se trata como
+ * inocuo: `inMemoryPersistence` vive lo que vive el documento, así que sin este cierre Firebase
+ * sigue autenticado en la misma página. Quien llama debe entonces forzar una navegación completa.
+ *
+ * El error no se registra: puede llevar el correo de la cuenta.
+ */
+async function closeFirebaseSession(auth: Auth): Promise<boolean> {
+  try {
+    const { signOut } = await import('firebase/auth');
+
+    await signOut(auth);
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 type Stage =
   | { readonly kind: 'credentials' }
   | { readonly kind: 'config-missing'; readonly missing: readonly string[] }
   | { readonly kind: 'verification-required' }
-  | { readonly kind: 'verification-sent' }
-  | { readonly kind: 'verified' };
+  | { readonly kind: 'verification-sent' };
 
 export function SignInForm() {
   const router = useRouter();
@@ -75,6 +106,19 @@ export function SignInForm() {
   function clearCredentials() {
     setEmail('');
     setPassword('');
+  }
+
+  /**
+   * Navega respetando la garantía: el enrutador solo si el cierre de sesión se confirmó; si no,
+   * navegación completa con `location.replace`, que además retira la entrada anterior del
+   * historial para que la BFCache no pueda restaurar el documento —y su sesión Firebase— al
+   * pulsar Atrás.
+   */
+  function navigateAfterAuth(destination: string, clientSessionClosed: boolean) {
+    runNavigationPlan(
+      planPostAuthNavigation({ destination, clientSessionClosed }),
+      createNavigationTargets(router, window.location),
+    );
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -116,9 +160,35 @@ export function SignInForm() {
 
       if (decideSignInOutcome(user) === 'verified-session-pending') {
         pendingUser.current = null;
-        const { signOut } = await import('firebase/auth');
-        await signOut(auth);
-        setStage({ kind: 'verified' });
+        setStatus('Abriendo la sesión administrativa…');
+
+        // `completeSignIn` intenta cerrar la sesión de Firebase salga bien o mal el intercambio:
+        // el ID token ya cumplió su única función, y la sesión que cuenta es la cookie `__Host-`
+        // que escribió el BFF. El resultado dice si ese cierre se confirmó.
+        const outcome = await completeSignIn({
+          // Token reciente: el contrato exige un inicio de sesión de menos de 300 s.
+          getIdToken: () => credential.user.getIdToken(true),
+          exchange: exchangeIdTokenForSession,
+          closeSession: () => closeFirebaseSession(auth),
+        });
+
+        setStatus('');
+
+        if (outcome.ok) {
+          // Si el cierre no se confirmó, se entra al panel con una navegación completa: descarta
+          // el documento y con él el estado en memoria de Firebase.
+          navigateAfterAuth('/panel', outcome.clientSessionClosed);
+          return;
+        }
+
+        if (!outcome.clientSessionClosed) {
+          // Canje rechazado **y** sesión cliente viva: no se puede quedar así. Se recarga el
+          // formulario con una navegación completa y un código fijo, sin correo, UID ni token.
+          navigateAfterAuth('/iniciar-sesion', false);
+          return;
+        }
+
+        setError(describeExchangeFailure(outcome.code));
         return;
       }
 
@@ -161,7 +231,7 @@ export function SignInForm() {
     setStatus('Enviando el correo de verificación…');
 
     try {
-      const [{ getAdminAuth }, { sendEmailVerification, signOut }] = await Promise.all([
+      const [{ getAdminAuth }, { sendEmailVerification }] = await Promise.all([
         import('@/lib/firebase/client'),
         import('firebase/auth'),
       ]);
@@ -184,16 +254,12 @@ export function SignInForm() {
       setStatus('');
       setStage({ kind: 'verification-sent' });
 
-      // Un fallo al cerrar sesión no debe reabrir el envío ni ocultar que el correo salió. La
-      // sesión no se persiste, así que se descarta con la pestaña de todos modos.
-      try {
-        await signOut(auth);
-      } catch {
-        // Sin acción: el candado sellado y la etapa ya reflejan el resultado real.
-      }
+      // Un fallo al cerrar sesión no reabre el envío ni oculta que el correo salió, pero sí
+      // cambia cómo se navega: sin cierre confirmado hace falta destruir el documento.
+      const clientSessionClosed = await closeFirebaseSession(auth);
 
       setBusy(false);
-      router.push('/verificar-correo');
+      navigateAfterAuth('/verificar-correo', clientSessionClosed);
     } catch (sendError) {
       if (verificationLock.current.sealed) {
         // El correo ya se había enviado; el fallo es de un paso posterior. No se reabre nada.
@@ -269,21 +335,6 @@ export function SignInForm() {
         </p>
         <p className={styles.panelText}>
           Abre el enlace del mensaje y vuelve a iniciar sesión después.
-        </p>
-      </div>
-    );
-  }
-
-  if (stage.kind === 'verified') {
-    return (
-      <div className={styles.panel}>
-        <p className={styles.notice}>
-          Tu correo está verificado. La sesión se cerró de inmediato: el panel todavía no habilita
-          el acceso administrativo.
-        </p>
-        <p className={styles.panelText}>
-          El intercambio de sesión con el backend y la autorización por roles llegan en la siguiente
-          fase. Hasta entonces no hay ninguna pantalla operativa a la que entrar.
         </p>
       </div>
     );

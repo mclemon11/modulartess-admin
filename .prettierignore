@@ -2,3 +2,6 @@
 node_modules
 pnpm-lock.yaml
 next-env.d.ts
+
+# Tipos generados desde el contrato OpenAPI: no se formatean a mano.
+src/lib/api/generated/

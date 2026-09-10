@@ -67,9 +67,15 @@ Comportamiento del flujo:
    verificación»: nunca de forma automática, y siempre en español. Tras un envío correcto se
    descarta la referencia al usuario, se cierra la sesión y se navega a `/verificar-correo`; si
    falla antes del envío, el reintento es explícito y no hay bucles.
-5. Si el correo **sí** está verificado, se cierra la sesión igualmente y se informa de que el
-   acceso administrativo llega en la fase siguiente. **No se simula ninguna sesión** y no hay
-   dashboard al que entrar.
+5. Si el correo **sí** está verificado, el navegador pide un ID token reciente, lo envía al BFF
+   del panel e **intenta siempre** cerrar la sesión cliente de Firebase, salga bien o mal el
+   intercambio. Si el cierre se confirma, navega a `/panel` con el enrutador; si `signOut` falla,
+   la navegación es **completa con `location.replace`**, porque `inMemoryPersistence` vive lo que
+   vive el documento y solo destruirlo garantiza que el SDK no siga autenticado. Se usa `replace` y
+   no `assign` para que la página anterior no quede en el historial, donde la BFCache podría
+   restaurarla con su memoria intacta. Si el canje falla, muestra un mensaje
+   genérico y permite un nuevo intento; si además falla `signOut`, recarga el formulario con un
+   código fijo en la URL, sin correo, UID, token ni contraseña.
 
 La exclusión de operaciones no se apoya en el estado de React: hay dos candados síncronos que se
 toman antes del primer `await`, de modo que dos submits —o dos envíos de correo— disparados antes
@@ -84,16 +90,26 @@ El detalle está en
 
 ## Todavía pendiente en este repositorio
 
-Estos elementos **no** están implementados, y la documentación no debe darlos por hechos:
+La vertical de sesión está **implementada y comprobada con dobles locales**, pero **todavía no
+verificada en Cloud Run**: el backend desplegado sigue con `ADMIN_AUTH_MODE=disabled`, y en ese
+estado su superficie administrativa responde `404`. Confirmar el recorrido completo exige activarla
+y redesplegar, lo que ocurre fuera de este repositorio.
 
-- Frontera BFF en el servidor Next.js y cualquier llamada al backend.
-- Obtención de ID tokens y su intercambio por una sesión.
-- Cookie de sesión HttpOnly.
-- ADR del mecanismo de transporte de la identidad Firebase entre el BFF y el backend.
-- Consumo del contrato OpenAPI.
-- Autorización administrativa del backend e IAM.
-- **Bootstrap de `super_admin`: no se ejecutó.** Una cuenta creada en Firebase no tiene garantizado
-  ese claim, y este repositorio no puede concedérselo.
+Estado real del entorno:
+
+- Firebase Authentication está habilitado.
+- Existe la primera cuenta administrativa, con el correo verificado.
+- Su claim `super_admin` **ya fue asignado**.
+- El bootstrap del backend quedó en `completed` y **no puede repetirse**.
+- El backend y el contrato OpenAPI vigentes admiten **únicamente** `super_admin`. `master_admin` y
+  `moderator` están decididos en la ADR 0007 del backend, pero todavía no están implementados ni
+  aparecen en el contrato.
+
+Todavía pendiente en este repositorio:
+
+- Dashboard administrativo y operaciones de catálogo, pedidos, inventario y clientes.
+- Revocación de la sesión en el proveedor al cerrar sesión: el contrato no publica un `DELETE`.
+- Pipeline de integración continua y estrategia de despliegue.
 - Acceso a Firestore o Cloud Storage desde el panel: excluido de forma permanente, no pendiente.
 
 ## Flujo de autenticación previsto entre el panel y el backend
@@ -114,9 +130,7 @@ El flujo previsto es:
 4. El servidor Next.js invoca el backend en Cloud Run con su identidad de ejecución.
 5. El backend verifica la identidad administrativa y aplica autorización y reglas de negocio.
 
-### Lo que el backend ya implementó
-
-El contrato de sesión administrativa **ya está definido e implementado en el backend**:
+### Contrato del backend
 
 | Aspecto         | Estado                                                               |
 | --------------- | -------------------------------------------------------------------- |
@@ -125,29 +139,73 @@ El contrato de sesión administrativa **ya está definido e implementado en el b
 | `Authorization` | Reservado para el IAM de Cloud Run; no transporta la sesión personal |
 | Claim exigido   | `modulartess_admin_role=super_admin`, firmado                        |
 | Duración        | `28800` segundos, verificada comprobando la revocación               |
-| Disponibilidad  | **Desactivada en staging**                                           |
+| `DELETE`        | **No existe** en el contrato; el panel no lo inventa                 |
 
-### Lo que sigue pendiente en este repositorio
+### Los dos canales, separados
 
-- Copia versionada del contrato OpenAPI y los tipos generados desde ella.
-- **ADR local del BFF** en `docs/decisions/`.
-- La cookie `__Host-` concreta: nombre y atributos.
-- Defensas de CSRF y comprobación de `Origin`.
-- La implementación de la frontera BFF.
+El BFF habla con el backend por dos vías que nunca se mezclan:
 
-Mientras esa ADR local no exista, este repositorio no fija el nombre de la cookie, sus atributos ni
-el esquema de CSRF, y no llama al backend.
+| Canal                         | Transporta                                  |
+| ----------------------------- | ------------------------------------------- |
+| `Authorization`               | **Solo** el identity token IAM de Cloud Run |
+| `x-modulartess-admin-session` | **Solo** la sesión de la persona            |
 
-## Contrato OpenAPI
+En esta superficie no hay ningún service token.
 
-- El backend publica la especificación OpenAPI; el panel guardará dentro de este repositorio una
-  **copia versionada** de esa especificación.
-- Los tipos del cliente HTTP se generarán a partir de esa copia local.
-- La copia se actualiza mediante un procedimiento explícito y verificable, cuyo resultado se revisa
-  en el diff.
-- No se importa código fuente del backend, ni se usan dependencias `file:`, symlinks, workspaces
-  compartidos ni rutas locales de otro repositorio en build o en runtime. Los módulos internos del
-  backend no son un contrato.
+### Sesión administrativa (implementada)
+
+El navegador no llama nunca al backend. El BFF del panel es la única vía, y la sesión vive en una
+cookie que el JavaScript del navegador no puede leer:
+
+```
+__Host-modulartess-admin-session
+HttpOnly · Secure · SameSite=Strict · Path=/ · sin Domain
+```
+
+Endpoints del BFF, todos con `Cache-Control: no-store`:
+
+| Método   | Ruta                      | Éxito | Qué hace                                                        |
+| -------- | ------------------------- | ----- | --------------------------------------------------------------- |
+| `POST`   | `/api/admin/auth/session` | `201` | Canjea el ID token, crea la cookie, devuelve principal y expiry |
+| `GET`    | `/api/admin/auth/session` | `200` | Verifica contra el backend; **solo lectura**, nunca muta        |
+| `DELETE` | `/api/admin/auth/session` | `204` | Borra la cookie local                                           |
+
+El éxito se decide por el estado **exacto**, no por `response.ok`: un `200` en el canje o un `202`
+en el cierre significan que algo no salió como se esperaba, y tratarlos como éxito dejaría al panel
+navegando sin cookie o dando por cerrada una sesión viva.
+
+`POST` y `DELETE` validan `Origin` de forma exacta contra `MODULARTESS_ADMIN_ORIGIN`, que se lee
+**por separado** del resto de la configuración: cerrar sesión no llama al backend, así que no puede
+quedar bloqueado porque falten su URL, su audiencia o su modo de autenticación. Junto con
+`SameSite=Strict`, la validación de `Origin` es la defensa CSRF de estas rutas.
+
+La expiración de la cookie nunca supera el `expiresAt` del backend ni los `28800` segundos del
+contrato, y no hay renovación silenciosa. `expiresAt` se acepta solo como `date-time` de RFC 3339
+con zona explícita.
+
+`/panel` es una prueba protegida de la frontera: lee la cookie en el servidor, verifica la sesión
+contra el backend y muestra solo el rol. No muestra UID ni correo, y no contiene datos comerciales.
+Si el backend rechaza la sesión con `401` o `403`, la página **no redirige**: renderiza una
+frontera cliente que llama al `DELETE` y navega al login solo tras el `204`. Si esa limpieza falla,
+muestra un estado con reintento explícito, sin bucles.
+
+Las decisiones están en
+[`docs/decisions/0003-admin-session-bff.md`](./docs/decisions/0003-admin-session-bff.md).
+
+## Contrato OpenAPI versionado
+
+`openapi/backend-v1.json` es una copia comiteada del contrato publicado por el backend. El build y
+el runtime dependen **solo** de esa copia: este repositorio no lee ningún otro repositorio en build
+ni en runtime, y no usa dependencias `file:`, symlinks ni workspaces compartidos.
+
+```bash
+pnpm api:update <ruta-al-openapi.json>   # Refresca la copia desde un origen pasado por argumento
+pnpm api:generate                        # Regenera src/lib/api/generated/schema.d.ts
+pnpm api:check                           # Falla si los tipos no coinciden con la copia
+```
+
+El script no fija ninguna ruta a otro repositorio: el origen se pasa siempre como argumento y el
+resultado se revisa en el diff. Los módulos internos del backend no son un contrato.
 
 ## Requisitos
 
@@ -166,6 +224,7 @@ pnpm typecheck      # Comprobación de tipos (tsc --noEmit)
 pnpm format         # Formatear con Prettier
 pnpm format:check   # Verificar formato sin escribir
 pnpm test           # Pruebas unitarias con Vitest
+pnpm api:check      # Verifica que los tipos coinciden con la copia del contrato
 ```
 
 ## Variables de entorno
@@ -214,12 +273,8 @@ ejemplo. El detalle está en
 
 ## Funcionalidades pendientes
 
-- ADR del mecanismo de identidad entre el BFF y el backend.
-- Intercambio del ID token por una sesión HttpOnly del panel.
-- Frontera BFF en el servidor Next.js hacia el backend protegido por IAM.
-- Autorización por roles administrativos, verificada en el backend.
-- Bootstrap del claim `super_admin`, que se resuelve fuera de este repositorio.
-- Copia versionada del contrato OpenAPI y cliente HTTP tipado generado desde ella.
+- Verificación del recorrido completo en Cloud Run, con la superficie administrativa activada.
+- Roles `master_admin` y `moderator`, cuando el backend los implemente y los publique.
 - Layout de aplicación autenticada (navegación, cabecera, estados de carga y error).
 - Gestión de catálogo y de inventario.
 - Gestión de pedidos.
