@@ -118,7 +118,7 @@ backend estaba sin decidir. **Ya no lo está**: el backend definió e implement�
 y `GET /v1/admin/auth/session`, con la sesión interna en el encabezado
 `x-modulartess-admin-session`, `Authorization` reservado para el IAM de Cloud Run, el claim firmado
 `modulartess_admin_role=super_admin` como requisito, y una duración de `28800` segundos verificada
-comprobando la revocación. Esa superficie está **desactivada en staging**.
+comprobando la revocación. Esa superficie está **activa en staging** desde el 2026-09-10.
 
 El fondo de esta ADR no cambia: el panel no fija por sí mismo ese contrato. Lo que resta del lado
 del panel —la ADR local del BFF, la cookie `__Host-` concreta, CSRF y `Origin`, la copia OpenAPI y

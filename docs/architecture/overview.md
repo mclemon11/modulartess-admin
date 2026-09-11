@@ -70,9 +70,9 @@ Los dos canales de cada petición administrativa nunca se mezclan:
 
 En esta superficie no hay ningún service token.
 
-**El despliegue actual sigue con `ADMIN_AUTH_MODE=disabled`**: en ese estado la superficie
-administrativa responde `404`, y el panel lo traduce a un estado controlado. El recorrido real en
-Cloud Run todavía no se ha verificado.
+El despliegue de staging corre con **`ADMIN_AUTH_MODE=firebase`** y la superficie administrativa
+está **activa**. Lo que todavía no se ha verificado es el recorrido del **panel** en Cloud Run: el
+servicio `modulartess-admin-staging` aún no está desplegado. Ver `../../deploy/README.md`.
 
 Es la **autoridad** del sistema:
 
@@ -200,8 +200,8 @@ deliberada y no por fase pendiente:
 - El material de sesión no existe para el JavaScript del navegador en ningún momento.
 - Cada lectura protegida cuesta una llamada al backend. Es el precio de que la revocación sea
   inmediata.
-- El recorrido está comprobado con dobles locales, pero **no verificado en Cloud Run**: el backend
-  desplegado sigue con `ADMIN_AUTH_MODE=disabled`.
+- El recorrido está comprobado con dobles locales, pero **no verificado en Cloud Run**: el panel
+  aún no está desplegado, aunque el backend ya tiene su superficie administrativa activa.
 - El panel puede desplegarse y auditarse sin acceso a la infraestructura de datos.
 - Una vulnerabilidad en el panel no expone credenciales de base de datos ni de almacenamiento.
 - El backend rechaza cualquier invocación anónima: su protección es IAM, no la oscuridad de su URL.

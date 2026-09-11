@@ -158,8 +158,13 @@ El lado del panel también está implementado: ver
 - El navegador nunca recibe el material de sesión: ni en JSON, ni en encabezados legibles, ni en
   logs, ni en la URL.
 
-**El backend desplegado sigue con `ADMIN_AUTH_MODE=disabled`**, así que el recorrido en Cloud Run
-todavía no está verificado. Ver `docs/architecture/current-status.md`.
+El backend desplegado en staging corre con **`ADMIN_AUTH_MODE=firebase`** y su superficie
+`/v1/admin/*` está **activa**. Sigue siendo privado por IAM. La cuenta `super_admin` existe, con el
+correo verificado y el bootstrap `completed`.
+
+Lo que aún no está verificado es el **recorrido del panel en Cloud Run**: el servicio
+`modulartess-admin-staging` todavía no se ha desplegado. Ver `deploy/README.md` y
+`docs/architecture/current-status.md`.
 
 ## 5. Dependencias
 

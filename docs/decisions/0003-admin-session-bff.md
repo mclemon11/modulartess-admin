@@ -263,7 +263,7 @@ demostrar que la frontera funciona de extremo a extremo; el dashboard es una fas
 - La sesión dura como máximo 8 horas y no se prolonga sola.
 - `openapi-fetch` queda permitido **solo** en módulos `server-only` del BFF, y prohibido en Client
   Components. AGENTS.md §5 se actualiza en consecuencia.
-- La vertical queda implementada y comprobada con dobles locales. **No** se puede afirmar que el
-  recorrido en Cloud Run funciona: el backend desplegado sigue con `ADMIN_AUTH_MODE=disabled`, y en
-  ese estado su superficie administrativa responde `404`. Confirmarlo exige activarla y
-  redesplegar, lo que queda fuera de este repositorio.
+- La vertical queda implementada y comprobada con dobles locales. **No** se puede afirmar todavía
+  que el recorrido en Cloud Run funciona: el backend ya tiene su superficie administrativa activa
+  (`ADMIN_AUTH_MODE=firebase`), pero **este panel aún no está desplegado**. Confirmarlo exige
+  desplegarlo y probarlo con el `super_admin` real; el procedimiento está en `../../deploy/README.md`.

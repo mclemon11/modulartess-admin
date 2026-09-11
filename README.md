@@ -90,10 +90,9 @@ El detalle está en
 
 ## Todavía pendiente en este repositorio
 
-La vertical de sesión está **implementada y comprobada con dobles locales**, pero **todavía no
-verificada en Cloud Run**: el backend desplegado sigue con `ADMIN_AUTH_MODE=disabled`, y en ese
-estado su superficie administrativa responde `404`. Confirmar el recorrido completo exige activarla
-y redesplegar, lo que ocurre fuera de este repositorio.
+La vertical de sesión está **implementada y comprobada con dobles locales**. El backend ya está
+listo del otro lado; lo que falta es **desplegar este panel** y probar el recorrido de extremo a
+extremo con una cuenta real.
 
 Estado real del entorno:
 
@@ -101,6 +100,11 @@ Estado real del entorno:
 - Existe la primera cuenta administrativa, con el correo verificado.
 - Su claim `super_admin` **ya fue asignado**.
 - El bootstrap del backend quedó en `completed` y **no puede repetirse**.
+- El backend de staging corre con **`ADMIN_AUTH_MODE=firebase`** y su superficie `/v1/admin/*`
+  está **activa**, tras un IAM propio y sin invocadores anónimos.
+- El panel **todavía no está desplegado**: la identidad `modulartess-admin-stg-run` no existe aún y
+  no tiene `roles/run.invoker`. El procedimiento está en
+  [`deploy/README.md`](./deploy/README.md).
 - El backend y el contrato OpenAPI vigentes admiten **únicamente** `super_admin`. `master_admin` y
   `moderator` están decididos en la ADR 0007 del backend, pero todavía no están implementados ni
   aparecen en el contrato.
@@ -227,6 +231,15 @@ pnpm test           # Pruebas unitarias con Vitest
 pnpm api:check      # Verifica que los tipos coinciden con la copia del contrato
 ```
 
+Despliegue (ver [`deploy/README.md`](./deploy/README.md)):
+
+```bash
+deploy/staging.sh config             # Configuración resuelta; no toca la nube
+deploy/staging.sh preflight          # Comprobaciones de solo lectura, bloqueantes
+deploy/staging.sh all --dry-run      # Vista previa completa sin mutaciones
+deploy/staging.sh all                # preflight + build + deploy + verify
+```
+
 ## Variables de entorno
 
 [`.env.example`](./.env.example) declara los **nombres** de las variables necesarias, nunca sus
@@ -273,7 +286,8 @@ ejemplo. El detalle está en
 
 ## Funcionalidades pendientes
 
-- Verificación del recorrido completo en Cloud Run, con la superficie administrativa activada.
+- Despliegue del panel en Cloud Run y verificación del recorrido completo con el `super_admin`
+  real, tras autorizar el dominio en Firebase Authentication.
 - Roles `master_admin` y `moderator`, cuando el backend los implemente y los publique.
 - Layout de aplicación autenticada (navegación, cabecera, estados de carga y error).
 - Gestión de catálogo y de inventario.

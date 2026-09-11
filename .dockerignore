@@ -1,0 +1,76 @@
+# Contexto de build: exclusivamente este repositorio, y dentro de él lo mínimo.
+#
+# Se empieza excluyendo todo lo que no hace falta en lugar de enumerar lo que sí: un archivo nuevo
+# no entra al contexto por descuido.
+
+# Control de versiones
+.git
+.gitignore
+.github
+
+# Configuración local real. NUNCA entra al contexto: la imagen no debe llevar valores de entorno.
+.env
+.env.*
+# La plantilla sí, porque no contiene valores y documenta los nombres.
+!.env.example
+
+# Dependencias y artefactos: se reinstalan y recompilan dentro de la imagen.
+node_modules
+.next
+out
+build
+dist
+*.tsbuildinfo
+next-env.d.ts
+
+# Pruebas y cobertura
+coverage
+.nyc_output
+test
+**/*.test.ts
+**/*.test.tsx
+vitest.config.mts
+
+# Documentación y procedimientos: no forman parte del runtime.
+docs
+README.md
+AGENTS.md
+deploy
+Dockerfile
+.dockerignore
+
+# Contrato y utilidades de desarrollo. Los tipos generados ya están en `src/`.
+openapi
+scripts
+
+# Herramientas de calidad: no se ejecutan dentro de la imagen.
+eslint.config.mjs
+.prettierrc.json
+.prettierignore
+.eslintcache
+
+# Credenciales y claves. Ninguna debería existir en el repositorio; esto es una segunda barrera.
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.jks
+*.keystore
+secrets
+credentials
+*service-account*.json
+*serviceaccount*.json
+gcloud-key*.json
+firebase-adminsdk*.json
+
+# Cachés, logs y temporales
+.cache
+.turbo
+.vercel
+logs
+*.log
+tmp
+.DS_Store
+.idea
+.vscode

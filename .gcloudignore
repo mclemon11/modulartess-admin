@@ -1,0 +1,87 @@
+# Qué NO sube `gcloud builds submit` al crear el archivo fuente.
+#
+# No es lo mismo que `.dockerignore`, y por eso hacen falta los dos:
+#
+#   .gcloudignore  filtra lo que gcloud empaqueta y SUBE a Cloud Build. Lo que se excluya aquí
+#                  nunca sale de la máquina.
+#   .dockerignore  filtra el contexto que el demonio de Docker ve una vez el archivo ya está
+#                  arriba. Llega tarde para evitar la subida.
+#
+# Un `.env` excluido solo en `.dockerignore` viajaría igualmente a Cloud Build.
+#
+# Nota: en cuanto este archivo existe, gcloud deja de aplicar `.gitignore`. Todo lo que deba
+# quedarse fuera tiene que estar aquí, aunque ya esté en `.gitignore`.
+
+# Control de versiones
+.git
+.gitignore
+.github
+
+# Configuración local real: nunca se sube.
+.env
+.env.*
+# La plantilla no tiene valores; el build no la necesita, pero es inofensiva y documenta nombres.
+!.env.example
+
+# Dependencias y artefactos: se reinstalan y recompilan dentro de la imagen.
+node_modules
+.next
+out
+build
+dist
+*.tsbuildinfo
+next-env.d.ts
+
+# Pruebas y cobertura
+coverage
+.nyc_output
+test
+**/*.test.ts
+**/*.test.tsx
+vitest.config.mts
+
+# Documentación y procedimientos
+docs
+README.md
+AGENTS.md
+deploy/README.md
+
+# Contrato y utilidades que el build no ejecuta. Los tipos generados ya viven en `src/`.
+openapi
+scripts
+
+# Herramientas de calidad
+eslint.config.mjs
+.prettierrc.json
+.prettierignore
+.eslintcache
+
+# Claves, certificados y credenciales
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.jks
+*.keystore
+secrets
+credentials
+*service-account*.json
+*serviceaccount*.json
+gcloud-key*.json
+firebase-adminsdk*.json
+
+# Cachés, logs y temporales
+.cache
+.turbo
+.vercel
+logs
+*.log
+tmp
+.DS_Store
+.idea
+.vscode
+
+# Lo que SÍ sube, y hace falta para construir:
+#   Dockerfile, .dockerignore, package.json, pnpm-lock.yaml, pnpm-workspace.yaml, .npmrc,
+#   next.config.ts, tsconfig.json y src/.

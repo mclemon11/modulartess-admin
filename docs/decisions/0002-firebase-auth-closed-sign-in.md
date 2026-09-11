@@ -177,7 +177,7 @@ enlaza de vuelta a `/iniciar-sesion`.
 - No define el lado del panel de la frontera BFF. El contrato del backend ya existe (`POST` y `GET
 /v1/admin/auth/session`, sesión en `x-modulartess-admin-session`, `Authorization` reservado para
   el IAM de Cloud Run, claim firmado `modulartess_admin_role=super_admin`, `28800` segundos con
-  verificación de revocación, superficie desactivada en staging). Lo que falta aquí —cookie
+  verificación de revocación, superficie activa en staging). Lo que falta aquí —cookie
   `__Host-` concreta, CSRF y `Origin`, copia OpenAPI, tipos e implementación— se registrará en la
   **ADR local del BFF**.
 - No consume el contrato OpenAPI.

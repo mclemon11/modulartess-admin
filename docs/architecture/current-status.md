@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-09-10.
+Última actualización: 2026-09-11.
 
 ## Fase
 
@@ -8,9 +8,14 @@ Fase 2 — primera vertical completa de sesión administrativa. Sobre la autenti
 el objetivo era cerrar el recorrido: canjear el ID token en el BFF, guardar la sesión en una cookie
 `__Host-` y proteger una ruta mínima verificándola contra el backend.
 
-**Límite real de la fase:** está implementada y comprobada con dobles locales, pero **el recorrido
-en Cloud Run todavía no se ha verificado**. El backend desplegado sigue con
-`ADMIN_AUTH_MODE=disabled`; en ese estado su superficie administrativa responde `404`.
+Fase 3 — preparación del despliegue. Está el material completo para llevar el panel a Cloud Run
+staging: `Dockerfile`, `.dockerignore`, `deploy/cloudbuild.yaml`, `deploy/staging.sh` con
+`preflight`/`build`/`deploy`/`verify`/`all`, y el runbook en `../../deploy/README.md`.
+
+**Límite real:** el panel **todavía no está desplegado**. El backend ya tiene su superficie
+administrativa activa, pero la identidad `modulartess-admin-stg-run` no existe aún y no tiene
+`roles/run.invoker`. Hasta que se creen a mano (runbook, sección 2) y se despliegue, el recorrido
+en Cloud Run sigue sin verificar.
 
 ## Estado real del entorno
 
@@ -24,7 +29,12 @@ Esto es lo que ya existe fuera de este repositorio, y no debe describirse como p
 | Bootstrap del backend                 | `completed`; **no puede repetirse**                   |
 | Roles admitidos por backend y OpenAPI | **Solo** `super_admin`                                |
 | `master_admin` y `moderator`          | Decididos en la ADR 0007 del backend, sin implementar |
-| Backend desplegado                    | `ADMIN_AUTH_MODE=disabled`                            |
+| Backend desplegado                    | **`ADMIN_AUTH_MODE=firebase`**, `/v1/admin/*` activa  |
+| Backend `modulartess-backend-staging` | Ready, privado por IAM, revisión `...-00003-6hz`      |
+| Invocador actual del backend          | `modulartess-web-stg-run`, el único                   |
+| `modulartess-admin-stg-run`           | **No existe todavía**                                 |
+| `roles/run.invoker` para el panel     | **No concedido todavía**                              |
+| Servicio `modulartess-admin-staging`  | **No desplegado todavía**                             |
 
 ## Implementado
 
@@ -77,13 +87,30 @@ Implementado en el repositorio y comprobado con dobles locales.
 | Ruta protegida `/panel`  | Listo  | Server Component; verifica en cada visita; solo muestra el rol.    |
 | ADR local del BFF        | Listo  | `../decisions/0003-admin-session-bff.md`.                          |
 
+### Material de despliegue (fase 3)
+
+Preparado y comprobado con shims. Nada de esto se ha ejecutado contra la nube.
+
+| Área                     | Estado | Detalle                                                              |
+| ------------------------ | ------ | -------------------------------------------------------------------- |
+| `Dockerfile`             | Listo  | Multi-stage, salida standalone, `tini` como PID 1, usuario `node`.   |
+| `.dockerignore`          | Listo  | Excluye `.git`, `.env*`, artefactos y claves; conserva la plantilla. |
+| `deploy/cloudbuild.yaml` | Listo  | Tag inmutable, nunca `latest`, sin secretos.                         |
+| `deploy/staging.sh`      | Listo  | `preflight`/`build`/`deploy`/`verify`/`all`, con `--dry-run`.        |
+| `.gcloudignore`          | Listo  | Filtra lo que gcloud **sube**; `.dockerignore` llega después.        |
+| Harness con shims        | Listo  | `deploy/staging.test.sh`, 129 comprobaciones sin red.                |
+| Runbook                  | Listo  | `../../deploy/README.md`.                                            |
+
 ### Todavía no verificado en Cloud Run
 
-| Área                      | Estado        | Detalle                                                   |
-| ------------------------- | ------------- | --------------------------------------------------------- |
-| Recorrido completo real   | Sin verificar | El backend desplegado está en `ADMIN_AUTH_MODE=disabled`. |
-| Identity token IAM real   | Sin verificar | Requiere el servicio activo y la audiencia real.          |
-| Activación y redespliegue | Fuera de aquí | Ocurre en el backend, no en este repositorio.             |
+| Área                     | Estado        | Detalle                                                  |
+| ------------------------ | ------------- | -------------------------------------------------------- |
+| Identidad del panel      | Sin crear     | `modulartess-admin-stg-run`; comando en el runbook.      |
+| `roles/run.invoker`      | Sin conceder  | Solo sobre `modulartess-backend-staging`, sin condición. |
+| Servicio del panel       | Sin desplegar | `modulartess-admin-staging`.                             |
+| Recorrido completo real  | Sin verificar | Requiere el panel desplegado y el dominio autorizado.    |
+| Identity token IAM real  | Sin verificar | Requiere la identidad creada y el binding concedido.     |
+| Dominio en Firebase Auth | Sin autorizar | Obligatorio **antes** de la primera prueba manual.       |
 
 ## Previsto, todavía no implementado
 
@@ -181,7 +208,8 @@ interfaz que no hagan nada. El panel no lee ni escribe en Firestore ni en Cloud 
 
 La autenticación y la sesión administrativa son **reales**, no simuladas: Firebase Authentication
 verifica credenciales de verdad y el backend es la autoridad que valida la sesión. Lo que no existe
-todavía es cualquier operación comercial, y el recorrido en Cloud Run sigue sin verificar.
+todavía es cualquier operación comercial, y el recorrido en Cloud Run sigue sin verificar porque
+el panel aún no está desplegado.
 
 ## Decisiones registradas
 
@@ -192,10 +220,12 @@ todavía es cualquier operación comercial, y el recorrido en Cloud Run sigue si
 
 ## Siguiente fase propuesta
 
-1. Activar la superficie administrativa del backend y redesplegar, para verificar el recorrido
-   completo en Cloud Run con IAM real.
-2. Construir el layout de la aplicación autenticada (navegación, cabecera, estados de carga y
+1. Crear `modulartess-admin-stg-run` y concederle `roles/run.invoker` sobre
+   `modulartess-backend-staging` (runbook, sección 2).
+2. Autorizar el dominio del panel en Firebase Authentication.
+3. Desplegar con `deploy/staging.sh all` y verificar el recorrido con el `super_admin` real.
+4. Construir el layout de la aplicación autenticada (navegación, cabecera, estados de carga y
    error).
-3. Añadir la primera operación de lectura real sobre el contrato, ya con tipos generados.
-4. Introducir el pipeline de integración continua.
-5. Definir la estrategia de despliegue del panel.
+5. Añadir la primera operación de lectura real sobre el contrato, ya con tipos generados.
+6. Introducir el pipeline de integración continua.
+7. Definir la estrategia de despliegue del panel.

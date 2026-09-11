@@ -1,0 +1,72 @@
+# Construcción de la imagen del panel administrativo.
+#
+# La imagen se etiqueta **solo** con un tag inmutable derivado del commit. Nunca `:latest`: una
+# etiqueta móvil hace que «la imagen desplegada» deje de ser una referencia comprobable, y un
+# rollback deja de ser reproducible.
+#
+# Aquí no entra ningún secreto. Las cuatro `_NEXT_PUBLIC_FIREBASE_*` son identificadores públicos
+# del cliente Firebase: viajan al navegador en el bundle por diseño. Cloud Build las recibe como
+# substitutions porque el build las necesita, pero **ningún valor se versiona** en este
+# repositorio. Las variables server-only (`MODULARTESS_*`) no aparecen: se inyectan en Cloud Run
+# en tiempo de ejecución.
+#
+# DEUDA TÉCNICA, pendiente antes de automatizar esto en CI:
+#
+#   1. Cuenta de build dedicada. Hoy el build usa la cuenta de servicio por defecto de Cloud
+#      Build, que tiene más permisos de los que esta construcción necesita. Debe sustituirse por
+#      una identidad con acceso únicamente a este repositorio de Artifact Registry, declarada con
+#      `serviceAccount:` y con `options.logging: CLOUD_LOGGING_ONLY`.
+#   2. BuildKit. `gcr.io/cloud-builders/docker` usa el constructor clásico: sin caché de capas
+#      entre builds y sin `--mount=type=secret`. Migrar a BuildKit (o a `pack`/Buildpacks) antes
+#      de que la frecuencia de builds haga que el tiempo importe.
+#
+# Mientras no se cierren esas dos, este archivo se invoca a mano desde `deploy/staging.sh build`.
+
+substitutions:
+  _REGION: us-east1
+  _REPOSITORY: modulartess
+  _IMAGE: modulartess-admin
+  # Obligatorio: sin valor por defecto a propósito, para que nunca se construya sin tag explícito.
+  _TAG: ''
+  _NEXT_PUBLIC_FIREBASE_API_KEY: ''
+  _NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ''
+  _NEXT_PUBLIC_FIREBASE_PROJECT_ID: ''
+  _NEXT_PUBLIC_FIREBASE_APP_ID: ''
+
+steps:
+  - id: guard-tag
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [ -z "${_TAG}" ]; then
+          echo "El tag es obligatorio y no puede estar vacío. Nunca se construye con una etiqueta móvil." >&2
+          exit 1
+        fi
+        case "${_TAG}" in
+          latest) echo "El tag 'latest' está prohibido: no es inmutable." >&2; exit 1 ;;
+        esac
+
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=Dockerfile
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+      - --build-arg=NEXT_PUBLIC_FIREBASE_API_KEY=${_NEXT_PUBLIC_FIREBASE_API_KEY}
+      - --build-arg=NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+      - --build-arg=NEXT_PUBLIC_FIREBASE_PROJECT_ID=${_NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+      - --build-arg=NEXT_PUBLIC_FIREBASE_APP_ID=${_NEXT_PUBLIC_FIREBASE_APP_ID}
+      - .
+
+# Solo el tag inmutable. Si se añadiera `:latest` aquí, el `deploy` dejaría de poder afirmar qué
+# imagen concreta está corriendo.
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${_TAG}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1200s
