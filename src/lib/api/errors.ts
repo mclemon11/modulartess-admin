@@ -14,8 +14,14 @@ export const BACKEND_FAILURE_CODES = [
   'backend_unauthorized',
   /** 403 del backend: identidad válida sin el rol administrativo. */
   'backend_forbidden',
-  /** 404 del backend: la superficie administrativa está desactivada en ese despliegue. */
+  /** 404 en la superficie de sesión: el despliegue no tiene la superficie administrativa. */
   'backend_surface_disabled',
+  /** 404 en un recurso: el producto no existe. */
+  'backend_not_found',
+  /** 400 del backend: el cuerpo no cumple el contrato. */
+  'backend_invalid_request',
+  /** 409 del backend: `expectedVersion` obsoleto o recurso duplicado. */
+  'backend_conflict',
   /** 429 del backend: el intercambio está limitado por tasa. */
   'backend_rate_limited',
   /** 503, red, DNS o expiración del temporizador. */
@@ -46,15 +52,29 @@ export function isBackendFailure(value: unknown): value is BackendFailure {
   return value instanceof BackendFailure;
 }
 
-/** Traduce el estado HTTP del backend a un código interno estable. */
-export function failureCodeFromStatus(status: number): BackendFailureCode {
+/**
+ * Traduce el estado HTTP del backend a un código interno estable.
+ *
+ * `notFound` existe porque un `404` significa dos cosas distintas según la superficie: en
+ * `/v1/admin/auth/session` es «este despliegue no tiene superficie administrativa», y en
+ * `/v1/admin/products/{id}` es «ese producto no existe». Quien llama sabe cuál de las dos aplica;
+ * confundirlas mostraría «servicio no disponible» ante un id inexistente.
+ */
+export function failureCodeFromStatus(
+  status: number,
+  options: { readonly notFound: BackendFailureCode } = { notFound: 'backend_surface_disabled' },
+): BackendFailureCode {
   switch (status) {
+    case 400:
+      return 'backend_invalid_request';
     case 401:
       return 'backend_unauthorized';
     case 403:
       return 'backend_forbidden';
     case 404:
-      return 'backend_surface_disabled';
+      return options.notFound;
+    case 409:
+      return 'backend_conflict';
     case 429:
       return 'backend_rate_limited';
     case 503:

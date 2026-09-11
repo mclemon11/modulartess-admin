@@ -41,17 +41,72 @@ describe('copia versionada del contrato', () => {
     ]);
   });
 
-  it('sigue publicando únicamente el rol super_admin', () => {
-    // `master_admin` y `moderator` están decididos en la ADR 0007 del backend, pero todavía no
-    // están implementados ni aparecen en el contrato.
+  it('publica exactamente los tres roles administrativos', () => {
+    // El backend implementó la ADR 0007: el enum ya no es solo `super_admin`. El orden importa
+    // porque es el que el panel refleja en su modelo de permisos.
     expect(contract.components.schemas.AdminPrincipalDto.properties.role.enum).toEqual([
       'super_admin',
+      'master_admin',
+      'moderator',
     ]);
+  });
 
-    const serialized = JSON.stringify(contract);
+  it('publica las siete operaciones de catálogo administrativo', () => {
+    const operations: string[] = [];
 
-    expect(serialized).not.toContain('master_admin');
-    expect(serialized).not.toContain('moderator');
+    for (const [path, node] of Object.entries(contract.paths)) {
+      if (!path.startsWith('/v1/admin/products')) {
+        continue;
+      }
+
+      for (const method of ['get', 'post', 'patch', 'put', 'delete']) {
+        if (method in node) {
+          operations.push(`${method.toUpperCase()} ${path}`);
+        }
+      }
+    }
+
+    expect(operations.sort()).toEqual([
+      'GET /v1/admin/products',
+      'GET /v1/admin/products/{productId}',
+      'PATCH /v1/admin/products/{productId}',
+      'POST /v1/admin/products',
+      'POST /v1/admin/products/{productId}/archive',
+      'POST /v1/admin/products/{productId}/inventory-adjustments',
+      'POST /v1/admin/products/{productId}/publish',
+    ]);
+  });
+
+  it('describe productId como parámetro de ruta en las cinco operaciones dinámicas', () => {
+    const dynamic = Object.entries(contract.paths).filter(([path]) => path.includes('{productId}'));
+
+    expect(dynamic.length).toBe(4);
+
+    let declarations = 0;
+
+    for (const [path, node] of dynamic) {
+      for (const [method, operation] of Object.entries(node as Record<string, unknown>)) {
+        if (!['get', 'post', 'patch', 'put', 'delete'].includes(method)) {
+          continue;
+        }
+
+        const parameters = [
+          ...((node as { parameters?: unknown[] }).parameters ?? []),
+          ...(((operation as { parameters?: unknown[] }).parameters ?? []) as unknown[]),
+        ] as { in?: string; name?: string; required?: boolean }[];
+
+        const productId = parameters.find((parameter) => parameter.name === 'productId');
+
+        expect(productId, `${method.toUpperCase()} ${path}`).toMatchObject({
+          in: 'path',
+          required: true,
+        });
+
+        declarations += 1;
+      }
+    }
+
+    expect(declarations).toBe(5);
   });
 
   it('fija los límites del idToken que replica la validación del BFF', () => {

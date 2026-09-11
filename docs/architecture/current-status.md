@@ -27,8 +27,9 @@ Esto es lo que ya existe fuera de este repositorio, y no debe describirse como p
 | Primera cuenta administrativa         | Creada, con el correo **verificado**                  |
 | Claim `super_admin` de esa cuenta     | **Ya asignado**                                       |
 | Bootstrap del backend                 | `completed`; **no puede repetirse**                   |
-| Roles admitidos por backend y OpenAPI | **Solo** `super_admin`                                |
-| `master_admin` y `moderator`          | Decididos en la ADR 0007 del backend, sin implementar |
+| Roles admitidos por backend y OpenAPI | `super_admin`, `master_admin`, `moderator`            |
+| `master_admin` y `moderator`          | Implementados en el contrato; **sin cuentas creadas** |
+| Cuentas existentes                    | Solo la `super_admin` del bootstrap                   |
 | Backend desplegado                    | **`ADMIN_AUTH_MODE=firebase`**, `/v1/admin/*` activa  |
 | Backend `modulartess-backend-staging` | Ready, privado por IAM, revisión `...-00003-6hz`      |
 | Invocador actual del backend          | `modulartess-web-stg-run`, el único                   |
@@ -69,23 +70,27 @@ Esto es lo que ya existe fuera de este repositorio, y no debe describirse como p
 
 Implementado en el repositorio y comprobado con dobles locales.
 
-| Área                     | Estado | Detalle                                                            |
-| ------------------------ | ------ | ------------------------------------------------------------------ |
-| Copia OpenAPI            | Listo  | `openapi/backend-v1.json`, comiteada; build y runtime solo de ahí. |
-| Tipos generados          | Listo  | `src/lib/api/generated/schema.d.ts`; `pnpm api:check` los valida.  |
-| Cliente del backend      | Listo  | `openapi-fetch` tipado, `server-only`, `no-store` y temporizador.  |
-| Identity token IAM       | Listo  | `google-auth-library`, caché por audiencia con retirada en fallo.  |
-| `POST` del BFF           | Listo  | Origin exacto, `application/json`, cuerpo en bytes UTF-8, `201`.   |
-| `GET` del BFF            | Listo  | Verifica contra el backend. **Solo lectura**: nunca emite cookie.  |
-| `DELETE` del BFF         | Listo  | Origin exacto, borra la cookie, `204`. Independiente del backend.  |
-| Limpieza de sesión       | Listo  | Frontera cliente: `DELETE` y navegación solo tras el `204`.        |
-| Validación de orígenes   | Listo  | HTTPS salvo loopback; audiencia igual a la URL en `google-oidc`.   |
-| `expiresAt`              | Listo  | RFC 3339 estricto con zona explícita; sin `Date.parse` permisivo.  |
-| Cookie de sesión         | Listo  | `__Host-`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`.      |
-| Integración con el login | Listo  | ID token reciente, canje y cierre de Firebase tras el canje.       |
-| Cierre de la sesión SDK  | Listo  | Si `signOut` falla, `location.replace` destruye el documento.      |
-| Ruta protegida `/panel`  | Listo  | Server Component; verifica en cada visita; solo muestra el rol.    |
-| ADR local del BFF        | Listo  | `../decisions/0003-admin-session-bff.md`.                          |
+| Área                     | Estado | Detalle                                                              |
+| ------------------------ | ------ | -------------------------------------------------------------------- |
+| Copia OpenAPI            | Listo  | `openapi/backend-v1.json`, comiteada; build y runtime solo de ahí.   |
+| Tipos generados          | Listo  | `src/lib/api/generated/schema.d.ts`; `pnpm api:check` los valida.    |
+| Cliente del backend      | Listo  | `openapi-fetch` tipado, `server-only`, `no-store` y temporizador.    |
+| Identity token IAM       | Listo  | `google-auth-library`, caché por audiencia con retirada en fallo.    |
+| `POST` del BFF           | Listo  | Origin exacto, `application/json`, cuerpo en bytes UTF-8, `201`.     |
+| `GET` del BFF            | Listo  | Verifica contra el backend. **Solo lectura**: nunca emite cookie.    |
+| `DELETE` del BFF         | Listo  | Origin exacto, borra la cookie, `204`. Independiente del backend.    |
+| Limpieza de sesión       | Listo  | Frontera cliente: `DELETE` y navegación solo tras el `204`.          |
+| Validación de orígenes   | Listo  | HTTPS salvo loopback; audiencia igual a la URL en `google-oidc`.     |
+| `expiresAt`              | Listo  | RFC 3339 estricto con zona explícita; sin `Date.parse` permisivo.    |
+| Cookie de sesión         | Listo  | `__Host-`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`.        |
+| Integración con el login | Listo  | ID token reciente, canje y cierre de Firebase tras el canje.         |
+| Cierre de la sesión SDK  | Listo  | Si `signOut` falla, `location.replace` destruye el documento.        |
+| Ruta protegida `/panel`  | Listo  | Server Component; verifica en cada visita; solo muestra el rol.      |
+| Shell del panel          | Listo  | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión. |
+| Catálogo de productos    | Listo  | Listado, alta, detalle, edición, publicar, archivar e inventario.    |
+| Mutaciones por BFF       | Listo  | Cinco Route Handlers; el navegador no llama al backend.              |
+| Permisos por rol         | Listo  | Matriz explícita en `src/features/session/permissions.ts`.           |
+| ADR local del BFF        | Listo  | `../decisions/0003-admin-session-bff.md`.                            |
 
 ### Material de despliegue (fase 3)
 
@@ -116,15 +121,17 @@ Preparado y comprobado con shims. Nada de esto se ha ejecutado contra la nube.
 
 Elementos que forman parte del diseño acordado, pero que aún no existen en el repositorio.
 
-| Área                             | Estado        | Detalle                                                         |
-| -------------------------------- | ------------- | --------------------------------------------------------------- |
-| Dashboard administrativo         | Pendiente     | `/panel` solo comprueba la frontera; no hay pantalla operativa. |
-| Catálogo, pedidos, inventario    | Pendiente     | Ninguna operación comercial implementada.                       |
-| Revocación al cerrar sesión      | Pendiente     | El contrato no publica un `DELETE`; el panel no lo inventa.     |
-| Roles `master_admin`/`moderator` | Pendiente     | Decididos en la ADR 0007 del backend, aún sin implementar.      |
-| IAM y autorización del backend   | Fuera de aquí | El panel no la ejerce; es autoridad del backend.                |
-| CI                               | Pendiente     | Hay pruebas unitarias, pero no pipeline.                        |
-| Despliegue                       | Pendiente     | Sin estrategia definida para el panel privado.                  |
+| Área                             | Estado        | Detalle                                                      |
+| -------------------------------- | ------------- | ------------------------------------------------------------ |
+| Métricas del dashboard           | Pendiente     | El backend no publica agregaciones; no se inventan.          |
+| Pedidos, clientes y usuarios     | Pendiente     | El shell ya está preparado para añadirlos sin rehacerlo.     |
+| Búsqueda, filtros e imágenes     | Pendiente     | El contrato de catálogo no los ofrece todavía.               |
+| CRUD de cuentas administrativas  | Pendiente     | Vertical posterior; hoy solo existe la cuenta `super_admin`. |
+| Revocación al cerrar sesión      | Pendiente     | El contrato no publica un `DELETE`; el panel no lo inventa.  |
+| Roles `master_admin`/`moderator` | Pendiente     | Decididos en la ADR 0007 del backend, aún sin implementar.   |
+| IAM y autorización del backend   | Fuera de aquí | El panel no la ejerce; es autoridad del backend.             |
+| CI                               | Pendiente     | Hay pruebas unitarias, pero no pipeline.                     |
+| Despliegue                       | Pendiente     | Sin estrategia definida para el panel privado.               |
 
 Sobre el mecanismo de identidad: el flujo es navegador → Firebase Auth para la identidad, navegador
 → servidor Next.js, servidor Next.js (BFF) → backend de Cloud Run con su identidad de ejecución, y

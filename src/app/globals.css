@@ -58,6 +58,27 @@
   --color-danger: #a4262c;
   --color-danger-soft: #fdf0f0;
   --color-danger-border: #f1cfd1;
+
+  /* Lienzo del panel: gris lavanda muy suave, para que las tarjetas blancas destaquen sin bordes
+     duros. */
+  --color-panel-canvas: #f6f5fb;
+  --color-panel-surface: #ffffff;
+  --color-panel-border: #e8e5f2;
+  --color-panel-border-strong: #d9d4ea;
+  --color-panel-text: #1b1830;
+  --color-panel-muted: #6b6486;
+  --color-panel-subtle: #f3f1fa;
+
+  /* Badges de estado del catálogo. */
+  --color-badge-draft-bg: #f1f0f5;
+  --color-badge-draft-fg: #56506e;
+  --color-badge-active-bg: #e7f6ee;
+  --color-badge-active-fg: #1d6f45;
+  --color-badge-archived-bg: #f6efe9;
+  --color-badge-archived-fg: #8a5a2b;
+
+  --sidebar-width: 15rem;
+  --header-height: 3.75rem;
 }
 
 *,
@@ -79,4 +100,17 @@ body {
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Texto solo para lectores de pantalla: describe una tabla sin ocupar espacio visual. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }

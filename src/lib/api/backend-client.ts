@@ -74,6 +74,17 @@ function resolveConfig(): BackendConfig {
 
 type BackendClient = ReturnType<typeof createClient<paths>>;
 
+/**
+ * Cliente configurado para esta petición.
+ *
+ * Se expone para que el módulo de catálogo reutilice exactamente la misma configuración: mismo
+ * `Authorization` de IAM, mismo `x-correlation-id`, mismo `no-store` y mismo temporizador. Dos
+ * clientes distintos acabarían divergiendo.
+ */
+export function backendClient(): BackendClient {
+  return buildClient(resolveConfig());
+}
+
 function buildClient(config: BackendConfig): BackendClient {
   const client = createClient<paths>({
     baseUrl: config.baseUrl,

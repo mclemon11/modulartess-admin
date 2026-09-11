@@ -4,7 +4,8 @@
       "AdminPrincipalDto": {
         "properties": {
           "role": {
-            "enum": ["super_admin"],
+            "description": "Administrative role carried by the signed modulartess_admin_role claim. Capabilities per role are declared explicitly in ADR 0007; there is no numeric hierarchy.",
+            "enum": ["super_admin", "master_admin", "moderator"],
             "example": "super_admin",
             "type": "string"
           },
@@ -14,6 +15,113 @@
           }
         },
         "required": ["uid", "role"],
+        "type": "object"
+      },
+      "AdminProductDto": {
+        "properties": {
+          "archivedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "example": "prd_0123456789abcdef0123456789abcdef",
+            "type": "string"
+          },
+          "lowStockThreshold": {
+            "example": 3,
+            "minimum": 0,
+            "type": "number"
+          },
+          "name": {
+            "example": "Tocador Aura",
+            "type": "string"
+          },
+          "priceCop": {
+            "description": "Whole Colombian pesos. Never a decimal: COP has no subdivision in use.",
+            "example": 1490000,
+            "type": "number"
+          },
+          "publishedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "shortDescription": {
+            "type": "string"
+          },
+          "sku": {
+            "description": "Immutable, uppercase.",
+            "example": "TOCADOR-AURA-80",
+            "type": "string"
+          },
+          "slug": {
+            "description": "Immutable, kebab-case.",
+            "example": "tocador-aura",
+            "type": "string"
+          },
+          "status": {
+            "enum": ["draft", "active", "archived"],
+            "example": "draft",
+            "type": "string"
+          },
+          "stockQuantity": {
+            "example": 12,
+            "minimum": 0,
+            "type": "number"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "description": "Optimistic concurrency token. Mutations require it as expectedVersion.",
+            "example": 1,
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "slug",
+          "name",
+          "shortDescription",
+          "description",
+          "priceCop",
+          "stockQuantity",
+          "lowStockThreshold",
+          "status",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "publishedAt",
+          "archivedAt"
+        ],
+        "type": "object"
+      },
+      "AdminProductPageDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminProductDto"
+            },
+            "type": "array"
+          },
+          "nextPageToken": {
+            "description": "Opaque cursor for the next page, or null when there are no more.",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["items", "nextPageToken"],
         "type": "object"
       },
       "AdminSessionCreatedDto": {
@@ -320,6 +428,45 @@
         "required": ["idempotencyKey", "productId", "variantId", "quantity", "customer"],
         "type": "object"
       },
+      "CreateProductRequestDto": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "lowStockThreshold": {
+            "default": 0,
+            "minimum": 0,
+            "type": "number"
+          },
+          "name": {
+            "example": "Tocador Aura",
+            "type": "string"
+          },
+          "priceCop": {
+            "description": "Whole pesos.",
+            "example": 1490000,
+            "type": "number"
+          },
+          "shortDescription": {
+            "type": "string"
+          },
+          "sku": {
+            "example": "TOCADOR-AURA-80",
+            "type": "string"
+          },
+          "slug": {
+            "example": "tocador-aura",
+            "type": "string"
+          },
+          "stockQuantity": {
+            "default": 0,
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": ["sku", "slug", "name", "priceCop"],
+        "type": "object"
+      },
       "DemoProductDto": {
         "properties": {
           "currency": {
@@ -430,6 +577,38 @@
         "required": ["status", "integrationMode", "timestamp"],
         "type": "object"
       },
+      "InventoryAdjustmentRequestDto": {
+        "properties": {
+          "delta": {
+            "description": "Non-zero integer. The resulting stock can never go below zero.",
+            "example": -2,
+            "type": "number"
+          },
+          "expectedVersion": {
+            "minimum": 1,
+            "type": "number"
+          },
+          "reason": {
+            "example": "damaged in transit",
+            "type": "string"
+          }
+        },
+        "required": ["expectedVersion", "delta", "reason"],
+        "type": "object"
+      },
+      "InventoryAdjustmentResultDto": {
+        "properties": {
+          "product": {
+            "$ref": "#/components/schemas/AdminProductDto"
+          },
+          "replayed": {
+            "description": "True when the idempotency key had already been applied and nothing changed.",
+            "type": "boolean"
+          }
+        },
+        "required": ["product", "replayed"],
+        "type": "object"
+      },
       "OrderTimelineItemDto": {
         "properties": {
           "label": {
@@ -476,6 +655,16 @@
           }
         },
         "required": ["name", "value"],
+        "type": "object"
+      },
+      "ProductTransitionRequestDto": {
+        "properties": {
+          "expectedVersion": {
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": ["expectedVersion"],
         "type": "object"
       },
       "ProductVariantDto": {
@@ -577,6 +766,96 @@
           "timeline",
           "isSimulation"
         ],
+        "type": "object"
+      },
+      "PublicProductDto": {
+        "properties": {
+          "availability": {
+            "enum": ["in_stock", "out_of_stock"],
+            "example": "in_stock",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "priceCop": {
+            "example": 1490000,
+            "type": "number"
+          },
+          "shortDescription": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "slug",
+          "name",
+          "shortDescription",
+          "description",
+          "priceCop",
+          "availability",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "PublicProductPageDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicProductDto"
+            },
+            "type": "array"
+          },
+          "nextPageToken": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["items", "nextPageToken"],
+        "type": "object"
+      },
+      "UpdateProductRequestDto": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "expectedVersion": {
+            "description": "Version the caller last read.",
+            "minimum": 1,
+            "type": "number"
+          },
+          "lowStockThreshold": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "priceCop": {
+            "type": "number"
+          },
+          "shortDescription": {
+            "type": "string"
+          }
+        },
+        "required": ["expectedVersion"],
         "type": "object"
       }
     },
@@ -906,6 +1185,686 @@
         },
         "summary": "Exchange a Firebase ID token for an administrative session",
         "tags": ["admin-auth"]
+      }
+    },
+    "/v1/admin/products": {
+      "get": {
+        "description": "Ordered by updatedAt descending. Requires products.read.",
+        "operationId": "AdminProductsController_list",
+        "parameters": [
+          {
+            "description": "Opaque cursor.",
+            "in": "query",
+            "name": "pageToken",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Default 20, maximum 50.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProductPageDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "List products for the panel",
+        "tags": ["admin-products"]
+      },
+      "post": {
+        "description": "Always created as draft, whatever the body says. SKU is normalised to uppercase and both SKU and slug become immutable. Requires products.create.",
+        "operationId": "AdminProductsController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProductDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_sku_conflict or product_slug_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Create a product",
+        "tags": ["admin-products"]
+      }
+    },
+    "/v1/admin/products/{productId}": {
+      "get": {
+        "operationId": "AdminProductsController_get",
+        "parameters": [
+          {
+            "description": "Backend-generated product identifier.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "example": "prd_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProductDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read one product for the panel. Requires products.read.",
+        "tags": ["admin-products"]
+      },
+      "patch": {
+        "description": "Requires expectedVersion. Cannot change id, sku, slug, status, stockQuantity or audit fields. Bumps version and refreshes the public projection when the product is active. Requires products.update.",
+        "operationId": "AdminProductsController_update",
+        "parameters": [
+          {
+            "description": "Backend-generated product identifier.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "example": "prd_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProductDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_version_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Edit product content",
+        "tags": ["admin-products"]
+      }
+    },
+    "/v1/admin/products/{productId}/archive": {
+      "post": {
+        "description": "Immediately withdraws its public projection. SKU and slug stay reserved: neither is reused. Requires expectedVersion and products.archive.",
+        "operationId": "AdminProductsController_archive",
+        "parameters": [
+          {
+            "description": "Backend-generated product identifier.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "example": "prd_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductTransitionRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProductDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_version_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Archive a product",
+        "tags": ["admin-products"]
+      }
+    },
+    "/v1/admin/products/{productId}/inventory-adjustments": {
+      "post": {
+        "description": "Non-zero integer delta with a reason. Stock never goes below zero. Repeating the same Idempotency-Key with the same body returns the same result; reusing it with a different body is a conflict. Requires expectedVersion and inventory.adjust.",
+        "operationId": "AdminProductsController_adjustInventory",
+        "parameters": [
+          {
+            "description": "8-128 characters. Makes a retried adjustment safe.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Backend-generated product identifier.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "example": "prd_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryAdjustmentRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryAdjustmentResultDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_invalid or inventory_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_version_conflict or idempotency_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Adjust stock",
+        "tags": ["admin-products"]
+      }
+    },
+    "/v1/admin/products/{productId}/publish": {
+      "post": {
+        "description": "Needs name, SKU, slug and priceCop greater than zero. A product with no stock is published as out_of_stock. Requires expectedVersion and products.publish.",
+        "operationId": "AdminProductsController_publish",
+        "parameters": [
+          {
+            "description": "Backend-generated product identifier.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "example": "prd_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductTransitionRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProductDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_version_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Publish a product",
+        "tags": ["admin-products"]
       }
     },
     "/v1/demo/checkout": {
@@ -1262,6 +2221,117 @@
         "summary": "Return a customer-safe demo product with 72 variants",
         "tags": ["demo"]
       }
+    },
+    "/v1/products": {
+      "get": {
+        "description": "Ordered by publishedAt descending. Only active products are visible.",
+        "operationId": "PublicProductsController_list",
+        "parameters": [
+          {
+            "description": "Opaque cursor.",
+            "in": "query",
+            "name": "pageToken",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Default 20, maximum 50.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProductPageDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_invalid"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          }
+        ],
+        "summary": "List active products",
+        "tags": ["products"]
+      }
+    },
+    "/v1/products/{slug}": {
+      "get": {
+        "description": "Drafts and archived products answer 404: they are not in the projection.",
+        "operationId": "PublicProductsController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProductDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          }
+        ],
+        "summary": "Read one active product by slug",
+        "tags": ["products"]
+      }
     }
   },
   "servers": [],
@@ -1277,6 +2347,14 @@
     {
       "description": "Public surface: the mock-adapter vertical slice.",
       "name": "demo"
+    },
+    {
+      "description": "Public surface: active products from the sanitised projection.",
+      "name": "products"
+    },
+    {
+      "description": "Administrative surface: product catalogue. Server-to-server only, called by the panel BFF. Every operation checks a permission from ADR 0007.",
+      "name": "admin-products"
     },
     {
       "description": "Administrative surface: session exchange and verification. Server-to-server only, called by the panel BFF and never by a browser. Disabled unless ADMIN_AUTH_MODE=firebase.",

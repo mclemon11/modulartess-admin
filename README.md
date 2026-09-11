@@ -187,8 +187,32 @@ La expiración de la cookie nunca supera el `expiresAt` del backend ni los `2880
 contrato, y no hay renovación silenciosa. `expiresAt` se acepta solo como `date-time` de RFC 3339
 con zona explícita.
 
-`/panel` es una prueba protegida de la frontera: lee la cookie en el servidor, verifica la sesión
-contra el backend y muestra solo el rol. No muestra UID ni correo, y no contiene datos comerciales.
+`/panel` es el shell del panel: barra lateral, cabecera con breadcrumb, rol visible y cierre de
+sesión. Sobre él cuelga la primera sección operativa, **Productos**, con datos reales del backend.
+
+| Ruta                           | Qué hace                                                                         |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| `/panel`                       | Portada. Sin métricas: el backend no publica agregaciones todavía.               |
+| `/panel/productos`             | Listado server-rendered, paginado con `pageToken`.                               |
+| `/panel/productos/nuevo`       | Alta. El producto nace `draft`; el estado no se elige.                           |
+| `/panel/productos/[productId]` | Detalle, edición con `expectedVersion`, publicar, archivar y ajustar inventario. |
+
+Mutaciones a través del BFF, nunca desde el navegador al backend:
+
+| Método  | Ruta                                                    |
+| ------- | ------------------------------------------------------- |
+| `POST`  | `/api/admin/products`                                   |
+| `PATCH` | `/api/admin/products/[productId]`                       |
+| `POST`  | `/api/admin/products/[productId]/publish`               |
+| `POST`  | `/api/admin/products/[productId]/archive`               |
+| `POST`  | `/api/admin/products/[productId]/inventory-adjustments` |
+
+Permisos visibles: `super_admin` y `master_admin` publican y archivan; `moderator` consulta, crea,
+edita y ajusta inventario, y no ve esas dos acciones. Es usabilidad: el backend rechaza igualmente
+cualquier petición que el rol no permita.
+
+El detalle anterior del shell —lee la cookie en el servidor y verifica la sesión contra el backend—
+sigue igual. No muestra UID ni correo, y no contiene datos comerciales.
 Si el backend rechaza la sesión con `401` o `403`, la página **no redirige**: renderiza una
 frontera cliente que llama al `DELETE` y navega al login solo tras el `204`. Si esa limpieza falla,
 muestra un estado con reintento explícito, sin bucles.

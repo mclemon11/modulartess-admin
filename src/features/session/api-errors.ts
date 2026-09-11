@@ -18,6 +18,8 @@ export const SESSION_ERROR_CODES = [
   'session_required',
   'admin_role_required',
   'admin_surface_disabled',
+  'not_found',
+  'version_conflict',
   'too_many_requests',
   'service_unavailable',
   'internal_error',
@@ -33,6 +35,9 @@ export type SessionErrorBody = {
 const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
   invalid_origin: 'La petición no proviene de un origen autorizado.',
   invalid_request: 'La petición no tiene el formato esperado.',
+  not_found: 'No encontramos ese recurso.',
+  version_conflict:
+    'Alguien modificó estos datos mientras los editabas. Recarga para ver la versión actual.',
   session_required: 'No hay una sesión administrativa activa. Vuelve a iniciar sesión.',
   admin_role_required: 'Esta cuenta no tiene permisos administrativos.',
   admin_surface_disabled: 'La superficie administrativa no está disponible en este despliegue.',
@@ -44,6 +49,8 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
 const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   invalid_origin: 403,
   invalid_request: 400,
+  not_found: 404,
+  version_conflict: 409,
   session_required: 401,
   admin_role_required: 403,
   admin_surface_disabled: 503,
@@ -69,6 +76,12 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'admin_role_required';
     case 'backend_surface_disabled':
       return 'admin_surface_disabled';
+    case 'backend_not_found':
+      return 'not_found';
+    case 'backend_conflict':
+      return 'version_conflict';
+    case 'backend_invalid_request':
+      return 'invalid_request';
     case 'backend_rate_limited':
       return 'too_many_requests';
     case 'backend_unavailable':

@@ -100,6 +100,22 @@ describe('dependencias restringidas', () => {
     expect(importers).toEqual(['src/lib/api/backend-client.ts']);
   });
 
+  it('los Client Components solo hablan con el BFF, nunca con el catálogo server-only', () => {
+    const clientFiles = PRODUCTION_FILES.filter((path) => read(path).startsWith("'use client'"));
+
+    expect(clientFiles.length).toBeGreaterThan(0);
+
+    for (const path of clientFiles) {
+      const source = read(path);
+
+      // Importar el TIPO del producto sí es correcto: `import type` se borra al compilar. Lo que
+      // no puede haber es una importación de valores, que arrastraría el módulo server-only.
+      const runtimeImport = /import\s+\{[^}]*\}\s+from '@\/lib\/api\/catalog'/.test(source);
+
+      expect(runtimeImport, `${path} importa valores de @/lib/api/catalog`).toBe(false);
+    }
+  });
+
   it('no hay firebase-admin, Firestore, Storage, Analytics ni Messaging en el código', () => {
     const forbidden = [
       'firebase-admin',

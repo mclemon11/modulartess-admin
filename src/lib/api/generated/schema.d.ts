@@ -45,6 +45,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List products for the panel
+         * @description Ordered by updatedAt descending. Requires products.read.
+         */
+        get: operations["AdminProductsController_list"];
+        put?: never;
+        /**
+         * Create a product
+         * @description Always created as draft, whatever the body says. SKU is normalised to uppercase and both SKU and slug become immutable. Requires products.create.
+         */
+        post: operations["AdminProductsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/products/{productId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read one product for the panel. Requires products.read. */
+        get: operations["AdminProductsController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit product content
+         * @description Requires expectedVersion. Cannot change id, sku, slug, status, stockQuantity or audit fields. Bumps version and refreshes the public projection when the product is active. Requires products.update.
+         */
+        patch: operations["AdminProductsController_update"];
+        trace?: never;
+    };
+    "/v1/admin/products/{productId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a product
+         * @description Immediately withdraws its public projection. SKU and slug stay reserved: neither is reused. Requires expectedVersion and products.archive.
+         */
+        post: operations["AdminProductsController_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/products/{productId}/inventory-adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adjust stock
+         * @description Non-zero integer delta with a reason. Stock never goes below zero. Repeating the same Idempotency-Key with the same body returns the same result; reusing it with a different body is a conflict. Requires expectedVersion and inventory.adjust.
+         */
+        post: operations["AdminProductsController_adjustInventory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/products/{productId}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a product
+         * @description Needs name, SKU, slug and priceCop greater than zero. A product with no stock is published as out_of_stock. Requires expectedVersion and products.publish.
+         */
+        post: operations["AdminProductsController_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/demo/checkout": {
         parameters: {
             query?: never;
@@ -113,18 +218,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List active products
+         * @description Ordered by publishedAt descending. Only active products are visible.
+         */
+        get: operations["PublicProductsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/products/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one active product by slug
+         * @description Drafts and archived products answer 404: they are not in the projection.
+         */
+        get: operations["PublicProductsController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         AdminPrincipalDto: {
             /**
+             * @description Administrative role carried by the signed modulartess_admin_role claim. Capabilities per role are declared explicitly in ADR 0007; there is no numeric hierarchy.
              * @example super_admin
              * @enum {string}
              */
-            role: "super_admin";
+            role: "super_admin" | "master_admin" | "moderator";
             /** @description Firebase Authentication user id. */
             uid: string;
+        };
+        AdminProductDto: {
+            /** Format: date-time */
+            archivedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            description: string;
+            /** @example prd_0123456789abcdef0123456789abcdef */
+            id: string;
+            /** @example 3 */
+            lowStockThreshold: number;
+            /** @example Tocador Aura */
+            name: string;
+            /**
+             * @description Whole Colombian pesos. Never a decimal: COP has no subdivision in use.
+             * @example 1490000
+             */
+            priceCop: number;
+            /** Format: date-time */
+            publishedAt: string | null;
+            shortDescription: string;
+            /**
+             * @description Immutable, uppercase.
+             * @example TOCADOR-AURA-80
+             */
+            sku: string;
+            /**
+             * @description Immutable, kebab-case.
+             * @example tocador-aura
+             */
+            slug: string;
+            /**
+             * @example draft
+             * @enum {string}
+             */
+            status: "draft" | "active" | "archived";
+            /** @example 12 */
+            stockQuantity: number;
+            /** Format: date-time */
+            updatedAt: string;
+            /**
+             * @description Optimistic concurrency token. Mutations require it as expectedVersion.
+             * @example 1
+             */
+            version: number;
+        };
+        AdminProductPageDto: {
+            items: components["schemas"]["AdminProductDto"][];
+            /** @description Opaque cursor for the next page, or null when there are no more. */
+            nextPageToken: string | null;
         };
         AdminSessionCreatedDto: {
             /**
@@ -266,6 +462,25 @@ export interface components {
             /** @example var_001 */
             variantId: string;
         };
+        CreateProductRequestDto: {
+            description?: string;
+            /** @default 0 */
+            lowStockThreshold: number;
+            /** @example Tocador Aura */
+            name: string;
+            /**
+             * @description Whole pesos.
+             * @example 1490000
+             */
+            priceCop: number;
+            shortDescription?: string;
+            /** @example TOCADOR-AURA-80 */
+            sku: string;
+            /** @example tocador-aura */
+            slug: string;
+            /** @default 0 */
+            stockQuantity: number;
+        };
         DemoProductDto: {
             /**
              * @example COP
@@ -321,6 +536,21 @@ export interface components {
             /** Format: date-time */
             timestamp: string;
         };
+        InventoryAdjustmentRequestDto: {
+            /**
+             * @description Non-zero integer. The resulting stock can never go below zero.
+             * @example -2
+             */
+            delta: number;
+            expectedVersion: number;
+            /** @example damaged in transit */
+            reason: string;
+        };
+        InventoryAdjustmentResultDto: {
+            product: components["schemas"]["AdminProductDto"];
+            /** @description True when the idempotency key had already been applied and nothing changed. */
+            replayed: boolean;
+        };
         OrderTimelineItemDto: {
             /** @example Pago confirmado */
             label: string;
@@ -337,6 +567,9 @@ export interface components {
             name: string;
             /** @example Roble claro */
             value: string;
+        };
+        ProductTransitionRequestDto: {
+            expectedVersion: number;
         };
         ProductVariantDto: {
             attributes: components["schemas"]["ProductAttributeDto"][];
@@ -373,6 +606,36 @@ export interface components {
             totalCop: number;
             /** @example Acabado: Roble claro · Ancho: 80 cm · Espejo: Redondo */
             variantLabel: string;
+        };
+        PublicProductDto: {
+            /**
+             * @example in_stock
+             * @enum {string}
+             */
+            availability: "in_stock" | "out_of_stock";
+            description: string;
+            id: string;
+            name: string;
+            /** @example 1490000 */
+            priceCop: number;
+            shortDescription: string;
+            sku: string;
+            slug: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PublicProductPageDto: {
+            items: components["schemas"]["PublicProductDto"][];
+            nextPageToken: string | null;
+        };
+        UpdateProductRequestDto: {
+            description?: string;
+            /** @description Version the caller last read. */
+            expectedVersion: number;
+            lowStockThreshold?: number;
+            name?: string;
+            priceCop?: number;
+            shortDescription?: string;
         };
     };
     responses: never;
@@ -560,6 +823,508 @@ export interface operations {
                 headers: {
                     /** @description Always no-store on this surface, including error responses. */
                     "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminProductsController_list: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor. */
+                pageToken?: string;
+                /** @description Default 20, maximum 50. */
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProductPageDto"];
+                };
+            };
+            /** @description product_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminProductsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProductRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProductDto"];
+                };
+            };
+            /** @description product_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_sku_conflict or product_slug_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminProductsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated product identifier. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProductDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminProductsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated product identifier. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProductRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProductDto"];
+                };
+            };
+            /** @description product_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_version_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminProductsController_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated product identifier. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductTransitionRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProductDto"];
+                };
+            };
+            /** @description product_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_version_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminProductsController_adjustInventory: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 8-128 characters. Makes a retried adjustment safe. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description Backend-generated product identifier. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryAdjustmentRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryAdjustmentResultDto"];
+                };
+            };
+            /** @description product_invalid or inventory_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_version_conflict or idempotency_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminProductsController_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated product identifier. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductTransitionRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProductDto"];
+                };
+            };
+            /** @description product_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_version_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -771,6 +1536,83 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PublicProductsController_list: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor. */
+                pageToken?: string;
+                /** @description Default 20, maximum 50. */
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicProductPageDto"];
+                };
+            };
+            /** @description product_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PublicProductsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicProductDto"];
+                };
+            };
+            /** @description product_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

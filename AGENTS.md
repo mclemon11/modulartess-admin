@@ -93,7 +93,8 @@ Reglas de uso, también permanentes:
 
 ## 3. Contrato con el backend
 
-- **OpenAPI es el único contrato** entre el panel y el backend.
+- **OpenAPI es el único contrato** entre el panel y el backend. El contrato publica hoy tres roles
+  (`super_admin`, `master_admin`, `moderator`) y las siete operaciones de `/v1/admin/products`.
 - No se inventan endpoints, formas de respuesta ni campos que no estén en la especificación.
 - Los tipos de las respuestas se derivan del contrato, no se escriben a mano por conveniencia.
 - Si algo falta en el contrato, se corrige en el backend; no se compensa en el panel.
@@ -188,7 +189,11 @@ Lo que aún no está verificado es el **recorrido del panel en Cloud Run**: el s
 ## 6. Datos
 
 - Prohibido crear datos ficticios de productos, precios, inventario, pedidos o clientes, incluso
-  como marcador de posición visual.
+  como marcador de posición visual. El catálogo del panel se pinta **solo** con lo que devuelve el
+  backend.
+- Los permisos por rol viven en `src/features/session/permissions.ts`, en una matriz explícita. No
+  se deducen por jerarquía numérica: ocultar un botón es usabilidad, y la autoridad sigue siendo el
+  backend, que rechaza cualquier petición fabricada.
 - Prohibido implementar login simulado o sesiones falsas.
 - Si una pantalla aún no tiene datos reales, debe declarar explícitamente que está pendiente.
 
