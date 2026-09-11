@@ -61,7 +61,7 @@
 
   /* Lienzo del panel: gris lavanda muy suave, para que las tarjetas blancas destaquen sin bordes
      duros. */
-  --color-panel-canvas: #f6f5fb;
+  --color-panel-canvas: #f7f6fc;
   --color-panel-surface: #ffffff;
   --color-panel-border: #e8e5f2;
   --color-panel-border-strong: #d9d4ea;
@@ -77,8 +77,16 @@
   --color-badge-archived-bg: #f6efe9;
   --color-badge-archived-fg: #8a5a2b;
 
-  --sidebar-width: 15rem;
+  --sidebar-width: 15.5rem;
   --header-height: 3.75rem;
+
+  /* Badges de las referencias: pastilla clara con punto de color. */
+  --color-badge-neutral-bg: #f1f0f6;
+  --color-badge-neutral-fg: #5b5470;
+  --color-badge-danger-bg: #fdecec;
+  --color-badge-danger-fg: #b3261e;
+  --color-badge-warning-bg: #fff4e6;
+  --color-badge-warning-fg: #8a5a2b;
 }
 
 *,

@@ -190,22 +190,25 @@ con zona explícita.
 `/panel` es el shell del panel: barra lateral, cabecera con breadcrumb, rol visible y cierre de
 sesión. Sobre él cuelga la primera sección operativa, **Productos**, con datos reales del backend.
 
-| Ruta                           | Qué hace                                                                         |
-| ------------------------------ | -------------------------------------------------------------------------------- |
-| `/panel`                       | Portada. Sin métricas: el backend no publica agregaciones todavía.               |
-| `/panel/productos`             | Listado server-rendered, paginado con `pageToken`.                               |
-| `/panel/productos/nuevo`       | Alta. El producto nace `draft`; el estado no se elige.                           |
-| `/panel/productos/[productId]` | Detalle, edición con `expectedVersion`, publicar, archivar y ajustar inventario. |
+| Ruta                           | Qué hace                                                                                             |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `/panel`                       | Portada. Sin métricas: el backend no publica agregaciones todavía.                                   |
+| `/panel/productos`             | Listado server-rendered, paginado con `pageToken`.                                                   |
+| `/panel/productos/nuevo`       | Alta. El producto nace `draft`; el estado no se elige.                                               |
+| `/panel/productos/[productId]` | Detalle, edición con `expectedVersion`, publicar, archivar, ajustar inventario y gestionar imágenes. |
 
 Mutaciones a través del BFF, nunca desde el navegador al backend:
 
-| Método  | Ruta                                                    |
-| ------- | ------------------------------------------------------- |
-| `POST`  | `/api/admin/products`                                   |
-| `PATCH` | `/api/admin/products/[productId]`                       |
-| `POST`  | `/api/admin/products/[productId]/publish`               |
-| `POST`  | `/api/admin/products/[productId]/archive`               |
-| `POST`  | `/api/admin/products/[productId]/inventory-adjustments` |
+| Método  | Ruta                                                       |
+| ------- | ---------------------------------------------------------- |
+| `POST`  | `/api/admin/products`                                      |
+| `PATCH` | `/api/admin/products/[productId]`                          |
+| `POST`  | `/api/admin/products/[productId]/publish`                  |
+| `POST`  | `/api/admin/products/[productId]/archive`                  |
+| `POST`  | `/api/admin/products/[productId]/inventory-adjustments`    |
+| `POST`  | `/api/admin/products/[productId]/images` (multipart)       |
+| `PATCH` | `/api/admin/products/[productId]/images/[imageId]`         |
+| `POST`  | `/api/admin/products/[productId]/images/[imageId]/archive` |
 
 Permisos visibles: `super_admin` y `master_admin` publican y archivan; `moderator` consulta, crea,
 edita y ajusta inventario, y no ve esas dos acciones. Es usabilidad: el backend rechaza igualmente

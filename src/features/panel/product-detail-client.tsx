@@ -16,6 +16,7 @@ import {
 } from './catalog-client';
 import { describeCatalogFailure } from './catalog-errors';
 import { formatCop, formatDateTime } from './format';
+import { ProductImages } from './product-images';
 import { StatusBadge } from './status-badge';
 
 export type DetailPermissions = {
@@ -375,6 +376,18 @@ export function ProductDetailClient({
             </section>
           ) : null}
         </div>
+      </div>
+
+      <div style={{ marginTop: 'var(--space-lg)' }}>
+        <ProductImages
+          canArchive={permissions.canArchive}
+          canEdit={permissions.canUpdate}
+          onProduct={(next) => {
+            setProduct(next);
+            setConflict(false);
+          }}
+          product={product}
+        />
       </div>
     </>
   );

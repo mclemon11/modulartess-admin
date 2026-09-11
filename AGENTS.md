@@ -191,6 +191,9 @@ Lo que aún no está verificado es el **recorrido del panel en Cloud Run**: el s
 - Prohibido crear datos ficticios de productos, precios, inventario, pedidos o clientes, incluso
   como marcador de posición visual. El catálogo del panel se pinta **solo** con lo que devuelve el
   backend.
+- El panel solo pinta lo que OpenAPI publica. Las referencias visuales muestran categorías,
+  colecciones, variantes, SEO, envíos, descuentos, buscador, filtros y contadores agregados: nada
+  de eso se implementa mientras no exista en el contrato, ni siquiera como adorno.
 - Los permisos por rol viven en `src/features/session/permissions.ts`, en una matriz explícita. No
   se deducen por jerarquía numérica: ocultar un botón es usabilidad, y la autoridad sigue siendo el
   backend, que rechaza cualquier petición fabricada.

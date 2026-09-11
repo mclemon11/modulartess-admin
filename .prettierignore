@@ -5,3 +5,7 @@ next-env.d.ts
 
 # Tipos generados desde el contrato OpenAPI: no se formatean a mano.
 src/lib/api/generated/
+
+# Copia byte a byte del contrato publicado por el backend. Reformatearla la haría diferir del
+# original y rompería `pnpm api:update`/`api:check`.
+openapi/

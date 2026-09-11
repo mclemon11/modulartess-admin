@@ -88,6 +88,8 @@ Implementado en el repositorio y comprobado con dobles locales.
 | Ruta protegida `/panel`  | Listo  | Server Component; verifica en cada visita; solo muestra el rol.      |
 | Shell del panel          | Listo  | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión. |
 | Catálogo de productos    | Listo  | Listado, alta, detalle, edición, publicar, archivar e inventario.    |
+| Imágenes de producto     | Listo  | Subir, texto alternativo, orden, principal y archivar.               |
+| Shell responsive         | Listo  | Sidebar fija en escritorio; cajón por debajo de 60rem.               |
 | Mutaciones por BFF       | Listo  | Cinco Route Handlers; el navegador no llama al backend.              |
 | Permisos por rol         | Listo  | Matriz explícita en `src/features/session/permissions.ts`.           |
 | ADR local del BFF        | Listo  | `../decisions/0003-admin-session-bff.md`.                            |
@@ -121,17 +123,22 @@ Preparado y comprobado con shims. Nada de esto se ha ejecutado contra la nube.
 
 Elementos que forman parte del diseño acordado, pero que aún no existen en el repositorio.
 
-| Área                             | Estado        | Detalle                                                      |
-| -------------------------------- | ------------- | ------------------------------------------------------------ |
-| Métricas del dashboard           | Pendiente     | El backend no publica agregaciones; no se inventan.          |
-| Pedidos, clientes y usuarios     | Pendiente     | El shell ya está preparado para añadirlos sin rehacerlo.     |
-| Búsqueda, filtros e imágenes     | Pendiente     | El contrato de catálogo no los ofrece todavía.               |
-| CRUD de cuentas administrativas  | Pendiente     | Vertical posterior; hoy solo existe la cuenta `super_admin`. |
-| Revocación al cerrar sesión      | Pendiente     | El contrato no publica un `DELETE`; el panel no lo inventa.  |
-| Roles `master_admin`/`moderator` | Pendiente     | Decididos en la ADR 0007 del backend, aún sin implementar.   |
-| IAM y autorización del backend   | Fuera de aquí | El panel no la ejerce; es autoridad del backend.             |
-| CI                               | Pendiente     | Hay pruebas unitarias, pero no pipeline.                     |
-| Despliegue                       | Pendiente     | Sin estrategia definida para el panel privado.               |
+| Área                             | Estado        | Detalle                                                        |
+| -------------------------------- | ------------- | -------------------------------------------------------------- |
+| Métricas del dashboard           | Pendiente     | El backend no publica agregaciones; no se inventan.            |
+| Pedidos, clientes y usuarios     | Pendiente     | El shell ya está preparado para añadirlos sin rehacerlo.       |
+| Búsqueda y filtros del catálogo  | Pendiente     | `GET /v1/admin/products` solo admite `pageToken` y `pageSize`. |
+| Contadores por estado            | Pendiente     | No hay agregaciones; las cifras de las referencias no existen. |
+| Categorías, colecciones y SEO    | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.         |
+| Variantes, envío y descuentos    | Pendiente     | Sin publicar en OpenAPI.                                       |
+| Paginación numérica              | Descartada    | El cursor es opaco: permite avanzar, no saltar de página.      |
+| Reordenar imágenes arrastrando   | Pendiente     | Hoy se reordena con botones accesibles sobre el mismo PATCH.   |
+| CRUD de cuentas administrativas  | Pendiente     | Vertical posterior; hoy solo existe la cuenta `super_admin`.   |
+| Revocación al cerrar sesión      | Pendiente     | El contrato no publica un `DELETE`; el panel no lo inventa.    |
+| Roles `master_admin`/`moderator` | Pendiente     | Decididos en la ADR 0007 del backend, aún sin implementar.     |
+| IAM y autorización del backend   | Fuera de aquí | El panel no la ejerce; es autoridad del backend.               |
+| CI                               | Pendiente     | Hay pruebas unitarias, pero no pipeline.                       |
+| Despliegue                       | Pendiente     | Sin estrategia definida para el panel privado.                 |
 
 Sobre el mecanismo de identidad: el flujo es navegador → Firebase Auth para la identidad, navegador
 → servidor Next.js, servidor Next.js (BFF) → backend de Cloud Run con su identidad de ejecución, y

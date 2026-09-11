@@ -8,9 +8,11 @@
  * que ya se sabe inválido, y da un mensaje inmediato a quien rellena el formulario.
  */
 
+import { IMAGE_ALT_MAX_LENGTH } from '@/lib/api/image-limits';
 import type {
   CreateProductRequest,
   InventoryAdjustmentRequest,
+  UpdateProductImageRequest,
   UpdateProductRequest,
 } from '@/lib/api/catalog';
 
@@ -146,4 +148,53 @@ export function parseInventoryAdjustment(raw: unknown): InventoryAdjustmentInput
   }
 
   return { expectedVersion, delta, reason, idempotencyKey };
+}
+
+/**
+ * Edición de una imagen.
+ *
+ * Al menos uno de los tres campos opcionales tiene que venir: un `PATCH` que solo lleva
+ * `expectedVersion` gastaría una llamada para no cambiar nada.
+ */
+export function parseUpdateProductImage(raw: unknown): UpdateProductImageRequest | null {
+  if (!isRecord(raw)) return null;
+
+  const expectedVersion = wholeNumber(raw.expectedVersion, 1);
+
+  if (expectedVersion === null) return null;
+
+  const body: UpdateProductImageRequest = { expectedVersion };
+  let touched = false;
+
+  if (raw.altText !== undefined) {
+    if (
+      typeof raw.altText !== 'string' ||
+      raw.altText.trim().length === 0 ||
+      raw.altText.length > IMAGE_ALT_MAX_LENGTH
+    ) {
+      return null;
+    }
+
+    body.altText = raw.altText.trim();
+    touched = true;
+  }
+
+  if (raw.position !== undefined) {
+    const position = wholeNumber(raw.position, 0);
+
+    if (position === null) return null;
+
+    body.position = position;
+    touched = true;
+  }
+
+  if (raw.isPrimary !== undefined) {
+    // El contrato solo acepta `true`.
+    if (raw.isPrimary !== true) return null;
+
+    body.isPrimary = true;
+    touched = true;
+  }
+
+  return touched ? body : null;
 }

@@ -635,17 +635,29 @@ cmd_verify() {
 
   # 3. Sonda con credencial ficticia a través del BFF.
   #
-  # Un ID token inventado de longitud válida pasa la validación local, llega al backend y debe
-  # ser rechazado. El resultado correcto es 401 con el código estable `session_required`: prueba
-  # que el BFF alcanza el backend, que el backend verifica de verdad y que el error que vuelve al
-  # navegador es el controlado, no un detalle interno.
+  # Credencial ficticia con la FORMA de una serialización JWS compacta: tres segmentos base64url
+  # no vacíos separados por puntos, y una longitud dentro del rango del contrato. No es un token
+  # real ni deriva de ninguno; los tres segmentos decodifican a texto en claro que dice que es una
+  # sonda.
+  #
+  # La forma importa: un valor cualquiera de longitud suficiente pasaría el mínimo de caracteres
+  # pero fallaría la comprobación estructural, y el backend devolvería `400 invalid_request` en
+  # lugar de llegar a verificar nada. Con esta forma la petición supera la validación local, llega
+  # a Firebase, la firma no verifica y el resultado es el controlado: `401 session_required`.
+  #
+  # Eso demuestra las tres cosas que interesan: el BFF alcanza el backend, el backend verifica de
+  # verdad, y el error que vuelve al navegador es el código estable y no un detalle interno.
+  # Se compone aquí y no se imprime en ninguna rama.
+  local PROBE_ID_TOKEN
+  PROBE_ID_TOKEN="c29uZGEtcGFuZWwtY2FiZWNlcmEtZmljdGljaWE.c29uZGEtcGFuZWwtY2FyZ2EtZmljdGljaWE.c29uZGEtcGFuZWwtZmlybWEtZmljdGljaWE"
+
   local probe_body probe_status probe_code
   probe_body="$(curl -s --max-time 30 \
     -o /tmp/modulartess-admin-probe.$$ -w '%{http_code}' \
     -X POST "${url}/api/admin/auth/session" \
     -H 'content-type: application/json' \
     -H "origin: ${ADMIN_ORIGIN}" \
-    --data '{"idToken":"probe-invalido-no-es-un-token-de-firebase-0000000000"}' || printf '000')"
+    --data "{\"idToken\":\"${PROBE_ID_TOKEN}\"}" || printf '000')"
   probe_status="${probe_body}"
   probe_code="$(sed -n 's/.*"code":"\([a-z_]*\)".*/\1/p' "/tmp/modulartess-admin-probe.$$" 2>/dev/null || true)"
   rm -f "/tmp/modulartess-admin-probe.$$"

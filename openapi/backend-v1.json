@@ -5,7 +5,11 @@
         "properties": {
           "role": {
             "description": "Administrative role carried by the signed modulartess_admin_role claim. Capabilities per role are declared explicitly in ADR 0007; there is no numeric hierarchy.",
-            "enum": ["super_admin", "master_admin", "moderator"],
+            "enum": [
+              "super_admin",
+              "master_admin",
+              "moderator"
+            ],
             "example": "super_admin",
             "type": "string"
           },
@@ -14,7 +18,10 @@
             "type": "string"
           }
         },
-        "required": ["uid", "role"],
+        "required": [
+          "uid",
+          "role"
+        ],
         "type": "object"
       },
       "AdminProductDto": {
@@ -34,6 +41,13 @@
           "id": {
             "example": "prd_0123456789abcdef0123456789abcdef",
             "type": "string"
+          },
+          "images": {
+            "description": "Active and archived images. At most 10 active ones; archived images stay listed and their identifiers are never reused.",
+            "items": {
+              "$ref": "#/components/schemas/AdminProductImageDto"
+            },
+            "type": "array"
           },
           "lowStockThreshold": {
             "example": 3,
@@ -68,7 +82,11 @@
             "type": "string"
           },
           "status": {
-            "enum": ["draft", "active", "archived"],
+            "enum": [
+              "draft",
+              "active",
+              "archived"
+            ],
             "example": "draft",
             "type": "string"
           },
@@ -103,7 +121,97 @@
           "createdAt",
           "updatedAt",
           "publishedAt",
-          "archivedAt"
+          "archivedAt",
+          "images"
+        ],
+        "type": "object"
+      },
+      "AdminProductImageDto": {
+        "properties": {
+          "altText": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "archivedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "contentType": {
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ],
+            "example": "image/jpeg",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "example": "img_0123456789abcdef0123456789abcdef",
+            "type": "string"
+          },
+          "isPrimary": {
+            "description": "Exactly one active image is primary while the product has any.",
+            "type": "boolean"
+          },
+          "objectName": {
+            "description": "Backend-generated object name. Never derived from the uploaded filename.",
+            "example": "products/prd_0123456789abcdef/img_0123456789abcdef.jpg",
+            "type": "string"
+          },
+          "position": {
+            "description": "Explicit order among active images. Contiguous from 0.",
+            "minimum": 0,
+            "type": "number"
+          },
+          "productId": {
+            "type": "string"
+          },
+          "publicUrl": {
+            "description": "Stable public URL. The object is readable by anyone who knows this URL, including while the product is still draft or after the image is archived. Do not upload anything that must stay private.",
+            "format": "uri",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "maximum": 10485760,
+            "type": "number"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "example": "active",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "objectName",
+          "publicUrl",
+          "altText",
+          "position",
+          "isPrimary",
+          "status",
+          "contentType",
+          "sizeBytes",
+          "createdAt",
+          "updatedAt",
+          "archivedAt",
+          "version"
         ],
         "type": "object"
       },
@@ -121,7 +229,10 @@
             "type": "string"
           }
         },
-        "required": ["items", "nextPageToken"],
+        "required": [
+          "items",
+          "nextPageToken"
+        ],
         "type": "object"
       },
       "AdminSessionCreatedDto": {
@@ -135,7 +246,10 @@
             "$ref": "#/components/schemas/AdminPrincipalDto"
           }
         },
-        "required": ["principal", "expiresAt"],
+        "required": [
+          "principal",
+          "expiresAt"
+        ],
         "type": "object"
       },
       "AdminSessionDto": {
@@ -144,7 +258,9 @@
             "$ref": "#/components/schemas/AdminPrincipalDto"
           }
         },
-        "required": ["principal"],
+        "required": [
+          "principal"
+        ],
         "type": "object"
       },
       "AdminSessionRequestDto": {
@@ -156,7 +272,9 @@
             "type": "string"
           }
         },
-        "required": ["idToken"],
+        "required": [
+          "idToken"
+        ],
         "type": "object"
       },
       "CatalogFacetOptionDto": {
@@ -175,7 +293,11 @@
             "type": "string"
           }
         },
-        "required": ["value", "label", "count"],
+        "required": [
+          "value",
+          "label",
+          "count"
+        ],
         "type": "object"
       },
       "CatalogFacetsDto": {
@@ -211,7 +333,13 @@
             "type": "array"
           }
         },
-        "required": ["categories", "productTypes", "availability", "sizes", "finishes"],
+        "required": [
+          "categories",
+          "productTypes",
+          "availability",
+          "sizes",
+          "finishes"
+        ],
         "type": "object"
       },
       "CatalogPriceDto": {
@@ -223,19 +351,26 @@
             "type": "number"
           },
           "currency": {
-            "enum": ["COP"],
+            "enum": [
+              "COP"
+            ],
             "example": "COP",
             "type": "string"
           }
         },
-        "required": ["amountMinor", "currency"],
+        "required": [
+          "amountMinor",
+          "currency"
+        ],
         "type": "object"
       },
       "CatalogProductSummaryDto": {
         "properties": {
           "badges": {
             "description": "Descriptive labels derived from backend data. Never a sales claim.",
-            "example": ["72 combinaciones"],
+            "example": [
+              "72 combinaciones"
+            ],
             "items": {
               "type": "string"
             },
@@ -246,7 +381,10 @@
             "type": "string"
           },
           "commercialStatus": {
-            "enum": ["available", "coming_soon"],
+            "enum": [
+              "available",
+              "coming_soon"
+            ],
             "example": "available",
             "type": "string"
           },
@@ -255,7 +393,9 @@
             "type": "boolean"
           },
           "finishes": {
-            "example": ["Roble claro"],
+            "example": [
+              "Roble claro"
+            ],
             "items": {
               "type": "string"
             },
@@ -277,7 +417,10 @@
             "type": "string"
           },
           "sizes": {
-            "example": ["80 cm", "100 cm"],
+            "example": [
+              "80 cm",
+              "100 cm"
+            ],
             "items": {
               "type": "string"
             },
@@ -300,7 +443,10 @@
             "type": "object"
           },
           "tones": {
-            "example": ["Roble claro", "Nogal"],
+            "example": [
+              "Roble claro",
+              "Nogal"
+            ],
             "items": {
               "type": "string"
             },
@@ -363,7 +509,14 @@
             "type": "number"
           }
         },
-        "required": ["items", "total", "page", "pageSize", "totalPages", "facets"],
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages",
+          "facets"
+        ],
         "type": "object"
       },
       "CheckoutCustomerDto": {
@@ -398,7 +551,15 @@
             "type": "string"
           }
         },
-        "required": ["fullName", "email", "phone", "document", "address", "city", "department"],
+        "required": [
+          "fullName",
+          "email",
+          "phone",
+          "document",
+          "address",
+          "city",
+          "department"
+        ],
         "type": "object"
       },
       "CheckoutRequestDto": {
@@ -425,7 +586,13 @@
             "type": "string"
           }
         },
-        "required": ["idempotencyKey", "productId", "variantId", "quantity", "customer"],
+        "required": [
+          "idempotencyKey",
+          "productId",
+          "variantId",
+          "quantity",
+          "customer"
+        ],
         "type": "object"
       },
       "CreateProductRequestDto": {
@@ -464,13 +631,20 @@
             "type": "number"
           }
         },
-        "required": ["sku", "slug", "name", "priceCop"],
+        "required": [
+          "sku",
+          "slug",
+          "name",
+          "priceCop"
+        ],
         "type": "object"
       },
       "DemoProductDto": {
         "properties": {
           "currency": {
-            "enum": ["COP"],
+            "enum": [
+              "COP"
+            ],
             "example": "COP",
             "type": "string"
           },
@@ -527,14 +701,20 @@
             "type": "string"
           },
           "path": {
-            "example": ["customer", "email"],
+            "example": [
+              "customer",
+              "email"
+            ],
             "items": {
               "type": "string"
             },
             "type": "array"
           }
         },
-        "required": ["path", "message"],
+        "required": [
+          "path",
+          "message"
+        ],
         "type": "object"
       },
       "ErrorResponseDto": {
@@ -554,18 +734,27 @@
             "type": "string"
           }
         },
-        "required": ["code", "message"],
+        "required": [
+          "code",
+          "message"
+        ],
         "type": "object"
       },
       "HealthResponseDto": {
         "properties": {
           "integrationMode": {
-            "enum": ["mock", "staging", "production"],
+            "enum": [
+              "mock",
+              "staging",
+              "production"
+            ],
             "example": "mock",
             "type": "string"
           },
           "status": {
-            "enum": ["ok"],
+            "enum": [
+              "ok"
+            ],
             "example": "ok",
             "type": "string"
           },
@@ -574,7 +763,11 @@
             "type": "string"
           }
         },
-        "required": ["status", "integrationMode", "timestamp"],
+        "required": [
+          "status",
+          "integrationMode",
+          "timestamp"
+        ],
         "type": "object"
       },
       "InventoryAdjustmentRequestDto": {
@@ -593,7 +786,11 @@
             "type": "string"
           }
         },
-        "required": ["expectedVersion", "delta", "reason"],
+        "required": [
+          "expectedVersion",
+          "delta",
+          "reason"
+        ],
         "type": "object"
       },
       "InventoryAdjustmentResultDto": {
@@ -606,7 +803,10 @@
             "type": "boolean"
           }
         },
-        "required": ["product", "replayed"],
+        "required": [
+          "product",
+          "replayed"
+        ],
         "type": "object"
       },
       "OrderTimelineItemDto": {
@@ -640,7 +840,11 @@
             "type": "string"
           }
         },
-        "required": ["status", "label", "occurredAt"],
+        "required": [
+          "status",
+          "label",
+          "occurredAt"
+        ],
         "type": "object"
       },
       "ProductAttributeDto": {
@@ -654,7 +858,30 @@
             "type": "string"
           }
         },
-        "required": ["name", "value"],
+        "required": [
+          "name",
+          "value"
+        ],
+        "type": "object"
+      },
+      "ProductImageResultDto": {
+        "properties": {
+          "image": {
+            "$ref": "#/components/schemas/AdminProductImageDto"
+          },
+          "product": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminProductDto"
+              }
+            ],
+            "description": "Authoritative version and full collection."
+          }
+        },
+        "required": [
+          "product",
+          "image"
+        ],
         "type": "object"
       },
       "ProductTransitionRequestDto": {
@@ -664,7 +891,9 @@
             "type": "number"
           }
         },
-        "required": ["expectedVersion"],
+        "required": [
+          "expectedVersion"
+        ],
         "type": "object"
       },
       "ProductVariantDto": {
@@ -689,7 +918,12 @@
             "type": "number"
           }
         },
-        "required": ["id", "attributes", "priceCop", "available"],
+        "required": [
+          "id",
+          "attributes",
+          "priceCop",
+          "available"
+        ],
         "type": "object"
       },
       "PublicOrderDto": {
@@ -703,7 +937,9 @@
             "type": "string"
           },
           "isSimulation": {
-            "enum": [true],
+            "enum": [
+              true
+            ],
             "example": true,
             "type": "boolean"
           },
@@ -771,7 +1007,10 @@
       "PublicProductDto": {
         "properties": {
           "availability": {
-            "enum": ["in_stock", "out_of_stock"],
+            "enum": [
+              "in_stock",
+              "out_of_stock"
+            ],
             "example": "in_stock",
             "type": "string"
           },
@@ -781,12 +1020,29 @@
           "id": {
             "type": "string"
           },
+          "images": {
+            "description": "Active images, in order.",
+            "items": {
+              "$ref": "#/components/schemas/PublicProductImageDto"
+            },
+            "type": "array"
+          },
           "name": {
             "type": "string"
           },
           "priceCop": {
             "example": 1490000,
             "type": "number"
+          },
+          "primaryImage": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicProductImageDto"
+              }
+            ],
+            "description": "Primary active image, or null when the product has none.",
+            "nullable": true,
+            "type": "object"
           },
           "shortDescription": {
             "type": "string"
@@ -811,7 +1067,34 @@
           "description",
           "priceCop",
           "availability",
-          "updatedAt"
+          "updatedAt",
+          "primaryImage",
+          "images"
+        ],
+        "type": "object"
+      },
+      "PublicProductImageDto": {
+        "properties": {
+          "altText": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "position": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "altText",
+          "position"
         ],
         "type": "object"
       },
@@ -828,7 +1111,36 @@
             "type": "string"
           }
         },
-        "required": ["items", "nextPageToken"],
+        "required": [
+          "items",
+          "nextPageToken"
+        ],
+        "type": "object"
+      },
+      "UpdateProductImageRequestDto": {
+        "properties": {
+          "altText": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "expectedVersion": {
+            "description": "Product version the caller last read.",
+            "minimum": 1,
+            "type": "number"
+          },
+          "isPrimary": {
+            "description": "Only true is accepted. The primary is changed by designating another image.",
+            "type": "boolean"
+          },
+          "position": {
+            "description": "Target index among the active images. The rest are renumbered.",
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ],
         "type": "object"
       },
       "UpdateProductRequestDto": {
@@ -855,7 +1167,58 @@
             "type": "string"
           }
         },
-        "required": ["expectedVersion"],
+        "required": [
+          "expectedVersion"
+        ],
+        "type": "object"
+      },
+      "UploadProductImageRequestDto": {
+        "properties": {
+          "altText": {
+            "description": "Mandatory alternative text. Whitespace is collapsed.",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "expectedVersion": {
+            "description": "Product version the caller last read.",
+            "type": "string"
+          },
+          "file": {
+            "description": "JPEG, PNG or WebP. Up to 10485760 bytes. The real file signature must match both the declared Content-Type and the extension.",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "altText",
+          "expectedVersion"
+        ],
+        "type": "object"
+      },
+      "UploadProductImageResultDto": {
+        "properties": {
+          "image": {
+            "$ref": "#/components/schemas/AdminProductImageDto"
+          },
+          "product": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminProductDto"
+              }
+            ],
+            "description": "Authoritative version and full collection."
+          },
+          "replayed": {
+            "description": "True when the idempotency key had already been applied. The freshly uploaded object is removed and nothing changed.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "product",
+          "image",
+          "replayed"
+        ],
         "type": "object"
       }
     },
@@ -897,7 +1260,9 @@
           }
         },
         "summary": "Check process health",
-        "tags": ["health"]
+        "tags": [
+          "health"
+        ]
       }
     },
     "/v1/admin/auth/session": {
@@ -919,7 +1284,9 @@
               "Cache-Control": {
                 "description": "Always no-store on this surface, including error responses.",
                 "schema": {
-                  "enum": ["no-store"],
+                  "enum": [
+                    "no-store"
+                  ],
                   "type": "string"
                 }
               }
@@ -938,7 +1305,9 @@
               "Cache-Control": {
                 "description": "Always no-store on this surface, including error responses.",
                 "schema": {
-                  "enum": ["no-store"],
+                  "enum": [
+                    "no-store"
+                  ],
                   "type": "string"
                 }
               }
@@ -957,7 +1326,9 @@
               "Cache-Control": {
                 "description": "Always no-store on this surface, including error responses.",
                 "schema": {
-                  "enum": ["no-store"],
+                  "enum": [
+                    "no-store"
+                  ],
                   "type": "string"
                 }
               }
@@ -976,7 +1347,9 @@
               "Cache-Control": {
                 "description": "Always no-store on this surface, including error responses.",
                 "schema": {
-                  "enum": ["no-store"],
+                  "enum": [
+                    "no-store"
+                  ],
                   "type": "string"
                 }
               }
@@ -995,7 +1368,9 @@
               "Cache-Control": {
                 "description": "Always no-store on this surface, including error responses.",
                 "schema": {
-                  "enum": ["no-store"],
+                  "enum": [
+                    "no-store"
+                  ],
                   "type": "string"
                 }
               }
@@ -1008,7 +1383,9 @@
           }
         ],
         "summary": "Read the verified administrative principal",
-        "tags": ["admin-auth"]
+        "tags": [
+          "admin-auth"
+        ]
       },
       "post": {
         "description": "Server-to-server only: called by the admin panel BFF, never by a browser. Requires a sign-in no older than 300 seconds and the signed administrative role claim. The session material is returned only in the x-modulartess-admin-session response header and never in the body. Sessions last 28800 seconds and are not silently renewed.",
@@ -1038,7 +1415,9 @@
               "Cache-Control": {
                 "description": "Always no-store on this surface, including error responses.",
                 "schema": {
-                  "enum": ["no-store"],
+                  "enum": [
+                    "no-store"
+                  ],
                   "type": "string"
                 }
               },
@@ -1063,7 +1442,9 @@
               "Cache-Control": {
                 "description": "Always no-store on this surface, including error responses.",
                 "schema": {
-                  "enum": ["no-store"],
+                  "enum": [
+                    "no-store"
+                  ],
                   "type": "string"
                 }
               }
@@ -1082,7 +1463,9 @@
               "Cache-Control": {
                 "description": "Always no-store on this surface, including error responses.",
                 "schema": {
-                  "enum": ["no-store"],
+                  "enum": [
+                    "no-store"
+                  ],
                   "type": "string"
                 }
               }
@@ -1101,7 +1484,9 @@
               "Cache-Control": {
                 "description": "Always no-store on this surface, including error responses.",
                 "schema": {
-                  "enum": ["no-store"],
+                  "enum": [
+                    "no-store"
+                  ],
                   "type": "string"
                 }
               }
@@ -1120,7 +1505,9 @@
               "Cache-Control": {
                 "description": "Always no-store on this surface, including error responses.",
                 "schema": {
-                  "enum": ["no-store"],
+                  "enum": [
+                    "no-store"
+                  ],
                   "type": "string"
                 }
               }
@@ -1136,11 +1523,16 @@
                       "type": "string"
                     },
                     "statusCode": {
-                      "enum": [429],
+                      "enum": [
+                        429
+                      ],
                       "type": "number"
                     }
                   },
-                  "required": ["statusCode", "message"],
+                  "required": [
+                    "statusCode",
+                    "message"
+                  ],
                   "type": "object"
                 }
               }
@@ -1150,7 +1542,9 @@
               "Cache-Control": {
                 "description": "Always no-store on this surface, including error responses.",
                 "schema": {
-                  "enum": ["no-store"],
+                  "enum": [
+                    "no-store"
+                  ],
                   "type": "string"
                 }
               },
@@ -1176,7 +1570,9 @@
               "Cache-Control": {
                 "description": "Always no-store on this surface, including error responses.",
                 "schema": {
-                  "enum": ["no-store"],
+                  "enum": [
+                    "no-store"
+                  ],
                   "type": "string"
                 }
               }
@@ -1184,7 +1580,9 @@
           }
         },
         "summary": "Exchange a Firebase ID token for an administrative session",
-        "tags": ["admin-auth"]
+        "tags": [
+          "admin-auth"
+        ]
       }
     },
     "/v1/admin/products": {
@@ -1269,7 +1667,9 @@
           }
         ],
         "summary": "List products for the panel",
-        "tags": ["admin-products"]
+        "tags": [
+          "admin-products"
+        ]
       },
       "post": {
         "description": "Always created as draft, whatever the body says. SKU is normalised to uppercase and both SKU and slug become immutable. Requires products.create.",
@@ -1353,7 +1753,9 @@
           }
         ],
         "summary": "Create a product",
-        "tags": ["admin-products"]
+        "tags": [
+          "admin-products"
+        ]
       }
     },
     "/v1/admin/products/{productId}": {
@@ -1429,7 +1831,9 @@
           }
         ],
         "summary": "Read one product for the panel. Requires products.read.",
-        "tags": ["admin-products"]
+        "tags": [
+          "admin-products"
+        ]
       },
       "patch": {
         "description": "Requires expectedVersion. Cannot change id, sku, slug, status, stockQuantity or audit fields. Bumps version and refreshes the public projection when the product is active. Requires products.update.",
@@ -1534,7 +1938,9 @@
           }
         ],
         "summary": "Edit product content",
-        "tags": ["admin-products"]
+        "tags": [
+          "admin-products"
+        ]
       }
     },
     "/v1/admin/products/{productId}/archive": {
@@ -1641,7 +2047,365 @@
           }
         ],
         "summary": "Archive a product",
-        "tags": ["admin-products"]
+        "tags": [
+          "admin-products"
+        ]
+      }
+    },
+    "/v1/admin/products/{productId}/images": {
+      "post": {
+        "description": "JPEG, PNG or WebP, up to 10485760 bytes, at most 10 active images per product. The real file signature is checked and must match both the declared Content-Type and the extension. The object name is generated by the backend and never derives from the uploaded filename. The resulting URL is public: anyone who knows it can read the image, including while the product is still a draft. The browser and the panel never talk to Cloud Storage; this endpoint is the only writer. Requires expectedVersion, an Idempotency-Key and products.update.",
+        "operationId": "AdminProductsController_uploadImage",
+        "parameters": [
+          {
+            "description": "8-128 characters. A retry returns the same result and uploads nothing new.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Backend-generated product identifier.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "example": "prd_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadProductImageRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadProductImageResultDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_image_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_version_conflict, product_image_limit or idempotency_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "catalogue_unavailable or product_media_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Upload a product image",
+        "tags": [
+          "admin-products"
+        ]
+      }
+    },
+    "/v1/admin/products/{productId}/images/{imageId}": {
+      "patch": {
+        "description": "position is the target index among the active images; the rest are renumbered. isPrimary only accepts true: the primary is changed by designating another image, never by unsetting the current one. An archived image cannot be edited. Requires expectedVersion and products.update.",
+        "operationId": "AdminProductsController_updateImage",
+        "parameters": [
+          {
+            "description": "Backend-generated image identifier. Never reused, not even after archiving.",
+            "in": "path",
+            "name": "imageId",
+            "required": true,
+            "schema": {
+              "example": "img_0123456789abcdef",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Backend-generated product identifier.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "example": "prd_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductImageRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductImageResultDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_invalid or product_image_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found or product_image_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_version_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Edit alt text, order or primary image",
+        "tags": [
+          "admin-products"
+        ]
+      }
+    },
+    "/v1/admin/products/{productId}/images/{imageId}/archive": {
+      "post": {
+        "description": "Removes it from the public projection immediately and promotes another primary when needed. The object is NOT deleted from Cloud Storage and its URL keeps working for anyone who knows it; the identifier is never reused. Requires expectedVersion and products.archive, which moderator does not have.",
+        "operationId": "AdminProductsController_archiveImage",
+        "parameters": [
+          {
+            "description": "Backend-generated image identifier. Never reused, not even after archiving.",
+            "in": "path",
+            "name": "imageId",
+            "required": true,
+            "schema": {
+              "example": "img_0123456789abcdef",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Backend-generated product identifier.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "example": "prd_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductTransitionRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductImageResultDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_invalid or product_image_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found or product_image_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_version_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Archive a product image",
+        "tags": [
+          "admin-products"
+        ]
       }
     },
     "/v1/admin/products/{productId}/inventory-adjustments": {
@@ -1757,7 +2521,9 @@
           }
         ],
         "summary": "Adjust stock",
-        "tags": ["admin-products"]
+        "tags": [
+          "admin-products"
+        ]
       }
     },
     "/v1/admin/products/{productId}/publish": {
@@ -1864,7 +2630,9 @@
           }
         ],
         "summary": "Publish a product",
-        "tags": ["admin-products"]
+        "tags": [
+          "admin-products"
+        ]
       }
     },
     "/v1/demo/checkout": {
@@ -1959,7 +2727,9 @@
           }
         ],
         "summary": "Run the paid-order vertical slice using mock adapters",
-        "tags": ["demo"]
+        "tags": [
+          "demo"
+        ]
       }
     },
     "/v1/demo/orders/{publicId}": {
@@ -2034,7 +2804,9 @@
           }
         ],
         "summary": "Read the customer-safe mock order projection",
-        "tags": ["demo"]
+        "tags": [
+          "demo"
+        ]
       }
     },
     "/v1/demo/products": {
@@ -2067,7 +2839,12 @@
             "name": "sort",
             "required": false,
             "schema": {
-              "enum": ["featured", "newest", "name_asc", "name_desc"],
+              "enum": [
+                "featured",
+                "newest",
+                "name_asc",
+                "name_desc"
+              ],
               "type": "string"
             }
           },
@@ -2076,7 +2853,10 @@
             "name": "availability",
             "required": false,
             "schema": {
-              "enum": ["available", "coming_soon"],
+              "enum": [
+                "available",
+                "coming_soon"
+              ],
               "type": "string"
             }
           },
@@ -2164,7 +2944,9 @@
           }
         ],
         "summary": "List the demonstrative catalogue with filters, sorting, pagination and facets",
-        "tags": ["demo"]
+        "tags": [
+          "demo"
+        ]
       }
     },
     "/v1/demo/products/{slug}": {
@@ -2219,7 +3001,9 @@
           }
         ],
         "summary": "Return a customer-safe demo product with 72 variants",
-        "tags": ["demo"]
+        "tags": [
+          "demo"
+        ]
       }
     },
     "/v1/products": {
@@ -2284,7 +3068,9 @@
           }
         ],
         "summary": "List active products",
-        "tags": ["products"]
+        "tags": [
+          "products"
+        ]
       }
     },
     "/v1/products/{slug}": {
@@ -2330,7 +3116,9 @@
           }
         ],
         "summary": "Read one active product by slug",
-        "tags": ["products"]
+        "tags": [
+          "products"
+        ]
       }
     }
   },

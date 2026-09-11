@@ -51,8 +51,19 @@ function read(path: string): string {
 
 const SERVER_ONLY_MODULES = [
   'src/lib/api/backend-client.ts',
+  'src/lib/api/catalog.ts',
   'src/lib/api/identity-token.ts',
+  'src/features/panel/session-context.ts',
+  'src/features/session/mutation-route.ts',
   'src/app/api/admin/auth/session/route.ts',
+  'src/app/api/admin/products/route.ts',
+  'src/app/api/admin/products/[productId]/route.ts',
+  'src/app/api/admin/products/[productId]/publish/route.ts',
+  'src/app/api/admin/products/[productId]/archive/route.ts',
+  'src/app/api/admin/products/[productId]/inventory-adjustments/route.ts',
+  'src/app/api/admin/products/[productId]/images/route.ts',
+  'src/app/api/admin/products/[productId]/images/[imageId]/route.ts',
+  'src/app/api/admin/products/[productId]/images/[imageId]/archive/route.ts',
 ];
 
 describe('módulos server-only', () => {
@@ -73,14 +84,21 @@ describe('los Client Components no pueden alcanzar el backend', () => {
     expect(clientFiles.length).toBeGreaterThan(0);
   });
 
-  it.each(['@/lib/api/backend-client', 'google-auth-library', 'openapi-fetch', 'server-only'])(
-    'ningún Client Component importa %s',
-    (specifier) => {
-      for (const path of clientFiles) {
-        expect(read(path), path).not.toContain(`from '${specifier}'`);
-      }
-    },
-  );
+  // `@/lib/api/catalog` no entra en esta lista porque los Client Components sí pueden importar sus
+  // TIPOS (`import type` se borra al compilar). El caso de las importaciones de valores, que es el
+  // peligroso, lo cubre la prueba dedicada de más abajo.
+  it.each([
+    '@/lib/api/backend-client',
+    '@/features/panel/session-context',
+    '@/features/session/mutation-route',
+    'google-auth-library',
+    'openapi-fetch',
+    'server-only',
+  ])('ningún Client Component importa %s', (specifier) => {
+    for (const path of clientFiles) {
+      expect(read(path), path).not.toContain(`from '${specifier}'`);
+    }
+  });
 });
 
 describe('dependencias restringidas', () => {

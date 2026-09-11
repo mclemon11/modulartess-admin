@@ -26,6 +26,22 @@ export type CreateProductRequest = components['schemas']['CreateProductRequestDt
 export type UpdateProductRequest = components['schemas']['UpdateProductRequestDto'];
 export type InventoryAdjustmentRequest = components['schemas']['InventoryAdjustmentRequestDto'];
 export type InventoryAdjustmentResult = components['schemas']['InventoryAdjustmentResultDto'];
+export type AdminProductImage = components['schemas']['AdminProductImageDto'];
+export type UploadProductImageResult = components['schemas']['UploadProductImageResultDto'];
+export type ProductImageResult = components['schemas']['ProductImageResultDto'];
+export type UpdateProductImageRequest = components['schemas']['UpdateProductImageRequestDto'];
+
+/**
+ * Los límites de imagen viven en `./image-limits`, que no es `server-only`: el formulario del
+ * navegador también los necesita. Se reexportan para que el código de servidor tenga un único
+ * sitio del que importarlos.
+ */
+export {
+  IMAGE_ALT_MAX_LENGTH,
+  IMAGE_CONTENT_TYPES,
+  IMAGE_MAX_ACTIVE,
+  IMAGE_MAX_BYTES,
+} from './image-limits';
 
 /** Estado del producto, tal y como lo publica el contrato. */
 export type ProductStatus = AdminProduct['status'];
@@ -200,6 +216,107 @@ export async function adjustInventory(
       body,
       headers: sessionHeaders(sessionMaterial),
     });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+  }
+
+  return response.data;
+}
+
+/**
+ * Sube una imagen del producto.
+ *
+ * El contrato la define como `multipart/form-data`, y `openapi-fetch` no serializa multipart: el
+ * `FormData` se pasa tal cual como cuerpo y se deja que el navegador —aquí, undici— fije el
+ * `Content-Type` con su `boundary`. Fijarlo a mano rompería el límite del multipart.
+ *
+ * `Idempotency-Key` es obligatoria. Si se repite, el backend descarta el objeto recién subido y
+ * responde `replayed: true` sin duplicar nada.
+ */
+export async function uploadProductImage(
+  sessionMaterial: string,
+  productId: string,
+  idempotencyKey: string,
+  form: FormData,
+): Promise<UploadProductImageResult> {
+  let response;
+
+  try {
+    response = await backendClient().POST('/v1/admin/products/{productId}/images', {
+      params: { path: { productId }, header: { 'Idempotency-Key': idempotencyKey } },
+      headers: sessionHeaders(sessionMaterial),
+      body: form as unknown as never,
+      bodySerializer: (value: unknown) => value as BodyInit,
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+  }
+
+  return response.data;
+}
+
+/**
+ * Cambia el texto alternativo, la posición o designa la imagen como principal.
+ *
+ * `isPrimary` solo admite `true`: el contrato cambia la principal designando otra, nunca quitando
+ * la marca a la actual.
+ */
+export async function updateProductImage(
+  sessionMaterial: string,
+  productId: string,
+  imageId: string,
+  body: UpdateProductImageRequest,
+): Promise<ProductImageResult> {
+  let response;
+
+  try {
+    response = await backendClient().PATCH('/v1/admin/products/{productId}/images/{imageId}', {
+      params: { path: { productId, imageId } },
+      body,
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+  }
+
+  return response.data;
+}
+
+/**
+ * Archiva una imagen.
+ *
+ * Sale de la proyección pública y el backend promueve otra principal si hacía falta. **El objeto
+ * no se borra de Cloud Storage y su URL sigue funcionando**: eso hay que decírselo a quien archiva.
+ */
+export async function archiveProductImage(
+  sessionMaterial: string,
+  productId: string,
+  imageId: string,
+  expectedVersion: number,
+): Promise<ProductImageResult> {
+  let response;
+
+  try {
+    response = await backendClient().POST(
+      '/v1/admin/products/{productId}/images/{imageId}/archive',
+      {
+        params: { path: { productId, imageId } },
+        body: { expectedVersion },
+        headers: sessionHeaders(sessionMaterial),
+      },
+    );
   } catch (error) {
     throw toFailure(error);
   }

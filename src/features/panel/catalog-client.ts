@@ -8,7 +8,12 @@
  * ningún texto del backend.
  */
 
-import type { AdminProduct, InventoryAdjustmentResult } from '@/lib/api/catalog';
+import type {
+  AdminProduct,
+  InventoryAdjustmentResult,
+  ProductImageResult,
+  UploadProductImageResult,
+} from '@/lib/api/catalog';
 
 export type MutationResult<T> =
   { readonly ok: true; readonly data: T } | { readonly ok: false; readonly code: string };
@@ -90,6 +95,82 @@ export function adjustInventory(
     `/api/admin/products/${encodeURIComponent(productId)}/inventory-adjustments`,
     'POST',
     body,
+    200,
+  );
+}
+
+/**
+ * Sube una imagen.
+ *
+ * El `Content-Type` lo fija el navegador con su `boundary`: ponerlo a mano rompería el multipart.
+ * La clave de idempotencia viaja en un encabezado propio y la genera quien inicia la subida.
+ */
+export async function uploadProductImage(
+  productId: string,
+  form: FormData,
+  idempotencyKey: string,
+): Promise<MutationResult<UploadProductImageResult>> {
+  let response: Response;
+
+  try {
+    response = await fetch(`/api/admin/products/${encodeURIComponent(productId)}/images`, {
+      method: 'POST',
+      headers: { 'x-idempotency-key': idempotencyKey },
+      body: form,
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+  } catch {
+    return { ok: false, code: 'service_unavailable' };
+  }
+
+  if (response.status === 201) {
+    try {
+      return { ok: true, data: (await response.json()) as UploadProductImageResult };
+    } catch {
+      return { ok: false, code: 'internal_error' };
+    }
+  }
+
+  try {
+    const payload: unknown = await response.json();
+
+    if (typeof payload === 'object' && payload !== null && 'code' in payload) {
+      const { code } = payload as { code: unknown };
+
+      if (typeof code === 'string' && code.length > 0) {
+        return { ok: false, code };
+      }
+    }
+  } catch {
+    // Cuerpo ilegible.
+  }
+
+  return { ok: false, code: 'internal_error' };
+}
+
+export function updateProductImage(
+  productId: string,
+  imageId: string,
+  body: unknown,
+): Promise<MutationResult<ProductImageResult>> {
+  return send<ProductImageResult>(
+    `/api/admin/products/${encodeURIComponent(productId)}/images/${encodeURIComponent(imageId)}`,
+    'PATCH',
+    body,
+    200,
+  );
+}
+
+export function archiveProductImage(
+  productId: string,
+  imageId: string,
+  expectedVersion: number,
+): Promise<MutationResult<ProductImageResult>> {
+  return send<ProductImageResult>(
+    `/api/admin/products/${encodeURIComponent(productId)}/images/${encodeURIComponent(imageId)}/archive`,
+    'POST',
+    { expectedVersion },
     200,
   );
 }

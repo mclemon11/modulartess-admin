@@ -4,18 +4,23 @@
   color: var(--color-panel-text);
 }
 
-/* Escritorio: barra lateral fija y contenido desplazable. */
 .layout {
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   min-height: 100dvh;
 }
 
+.layoutOpen {
+  composes: layout;
+}
+
+/* ----------------------------------------------------------------- sidebar */
+
 .sidebar {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
-  padding: var(--space-md);
+  padding: var(--space-md) 0.75rem;
   border-right: 1px solid var(--color-panel-border);
   background-color: var(--color-panel-surface);
 }
@@ -24,27 +29,34 @@
   display: flex;
   align-items: center;
   gap: 0.625rem;
-  height: var(--header-height);
-  padding: 0 var(--space-sm);
+  padding: 0.25rem 0.5rem var(--space-md);
 }
 
 .brandMark {
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 2rem;
+  height: 2rem;
   flex: 0 0 auto;
-  border-radius: var(--radius-sm);
+  border-radius: 0.5rem;
   background-image: linear-gradient(135deg, var(--color-brand), var(--color-brand-strong));
 }
 
-.brandName {
-  margin: 0;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+.brandText {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.15;
 }
 
-.brandName span {
-  color: var(--color-brand);
+.brandName {
+  color: var(--color-brand-strong);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.brandTag {
+  color: var(--color-panel-muted);
+  font-size: 0.75rem;
 }
 
 .nav {
@@ -53,20 +65,12 @@
   gap: 0.125rem;
 }
 
-.navLabel {
-  margin: 0 0 var(--space-xs);
-  padding: 0 var(--space-sm);
-  color: var(--color-panel-muted);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .navLink {
-  display: block;
-  padding: 0.5rem var(--space-sm);
-  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5625rem 0.75rem;
+  border-radius: 0.625rem;
   color: var(--color-panel-text);
   font-size: 0.9375rem;
   text-decoration: none;
@@ -89,14 +93,28 @@
   font-weight: 600;
 }
 
+/* Marcador sobrio: no se inventan iconos que las referencias dibujan pero no tenemos. */
+.navIcon {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: 0 0 auto;
+  border: 1.5px solid currentColor;
+  border-radius: 0.3125rem;
+  opacity: 0.45;
+}
+
+.navLinkActive .navIcon {
+  opacity: 0.9;
+}
+
 .sidebarFooter {
   margin-top: auto;
-  padding: var(--space-sm);
+  padding: var(--space-md) 0.75rem 0;
   border-top: 1px solid var(--color-panel-border);
 }
 
 .roleLabel {
-  margin: 0 0 var(--space-xs);
+  margin: 0 0 0.125rem;
   color: var(--color-panel-muted);
   font-size: 0.6875rem;
   letter-spacing: 0.06em;
@@ -104,11 +122,17 @@
 }
 
 .roleValue {
-  margin: 0 0 var(--space-md);
+  margin: 0;
   color: var(--color-brand-strong);
   font-size: 0.875rem;
   font-weight: 600;
 }
+
+.scrim {
+  display: none;
+}
+
+/* -------------------------------------------------------------------- main */
 
 .main {
   display: flex;
@@ -117,14 +141,65 @@
 }
 
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-md);
   min-height: var(--header-height);
   padding: 0 clamp(1rem, 3vw, 2rem);
   border-bottom: 1px solid var(--color-panel-border);
   background-color: var(--color-panel-surface);
+}
+
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
+.menuButton {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: 0.5rem;
+  background-color: var(--color-panel-surface);
+  cursor: pointer;
+}
+
+.menuButton:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-brand-ring);
+  outline: none;
+}
+
+.menuIcon,
+.menuIcon::before,
+.menuIcon::after {
+  display: block;
+  width: 1rem;
+  height: 1.5px;
+  background-color: var(--color-panel-text);
+  content: '';
+}
+
+.menuIcon {
+  position: relative;
+}
+
+.menuIcon::before {
+  position: absolute;
+  top: -0.3125rem;
+}
+
+.menuIcon::after {
+  position: absolute;
+  top: 0.3125rem;
 }
 
 .breadcrumb {
@@ -165,74 +240,55 @@
   color: var(--color-panel-border-strong);
 }
 
-.content {
-  min-width: 0;
-  padding: clamp(1rem, 3vw, 2rem);
-}
+/* ------------------------------------------------------ tablet y móvil */
 
-/* Tablet: la barra lateral se convierte en una fila superior de navegación. */
 @media (max-width: 60rem) {
   .layout {
     grid-template-columns: 1fr;
   }
 
+  /* La barra lateral pasa a ser un cajón, como en las referencias móviles. */
   .sidebar {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-md);
-    border-right: none;
-    border-bottom: 1px solid var(--color-panel-border);
+    position: fixed;
+    z-index: 20;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(17rem, 82vw);
+    border-right: 1px solid var(--color-panel-border);
+    transform: translateX(-100%);
+    transition: transform 160ms ease;
   }
 
-  .brand {
-    height: auto;
+  .layoutOpen .sidebar {
+    transform: translateX(0);
+    box-shadow: 0 0 0 100vmax rgb(27 24 48 / 0%);
   }
 
-  .nav {
-    flex-direction: row;
-    gap: var(--space-xs);
-  }
-
-  .navLabel {
-    display: none;
-  }
-
-  .sidebarFooter {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    margin: 0 0 0 auto;
+  .layoutOpen .scrim {
+    position: fixed;
+    z-index: 15;
+    display: block;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     padding: 0;
-    border-top: none;
+    border: none;
+    background-color: rgb(27 24 48 / 38%);
+    cursor: pointer;
   }
 
-  .roleLabel {
-    display: none;
-  }
-
-  .roleValue {
-    margin: 0;
-  }
-}
-
-/* Móvil: todo apilado, y la marca deja sitio a la navegación. */
-@media (max-width: 40rem) {
-  .sidebar {
-    flex-wrap: wrap;
-  }
-
-  .sidebarFooter {
-    width: 100%;
-    margin: 0;
-    justify-content: space-between;
-  }
-
-  .nav {
-    width: 100%;
-    overflow-x: auto;
+  .menuButton {
+    display: inline-flex;
   }
 
   .header {
-    padding: var(--space-sm) var(--space-md);
+    padding: 0 var(--space-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
   }
 }

@@ -51,7 +51,7 @@ describe('copia versionada del contrato', () => {
     ]);
   });
 
-  it('publica las siete operaciones de catálogo administrativo', () => {
+  it('publica las diez operaciones de catálogo administrativo', () => {
     const operations: string[] = [];
 
     for (const [path, node] of Object.entries(contract.paths)) {
@@ -70,17 +70,20 @@ describe('copia versionada del contrato', () => {
       'GET /v1/admin/products',
       'GET /v1/admin/products/{productId}',
       'PATCH /v1/admin/products/{productId}',
+      'PATCH /v1/admin/products/{productId}/images/{imageId}',
       'POST /v1/admin/products',
       'POST /v1/admin/products/{productId}/archive',
+      'POST /v1/admin/products/{productId}/images',
+      'POST /v1/admin/products/{productId}/images/{imageId}/archive',
       'POST /v1/admin/products/{productId}/inventory-adjustments',
       'POST /v1/admin/products/{productId}/publish',
     ]);
   });
 
-  it('describe productId como parámetro de ruta en las cinco operaciones dinámicas', () => {
+  it('describe cada parámetro de ruta en las operaciones dinámicas', () => {
     const dynamic = Object.entries(contract.paths).filter(([path]) => path.includes('{productId}'));
 
-    expect(dynamic.length).toBe(4);
+    expect(dynamic.length).toBe(7);
 
     let declarations = 0;
 
@@ -95,18 +98,24 @@ describe('copia versionada del contrato', () => {
           ...(((operation as { parameters?: unknown[] }).parameters ?? []) as unknown[]),
         ] as { in?: string; name?: string; required?: boolean }[];
 
-        const productId = parameters.find((parameter) => parameter.name === 'productId');
+        // Cada segmento `{...}` de la ruta tiene que estar declarado como parámetro de ruta
+        // obligatorio: sin eso, `openapi-fetch` no puede sustituirlo y la operación es
+        // inalcanzable desde el panel.
+        for (const segment of path.matchAll(/\{(\w+)\}/g)) {
+          const name = segment[1];
+          const declared = parameters.find((parameter) => parameter.name === name);
 
-        expect(productId, `${method.toUpperCase()} ${path}`).toMatchObject({
-          in: 'path',
-          required: true,
-        });
+          expect(declared, `${method.toUpperCase()} ${path} → ${String(name)}`).toMatchObject({
+            in: 'path',
+            required: true,
+          });
+        }
 
         declarations += 1;
       }
     }
 
-    expect(declarations).toBe(5);
+    expect(declarations).toBe(8);
   });
 
   it('fija los límites del idToken que replica la validación del BFF', () => {
