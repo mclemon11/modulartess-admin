@@ -260,7 +260,18 @@ export function ProductImages({
                   <img alt={image.altText} className={styles.imageTileImg} src={image.publicUrl} />
                   {image.isPrimary ? <span className={styles.primaryFlag}>Principal</span> : null}
                 </figure>
-                <p className={styles.imageAlt}>{image.altText}</p>
+                {canEdit ? (
+                  <AltTextEditor
+                    busy={busy}
+                    image={image}
+                    key={`${image.id}:${image.altText}`}
+                    onSave={(altText) =>
+                      void patchImage(image, { altText }, 'Texto alternativo actualizado.')
+                    }
+                  />
+                ) : (
+                  <p className={styles.imageAlt}>{image.altText}</p>
+                )}
                 {canEdit || canArchive ? (
                   <div className={styles.imageTileActions}>
                     <button
@@ -337,5 +348,55 @@ export function ProductImages({
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Edición del texto alternativo de una imagen ya subida.
+ *
+ * Se guarda con un botón explícito y no al perder el foco: cada guardado es un `PATCH` con
+ * `expectedVersion`, y dispararlo por cada salida de foco gastaría llamadas y provocaría conflictos
+ * al editar varias imágenes seguidas.
+ *
+ * Cuando el backend devuelve otro valor, quien lo usa cambia la `key` y React remonta el campo.
+ * Es preferible a sincronizar con un efecto, que reintroduce el valor viejo durante un render.
+ */
+function AltTextEditor({
+  image,
+  busy,
+  onSave,
+}: {
+  readonly image: AdminProductImage;
+  readonly busy: boolean;
+  readonly onSave: (altText: string) => void;
+}) {
+  const fieldId = useId();
+  const [value, setValue] = useState(image.altText);
+  const trimmed = value.trim();
+  const dirty = trimmed !== image.altText && trimmed.length > 0;
+
+  return (
+    <div className={styles.field}>
+      <label className={styles.label} htmlFor={fieldId}>
+        Texto alternativo
+      </label>
+      <input
+        className={trimmed.length === 0 ? styles.inputInvalid : styles.input}
+        disabled={busy}
+        id={fieldId}
+        maxLength={IMAGE_ALT_MAX_LENGTH}
+        onChange={(event) => setValue(event.target.value)}
+        type="text"
+        value={value}
+      />
+      <button
+        className={styles.iconButton}
+        disabled={busy || !dirty}
+        onClick={() => onSave(trimmed)}
+        type="button"
+      >
+        Guardar texto
+      </button>
+    </div>
   );
 }

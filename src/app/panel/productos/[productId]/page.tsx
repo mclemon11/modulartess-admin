@@ -4,8 +4,8 @@ import styles from '@/features/panel/catalog.module.css';
 import { describeBackendFailure } from '@/features/panel/catalog-errors';
 import { PanelHeader } from '@/features/panel/panel-header';
 import { ProductDetailClient } from '@/features/panel/product-detail-client';
+import { detailPermissions } from '@/features/panel/product-permissions';
 import { resolvePanelSession } from '@/features/panel/session-context';
-import { can } from '@/features/session/permissions';
 import { getProduct } from '@/lib/api/catalog';
 import { isBackendFailure } from '@/lib/api/errors';
 
@@ -70,15 +70,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
           Los cambios se envían con la versión que estás viendo. Si alguien la modifica antes, el
           backend lo rechaza y podrás recargar.
         </p>
-        <ProductDetailClient
-          initial={product}
-          permissions={{
-            canUpdate: can(role, 'products.update'),
-            canPublish: can(role, 'products.publish'),
-            canArchive: can(role, 'products.archive'),
-            canAdjustInventory: can(role, 'inventory.adjust'),
-          }}
-        />
+        <ProductDetailClient initial={product} permissions={detailPermissions(role)} />
       </div>
     </>
   );

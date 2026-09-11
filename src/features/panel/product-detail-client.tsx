@@ -16,15 +16,9 @@ import {
 } from './catalog-client';
 import { describeCatalogFailure } from './catalog-errors';
 import { formatCop, formatDateTime } from './format';
+import type { DetailPermissions } from './product-permissions';
 import { ProductImages } from './product-images';
 import { StatusBadge } from './status-badge';
-
-export type DetailPermissions = {
-  readonly canUpdate: boolean;
-  readonly canPublish: boolean;
-  readonly canArchive: boolean;
-  readonly canAdjustInventory: boolean;
-};
 
 /**
  * Detalle, edición y acciones de un producto.

@@ -617,3 +617,132 @@
   color: var(--color-panel-muted);
   font-size: 0.8125rem;
 }
+
+/* ------------------------------------------------- alta de producto */
+
+.formGrid {
+  display: grid;
+  gap: var(--space-lg);
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (max-width: 64rem) {
+  .formGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.queueList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: var(--space-md) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.queueItem {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-sm);
+  border: 1px solid var(--color-panel-border);
+  border-radius: 0.75rem;
+  background-color: var(--color-panel-surface);
+}
+
+.queueItemPrimary {
+  composes: queueItem;
+  border-color: var(--color-brand-border);
+  background-color: var(--color-brand-soft);
+}
+
+.queueThumb {
+  width: 4.5rem;
+  height: 4.5rem;
+  flex: 0 0 auto;
+  border-radius: 0.5rem;
+  object-fit: cover;
+  background-color: var(--color-panel-subtle);
+}
+
+.queueBody {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.queueFileName {
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.preview {
+  position: sticky;
+  top: calc(var(--header-height) + 1rem);
+}
+
+.previewImage {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 0.75rem;
+  object-fit: cover;
+  background-color: var(--color-panel-subtle);
+}
+
+.previewEmpty {
+  composes: previewImage;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px dashed var(--color-panel-border-strong);
+  color: var(--color-panel-muted);
+  font-size: 0.8125rem;
+}
+
+.previewName {
+  margin: var(--space-md) 0 0.25rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+.previewPrice {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.previewText {
+  margin: 0 0 0.5rem;
+  color: var(--color-panel-muted);
+  font-size: 0.875rem;
+  text-wrap: pretty;
+}
+
+.success {
+  margin: 0 0 var(--space-lg);
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-badge-active-fg);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-badge-active-bg);
+  color: var(--color-badge-active-fg);
+  font-size: 0.875rem;
+  text-wrap: pretty;
+}
+
+@media (max-width: 64rem) {
+  .preview {
+    position: static;
+  }
+}

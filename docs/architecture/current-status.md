@@ -88,7 +88,9 @@ Implementado en el repositorio y comprobado con dobles locales.
 | Ruta protegida `/panel`  | Listo  | Server Component; verifica en cada visita; solo muestra el rol.      |
 | Shell del panel          | Listo  | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión. |
 | Catálogo de productos    | Listo  | Listado, alta, detalle, edición, publicar, archivar e inventario.    |
-| Imágenes de producto     | Listo  | Subir, texto alternativo, orden, principal y archivar.               |
+| Imágenes de producto     | Listo  | Subir, editar texto alternativo, orden, principal y archivar.        |
+| Alta con imágenes        | Listo  | Cola local; un solo envío crea el borrador y sube en serie.          |
+| Reanudación tras fallo   | Listo  | No recrea el producto; reintenta con la misma clave por imagen.      |
 | Shell responsive         | Listo  | Sidebar fija en escritorio; cajón por debajo de 60rem.               |
 | Mutaciones por BFF       | Listo  | Cinco Route Handlers; el navegador no llama al backend.              |
 | Permisos por rol         | Listo  | Matriz explícita en `src/features/session/permissions.ts`.           |
@@ -133,6 +135,7 @@ Elementos que forman parte del diseño acordado, pero que aún no existen en el 
 | Variantes, envío y descuentos    | Pendiente     | Sin publicar en OpenAPI.                                       |
 | Paginación numérica              | Descartada    | El cursor es opaco: permite avanzar, no saltar de página.      |
 | Reordenar imágenes arrastrando   | Pendiente     | Hoy se reordena con botones accesibles sobre el mismo PATCH.   |
+| Biblioteca de medios             | Pendiente     | Sin endpoint que liste objetos del bucket.                     |
 | CRUD de cuentas administrativas  | Pendiente     | Vertical posterior; hoy solo existe la cuenta `super_admin`.   |
 | Revocación al cerrar sesión      | Pendiente     | El contrato no publica un `DELETE`; el panel no lo inventa.    |
 | Roles `master_admin`/`moderator` | Pendiente     | Decididos en la ADR 0007 del backend, aún sin implementar.     |
@@ -214,6 +217,32 @@ No son fases pendientes: son restricciones arquitectónicas que no cambian.
 - **WooCommerce**: descartado como dependencia objetivo. El panel no se construye contra
   WooCommerce ni contra su API REST, y no se considera una fuente de datos de destino. Ver
   `../decisions/0001-admin-application-boundary.md`.
+
+### Alta de producto con imágenes
+
+El contrato exige `productId` y `expectedVersion` para subir una imagen, así que no se puede subir
+nada antes de crear el producto. El panel lo resuelve **dentro de un solo envío**, sin crear nada al
+abrir la pantalla ni al elegir un archivo:
+
+1. Las imágenes se guardan en una cola local (`File` + `object URL` de vista previa). Nada llega al
+   bucket todavía.
+2. Al pulsar «Crear producto» se crea el borrador con el BFF y se toman su `id` y su `version`.
+3. Las imágenes se suben **en serie**, cada una con la versión autoritativa que devolvió la
+   anterior. En paralelo chocarían con un `409`.
+4. Cada imagen lleva su propia `Idempotency-Key`, estable entre reintentos. Cambiar el archivo de
+   una entrada la renueva: es otra operación.
+5. Si la principal elegida no es la que fijó el backend —que marca la primera que recibe—, se
+   designa al final con una llamada extra. Si coincide, no se gasta.
+6. Solo entonces se navega al detalle.
+
+Si el producto se creó pero una subida falla, el producto **no** se vuelve a crear: la pantalla
+muestra «Producto creado como borrador», cuántas imágenes entraron y cuáles faltan, ofrece
+«Reintentar imágenes» con las mismas claves y desde la última versión autoritativa, y un enlace para
+abrir el producto. No se publica nada automáticamente. Si falla la creación, los campos y los
+archivos se conservan.
+
+La lógica vive en `src/features/panel/create-product-flow.ts`, aislada de React para poder
+comprobarla con dobles.
 
 ## Estado de los datos
 
