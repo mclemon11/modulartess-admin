@@ -80,6 +80,26 @@
   --sidebar-width: 15.5rem;
   --header-height: 3.75rem;
 
+  /*
+   * Valores visuales compartidos por las pantallas del panel.
+   *
+   * Viven aquí, no repetidos en cada módulo CSS: las referencias usan la misma tarjeta, la misma
+   * sombra y el mismo radio en el listado, el alta y el detalle, y tenerlos en un solo sitio es lo
+   * que mantiene esa coherencia cuando una pantalla cambia.
+   */
+  --shadow-card: 0 1px 2px rgb(27 24 48 / 4%);
+  --shadow-card-raised: 0 1px 2px rgb(27 24 48 / 4%), 0 8px 24px rgb(27 24 48 / 6%);
+  --radius-card: 14px;
+  --radius-control: 10px;
+  --thumb-size: 3.5rem;
+  --thumb-size-card: 6.5rem;
+
+  /* Punto de color de los badges de estado. */
+  --color-dot-active: #16a34a;
+  --color-dot-draft: #7c6ba8;
+  --color-dot-archived: #8a5a2b;
+  --color-dot-danger: #dc2626;
+
   /* Badges de las referencias: pastilla clara con punto de color. */
   --color-badge-neutral-bg: #f1f0f6;
   --color-badge-neutral-fg: #5b5470;

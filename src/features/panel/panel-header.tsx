@@ -36,6 +36,9 @@ export function PanelHeader({
         <span aria-hidden="true" className={styles.menuIcon} />
       </button>
       <Breadcrumb trail={trail} />
+      {/* Marca centrada: en móvil el breadcrumb se reduce y la cabecera necesita el ancla visual
+          que tienen las referencias. */}
+      <span className={styles.headerBrand}>MODULARTESS</span>
       {actions === undefined ? null : <div className={styles.headerActions}>{actions}</div>}
     </header>
   );

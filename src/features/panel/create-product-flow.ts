@@ -44,7 +44,15 @@ export type CreatedVariant = {
 };
 
 /** Paso de la secuencia en el que se quedó el alta. */
-export type FlowStep = 'create' | 'enrich' | 'image' | 'primary' | 'variant';
+export type FlowStep = 'create' | 'enrich' | 'image' | 'primary' | 'variant' | 'publish';
+
+/**
+ * Qué quiso hacer quien pulsó el botón.
+ *
+ * `publish` **no** es un atajo que se salte pasos: guarda exactamente lo mismo que `draft` y solo
+ * después mira la preparación que devolvió el backend. Un producto nace siempre en borrador.
+ */
+export type CreateIntent = 'draft' | 'publish';
 
 export type FlowFailure = {
   readonly step: FlowStep;
@@ -62,6 +70,8 @@ export type CreateFlowProgress = {
   /** La principal elegida ya está aplicada en el backend. */
   readonly primaryApplied: boolean;
   readonly variants: readonly CreatedVariant[];
+  /** La publicación se pidió y el backend la aplicó. */
+  readonly published: boolean;
   readonly failure: FlowFailure | null;
 };
 
@@ -72,6 +82,7 @@ export type UploadInput = {
 };
 
 export type CreateFlowInput = {
+  readonly intent: CreateIntent;
   /** Cuerpo de `POST /v1/admin/products`: solo lo que ese endpoint admite. */
   readonly fields: unknown;
   /**
@@ -104,6 +115,10 @@ export type CreateFlowDeps = {
     readonly expectedVersion: number;
     readonly draft: VariantDraft;
   }) => Promise<MutationResult<{ product: AdminProduct; variant: { id: string } }>>;
+  readonly publishProduct: (input: {
+    readonly productId: string;
+    readonly expectedVersion: number;
+  }) => Promise<MutationResult<AdminProduct>>;
 };
 
 export const EMPTY_PROGRESS: CreateFlowProgress = {
@@ -112,6 +127,7 @@ export const EMPTY_PROGRESS: CreateFlowProgress = {
   uploaded: [],
   primaryApplied: false,
   variants: [],
+  published: false,
   failure: null,
 };
 
@@ -133,6 +149,7 @@ export async function runCreateFlow(
 ): Promise<CreateFlowProgress> {
   let product = previous.product;
   let enriched = previous.enriched;
+  let published = previous.published;
   const uploaded = [...previous.uploaded];
   const variants = [...previous.variants];
 
@@ -144,6 +161,7 @@ export async function runCreateFlow(
       uploaded,
       primaryApplied: false,
       variants,
+      published,
       failure: { step, entryId, code },
     };
   }
@@ -240,7 +258,35 @@ export async function runCreateFlow(
     variants.push({ draftId: draft.draftId, variantId: result.data.variant.id });
   }
 
-  return { product, enriched, uploaded, primaryApplied: true, variants, failure: null };
+  // 6. Publicar, y solo si se pidió y el backend dice que se puede.
+  //
+  // La preparación se lee de la **última respuesta autoritativa**, no de un cálculo local: el
+  // backend evalúa `publicationReadiness` sobre el registro real —imágenes y variantes incluidas—
+  // y `publish` consume esa misma evaluación. Con `ready: false` no se llama: el borrador se
+  // conserva y la pantalla enseña lo que falta.
+  if (input.intent === 'publish' && !published && product.publicationReadiness.ready) {
+    const result = await deps.publishProduct({
+      productId: product.id,
+      expectedVersion: product.version,
+    });
+
+    if (!result.ok) {
+      return stopped('publish', null, result.code);
+    }
+
+    product = result.data;
+    published = true;
+  }
+
+  return {
+    product,
+    enriched,
+    uploaded,
+    primaryApplied: true,
+    variants,
+    published,
+    failure: null,
+  };
 }
 
 export type FlowSummary = {

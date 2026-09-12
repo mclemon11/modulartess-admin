@@ -10,6 +10,7 @@ import { VARIANT_MAX_ACTIVE } from '@/lib/api/variant-limits';
 
 import { AttributeAxesEditor } from './attribute-axes-editor';
 import styles from './catalog.module.css';
+import { CopField } from './cop-field';
 import {
   adjustVariantInventory,
   archiveVariant,
@@ -19,7 +20,7 @@ import {
   type MutationResult,
 } from './catalog-client';
 import { describeCatalogFailure } from './catalog-errors';
-import { formatCop } from './format';
+import { formatCop, groupCop, parseCop } from './money';
 import type { VariantPermissions } from './product-permissions';
 import {
   axesFromProduct,
@@ -31,6 +32,7 @@ import {
   type AxisDraft,
   type VariantDraft,
 } from './variant-draft';
+import { SectionHeading } from './section-icon';
 import { VariantDraftEditor } from './variant-draft-editor';
 import { createVariantsSequentially } from './variant-creation';
 
@@ -235,7 +237,11 @@ export function ProductVariants({
   return (
     <section className={styles.card}>
       <div className={styles.cardPad}>
-        <h2 className={styles.sectionTitle}>Variantes</h2>
+        <SectionHeading
+          hint="Cada variante tiene su SKU, su precio y su inventario."
+          icon="variantes"
+          title="Variantes"
+        />
 
         <div aria-live="assertive">
           {failure === null ? null : (
@@ -349,7 +355,7 @@ export function ProductVariants({
                   {
                     draftId: crypto.randomUUID(),
                     sku: '',
-                    priceCop: String(product.priceCop),
+                    priceCop: groupCop(product.priceCop),
                     stockQuantity: '0',
                     // Los ejes que exige el backend son los que el producto declara, no los que
                     // haya en el editor de arriba sin guardar.
@@ -371,7 +377,7 @@ export function ProductVariants({
                       ...current.map((draft) => combinationKey(draft.attributes)),
                     ],
                     baseSku: product.sku,
-                    basePriceCop: String(product.priceCop),
+                    basePriceCop: groupCop(product.priceCop),
                     newId: () => crypto.randomUUID(),
                     limit: Math.max(0, VARIANT_MAX_ACTIVE - active.length - current.length),
                   }),
@@ -427,14 +433,16 @@ function VariantRow({
   readonly onAdjust: (delta: number, reason: string) => void;
 }) {
   const id = useId();
-  const [price, setPrice] = useState(String(variant.priceCop));
+  // El precio se edita con el mismo campo y el mismo conversor que el del producto: se escribe
+  // `1.450.000` y al backend viaja el entero.
+  const [price, setPrice] = useState(() => groupCop(variant.priceCop));
   const [attributes, setAttributes] = useState(variant.attributes);
   const [delta, setDelta] = useState('');
   const [reason, setReason] = useState('');
 
-  const priceValue = Number(price);
-  const priceDirty = priceValue !== variant.priceCop;
-  const priceValid = Number.isInteger(priceValue) && priceValue > 0;
+  const parsedPrice = parseCop(price);
+  const priceValid = parsedPrice.ok && parsedPrice.value > 0;
+  const priceDirty = parsedPrice.ok && parsedPrice.value !== variant.priceCop;
   const attributesDirty = attributes.some(
     (attribute, index) =>
       attribute.value !== variant.attributes[index]?.value ||
@@ -491,21 +499,13 @@ function VariantRow({
             />
           </div>
         ))}
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor={`${id}-price`}>
-            Precio (COP)
-          </label>
-          <input
-            className={priceValid ? styles.input : styles.inputInvalid}
-            disabled={busy || !permissions.canUpdate}
-            id={`${id}-price`}
-            min={1}
-            onChange={(event) => setPrice(event.target.value)}
-            type="number"
-            value={price}
-          />
-          <span className={styles.hint}>{formatCop(variant.priceCop)} guardado.</span>
-        </div>
+        <CopField
+          disabled={busy || !permissions.canUpdate}
+          hint={`${formatCop(variant.priceCop)} guardado.`}
+          label="Precio"
+          onChange={setPrice}
+          value={price}
+        />
         <div className={styles.field}>
           <span className={styles.label}>Inventario</span>
           <p className={styles.variantStock}>{variant.stockQuantity}</p>
@@ -521,7 +521,7 @@ function VariantRow({
             onClick={() =>
               onSave(
                 {
-                  ...(priceDirty ? { priceCop: priceValue } : {}),
+                  ...(priceDirty && parsedPrice.ok ? { priceCop: parsedPrice.value } : {}),
                   ...(attributesDirty ? { attributes: [...attributes] } : {}),
                 },
                 'Variante actualizada.',

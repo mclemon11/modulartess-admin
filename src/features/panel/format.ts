@@ -1,23 +1,10 @@
 /**
  * Formato de los datos del catálogo. Módulo puro.
- */
-
-/**
- * Pesos colombianos.
  *
- * El contrato dice que `priceCop` son pesos enteros: «COP has no subdivision in use». Se fuerzan
- * cero decimales para no inventar una precisión que el dato no tiene.
+ * El dinero **no** está aquí: vive en `./money`, que es el único sitio donde se convierte entre
+ * pesos enteros y texto, en las dos direcciones. Tener dos formateadores de precio acabaría con
+ * dos formatos distintos en pantalla.
  */
-const COP = new Intl.NumberFormat('es-CO', {
-  style: 'currency',
-  currency: 'COP',
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
-
-export function formatCop(value: number): string {
-  return COP.format(value);
-}
 
 const DATE_TIME = new Intl.DateTimeFormat('es-CO', {
   dateStyle: 'medium',

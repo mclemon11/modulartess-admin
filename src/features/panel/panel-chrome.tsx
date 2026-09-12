@@ -6,9 +6,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { describeRole } from '@/features/session/role-labels';
+import { SignOutButton } from '@/features/session/sign-out-button';
 
 import { isActive, NAVIGATION } from './navigation';
 import styles from './panel-shell.module.css';
+import { Icon } from './section-icon';
 
 /**
  * Estructura del panel: barra lateral y área principal.
@@ -71,6 +73,7 @@ export function PanelChrome({
                 <span className={styles.brandTag}>Admin</span>
               </span>
             </div>
+            <p className={styles.brandCaption}>Panel administrativo</p>
 
             <nav aria-label="Secciones del panel" className={styles.nav}>
               {NAVIGATION.map((item) => {
@@ -84,7 +87,7 @@ export function PanelChrome({
                     key={item.href}
                     onClick={context.close}
                   >
-                    <span aria-hidden="true" className={styles.navIcon} />
+                    <Icon className={styles.navIcon} name={item.icon} />
                     {item.label}
                   </Link>
                 );
@@ -92,8 +95,13 @@ export function PanelChrome({
             </nav>
 
             <div className={styles.sidebarFooter}>
-              <p className={styles.roleLabel}>Sesión</p>
+              {/* La persona se identifica por su rol y nada más: el UID y el correo no se pintan
+                  en ninguna pantalla del panel. */}
+              <p className={styles.roleLabel}>Sesión administrativa</p>
               <p className={styles.roleValue}>{describeRole(role)}</p>
+              <div className={styles.sidebarSignOut}>
+                <SignOutButton />
+              </div>
             </div>
           </aside>
 

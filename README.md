@@ -102,18 +102,18 @@ Estado real del entorno:
 - El bootstrap del backend quedó en `completed` y **no puede repetirse**.
 - El backend de staging corre con **`ADMIN_AUTH_MODE=firebase`** y su superficie `/v1/admin/*`
   está **activa**, tras un IAM propio y sin invocadores anónimos.
-- El panel **todavía no está desplegado**: la identidad `modulartess-admin-stg-run` no existe aún y
-  no tiene `roles/run.invoker`. El procedimiento está en
-  [`deploy/README.md`](./deploy/README.md).
-- El backend y el contrato OpenAPI vigentes admiten **únicamente** `super_admin`. `master_admin` y
-  `moderator` están decididos en la ADR 0007 del backend, pero todavía no están implementados ni
-  aparecen en el contrato.
+- El panel **está desplegado en staging**, con su identidad de ejecución y el `roles/run.invoker`
+  sobre el backend concedidos. El procedimiento está en [`deploy/README.md`](./deploy/README.md).
+- El backend y el contrato OpenAPI publican los **tres** roles administrativos: `super_admin`,
+  `master_admin` y `moderator`. El panel los refleja en su matriz explícita de permisos.
 
 Todavía pendiente en este repositorio:
 
-- Dashboard administrativo y operaciones de catálogo, pedidos, inventario y clientes.
+- Pedidos, clientes y usuarios administrativos: el contrato no publica sus operaciones.
+- Métricas del panel, buscador y filtros del catálogo: `GET /v1/admin/products` solo admite
+  `pageToken` y `pageSize`, y no hay agregaciones que mostrar.
 - Revocación de la sesión en el proveedor al cerrar sesión: el contrato no publica un `DELETE`.
-- Pipeline de integración continua y estrategia de despliegue.
+- Pipeline de integración continua.
 - Acceso a Firestore o Cloud Storage desde el panel: excluido de forma permanente, no pendiente.
 
 ## Flujo de autenticación previsto entre el panel y el backend
@@ -192,7 +192,7 @@ sesión. Sobre él cuelga la primera sección operativa, **Productos**, con dato
 
 | Ruta                           | Qué hace                                                                                         |
 | ------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `/panel`                       | Portada. Sin métricas: el backend no publica agregaciones todavía.                               |
+| `/panel`                       | Portada: sesión, rol y acceso a Productos. Sin métricas: el backend no publica agregaciones.     |
 | `/panel/productos`             | Listado server-rendered, paginado con `pageToken`.                                               |
 | `/panel/productos/nuevo`       | Alta con contenido, imágenes y variantes. El producto nace `draft`; el estado no se elige.       |
 | `/panel/productos/[productId]` | Detalle, edición con `expectedVersion`, clasificación, variantes, imágenes, publicar y archivar. |
@@ -226,6 +226,30 @@ backend rechaza igualmente cualquier petición que el rol no permita.
 Un producto sin variantes se sigue vendiendo por su SKU, precio e inventario base. Con la primera
 variante activa, el precio y el inventario pasan a gestionarse por variante: el ajuste base se
 deshabilita con el motivo escrito, y los valores anteriores se conservan tal cual.
+
+### Preparación para publicar
+
+`AdminProductDto.publicationReadiness` lo calcula **el backend** —imágenes y variantes incluidas— y
+`publish` consume esa misma evaluación. El panel la muestra y no la recalcula:
+
+- traduce los diecisiete códigos de `missing` a español, con un mapa exhaustivo por tipo;
+- cada requisito pendiente enlaza con la sección de la misma pantalla donde se resuelve;
+- «Publicar producto» se habilita solo con `ready: true` y el permiso `products.publish`;
+- después de cada mutación, la evaluación se reemplaza por la que devuelve el backend, nunca de
+  forma optimista.
+
+En el alta hay dos intenciones sobre el **mismo** guardado: «Guardar borrador» y «Publicar
+producto». La segunda guarda exactamente igual y, solo después, publica si la última respuesta dice
+`ready: true`; si no, conserva el borrador y enumera lo que falta. Ningún producto nace publicado.
+
+### Precio en pesos colombianos
+
+El contrato transporta `priceCop` como entero: `1450000`. El símbolo y los separadores son de la
+pantalla. Un único módulo puro (`src/features/panel/money.ts`) hace las dos conversiones: se escribe
+en un campo de texto con `inputMode="numeric"` y prefijo `$`, se normaliza a `1.450.000` al perder
+el foco y se muestra como `$ 1.450.000` en listados y detalle. El parser rechaza centavos,
+negativos, texto y agrupaciones ambiguas como `1.45` en lugar de adivinar: equivocarse aquí cambia
+el precio por un factor de mil.
 
 Las decisiones del catálogo enriquecido y de las variantes están en
 [`docs/decisions/0004-enriched-catalogue-and-variants.md`](./docs/decisions/0004-enriched-catalogue-and-variants.md).
@@ -313,29 +337,34 @@ server-side** con esa URL e invocará Cloud Run usando su identidad de ejecució
 
 ## Estado actual
 
-Base técnica mínima, limpia y compilable. En concreto, el repositorio contiene:
+El repositorio contiene:
 
 - Aplicación Next.js con App Router y TypeScript estricto.
 - Layout raíz con los metadatos de Modulartess Admin e indexación desactivada.
-- Página inicial renderizada en el servidor con el mensaje «Panel administrativo en configuración».
 - Inicio de sesión cerrado con Firebase Authentication y verificación del correo.
+- Sesión administrativa completa a través de la frontera BFF, con cookie `__Host-`.
+- Shell del panel con barra lateral, cabecera, rol y cierre de sesión, diseñado para escritorio y
+  móvil.
+- **Productos** de extremo a extremo: listado paginado por cursor, alta con contenido enriquecido,
+  imágenes y variantes en un solo envío, detalle con edición por secciones, inventario, variantes,
+  preparación para publicar y transiciones de estado.
+- Los tres roles administrativos en una matriz explícita de permisos.
 - Estilos sobrios y responsive mediante CSS Modules, sin componentes copiados del storefront.
-- Configuración de ESLint, Prettier, Vitest y scripts de verificación.
+- Configuración de ESLint, Prettier, Vitest y scripts de verificación, con pruebas unitarias.
 - Documentación de arquitectura y las decisiones registradas.
 
-Más allá de la autenticación no hay funcionalidad operativa, ni acciones simuladas, ni datos de
-ejemplo. El detalle está en
+Productos es la **única** sección operativa: no hay acciones simuladas ni datos de ejemplo en
+ninguna pantalla. El detalle está en
 [`docs/architecture/current-status.md`](./docs/architecture/current-status.md).
 
 ## Funcionalidades pendientes
 
-- Despliegue del panel en Cloud Run y verificación del recorrido completo con el `super_admin`
-  real, tras autorizar el dominio en Firebase Authentication.
-- Roles `master_admin` y `moderator`, cuando el backend los implemente y los publique.
-- Layout de aplicación autenticada (navegación, cabecera, estados de carga y error).
-- Gestión de catálogo y de inventario.
-- Gestión de pedidos.
-- Gestión de clientes.
-- Subida de medios delegada al backend (el panel nunca escribe en Cloud Storage).
-- Pruebas automatizadas y pipeline de integración continua.
-- Estrategia de despliegue del panel privado.
+Todas esperan a que el contrato publique sus operaciones; ninguna se aparenta en la interfaz.
+
+- Pedidos, clientes y usuarios administrativos.
+- Categorías, colecciones, SEO, envíos y descuentos como entidades propias.
+- Métricas del panel y contadores por estado: el backend no publica agregaciones.
+- Buscador y filtros del catálogo: el listado administrativo solo admite `pageToken` y `pageSize`.
+- Biblioteca de medios y reordenar imágenes arrastrando.
+- Revocación de la sesión en el proveedor al cerrar sesión.
+- Pipeline de integración continua.

@@ -8,14 +8,17 @@ import styles from './catalog.module.css';
 import { featureList, withTaxonomyName, type EnrichmentFields } from './enrichment';
 
 /**
- * Clasificación y contenido enriquecido, compartidos por el alta y la edición.
+ * Clasificación del producto: categoría, tipo y destacado.
+ *
+ * Va en «Información básica» porque es ahí donde los requisitos de publicación `category` y
+ * `product_type` mandan a quien sigue el checklist.
  *
  * Todavía **no existe un catálogo independiente de categorías**: el contrato no publica ningún
  * endpoint del que sacar una lista, así que aquí no hay desplegable. Se escriben el nombre y el
  * slug; el slug se propone desde el nombre y se puede corregir antes de guardar. Inventar una
  * lista de categorías sería pintar datos que no existen.
  */
-export function EnrichmentFieldset({
+export function ClassificationFields({
   fields,
   disabled,
   mode,
@@ -28,7 +31,6 @@ export function EnrichmentFieldset({
   readonly onChange: (fields: EnrichmentFields) => void;
 }) {
   const id = useId();
-  const features = featureList(fields.features);
 
   function set(key: keyof EnrichmentFields, value: string | boolean) {
     onChange({ ...fields, [key]: value });
@@ -115,6 +117,42 @@ export function EnrichmentFieldset({
         </label>
       </div>
 
+      <p className={styles.hint}>
+        {mode === 'create'
+          ? 'Lo que dejes vacío no se envía: el producto se crea sin ese dato.'
+          : 'Vaciar un campo lo borra del producto.'}
+      </p>
+    </>
+  );
+}
+
+/**
+ * Contenido enriquecido: características y especificaciones.
+ *
+ * Son los cuatro textos que publica `ProductSpecificationsDto` más la lista de características.
+ * El backend los exige para publicar, y el checklist de publicación enlaza a esta sección.
+ */
+export function ContentFields({
+  fields,
+  disabled,
+  mode,
+  onChange,
+}: {
+  readonly fields: EnrichmentFields;
+  readonly disabled: boolean;
+  /** En el alta, un campo vacío simplemente no se envía; en la edición, vaciarlo lo borra. */
+  readonly mode: 'create' | 'edit';
+  readonly onChange: (fields: EnrichmentFields) => void;
+}) {
+  const id = useId();
+  const features = featureList(fields.features);
+
+  function set(key: keyof EnrichmentFields, value: string | boolean) {
+    onChange({ ...fields, [key]: value });
+  }
+
+  return (
+    <>
       <div className={styles.field}>
         <label className={styles.label} htmlFor={`${id}-features`}>
           Características

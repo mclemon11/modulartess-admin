@@ -43,7 +43,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
             { label: 'Producto' },
           ]}
         />
-        <div className={styles.cardPad}>
+        <div className={styles.page}>
           <p className={styles.error} role="alert">
             {message}
           </p>
@@ -64,13 +64,17 @@ export default async function ProductDetailPage({ params }: PageProps) {
           { label: product.name },
         ]}
       />
-      <div className={styles.cardPad}>
-        <h1 className={styles.pageTitle}>{product.name}</h1>
-        <p className={styles.pageLead}>
-          Los cambios se envían con la versión que estás viendo. Si alguien la modifica antes, el
-          backend lo rechaza y podrás recargar. Las variantes se crean una detrás de otra, cada una
-          con la versión que devolvió la anterior.
-        </p>
+      <div className={styles.page}>
+        <div className={styles.pageHead}>
+          <div className={styles.pageHeadText}>
+            <h1 className={styles.pageTitle}>{product.name}</h1>
+            <p className={styles.pageLead}>
+              Los cambios se envían con la versión que estás viendo. Si alguien la modifica antes,
+              el backend lo rechaza y podrás recargar. Las variantes se crean una detrás de otra,
+              cada una con la versión que devolvió la anterior.
+            </p>
+          </div>
+        </div>
         <ProductDetailClient initial={product} permissions={detailPermissions(role)} role={role} />
       </div>
     </>

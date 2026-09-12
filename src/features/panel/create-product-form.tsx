@@ -9,10 +9,12 @@ import { acquire, createOperationLock, release } from '@/features/auth/operation
 import { VARIANT_MAX_ACTIVE } from '@/lib/api/variant-limits';
 
 import { AttributeAxesEditor } from './attribute-axes-editor';
+import { CopField } from './cop-field';
 import styles from './catalog.module.css';
 import {
   createProduct as createProductRequest,
   createVariant as createVariantRequest,
+  transitionProduct,
   updateProduct as updateProductRequest,
   updateProductImage,
   uploadProductImage,
@@ -25,6 +27,7 @@ import {
   type CreateFlowDeps,
   type CreateFlowInput,
   type CreateFlowProgress,
+  type CreateIntent,
 } from './create-product-flow';
 import {
   EMPTY_ENRICHMENT,
@@ -32,8 +35,7 @@ import {
   enrichmentProblems,
   type EnrichmentFields,
 } from './enrichment';
-import { EnrichmentFieldset } from './enrichment-fields';
-import { formatCop } from './format';
+import { ClassificationFields, ContentFields } from './enrichment-fields';
 import { ImageQueueEditor } from './image-queue-editor';
 import {
   addToQueue,
@@ -46,7 +48,11 @@ import {
   type QueueChange,
   type QueuedImage,
 } from './image-queue';
+import { describeCopProblem, formatCop, parseCop } from './money';
 import { SKU_PATTERN, SLUG_PATTERN } from './product-input';
+import { PublicationChecklist } from './publication-checklist';
+import { describeReadiness, SECTION_IDS } from './publication-readiness';
+import { SectionHeading } from './section-icon';
 import {
   declaredAxes,
   generateCombinations,
@@ -97,7 +103,7 @@ const EMPTY_FIELDS: Fields = {
  * resultado. Nada se pierde si algo falla, y lo que ya llegó al backend deja de ser editable aquí:
  * un reintento no lo reenviaría.
  */
-export function CreateProductForm() {
+export function CreateProductForm({ canPublish }: { readonly canPublish: boolean }) {
   const router = useRouter();
   const lock = useRef(createOperationLock());
 
@@ -111,6 +117,8 @@ export function CreateProductForm() {
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<CreateFlowProgress>(EMPTY_PROGRESS);
+  /** Última intención pulsada. Decide qué se cuenta al terminar, no qué se guarda. */
+  const [intent, setIntent] = useState<CreateIntent>('draft');
 
   const ids = {
     sku: useId(),
@@ -220,8 +228,12 @@ export function CreateProductForm() {
       updateProductImage(productId, imageId, { expectedVersion, isPrimary: true }),
     createVariant: ({ productId, expectedVersion, draft }) =>
       createVariantRequest(productId, variantRequestBody(draft, expectedVersion)),
+    publishProduct: ({ productId, expectedVersion }) =>
+      transitionProduct(productId, 'publish', expectedVersion),
   };
 
+  /** El precio se convierte una sola vez por render: valida, se envía y se pinta desde aquí. */
+  const price = parseCop(fields.priceCop);
   const axisProblems = validateAxes(axes);
   /**
    * Solo se validan las variantes que faltan por crear, contra lo que el backend ya tiene.
@@ -251,10 +263,8 @@ export function CreateProductForm() {
       found.name = 'El nombre es obligatorio.';
     }
 
-    const price = Number(fields.priceCop);
-
-    if (!Number.isInteger(price) || price < 0) {
-      found.priceCop = 'Pesos colombianos enteros, sin decimales ni separadores.';
+    if (!price.ok) {
+      found.priceCop = describeCopProblem(price.problem);
     }
 
     if (entriesMissingAltText(queue, lockedIds).length > 0) {
@@ -275,13 +285,14 @@ export function CreateProductForm() {
   }
 
   /** Lo que se envía, ya montado: el `POST`, el `PATCH` y las listas de imágenes y variantes. */
-  function flowInput(): CreateFlowInput {
+  function flowInput(intent: CreateIntent): CreateFlowInput {
     return {
+      intent,
       fields: {
         sku: fields.sku.trim(),
         slug: fields.slug.trim(),
         name: fields.name.trim(),
-        priceCop: Number(fields.priceCop),
+        priceCop: price.ok ? price.value : 0,
         stockQuantity: Number(fields.stockQuantity || 0),
         lowStockThreshold: Number(fields.lowStockThreshold || 0),
         ...(fields.shortDescription.trim() === ''
@@ -296,7 +307,7 @@ export function CreateProductForm() {
     };
   }
 
-  async function submit(resume: CreateFlowProgress) {
+  async function submit(resume: CreateFlowProgress, intent: CreateIntent) {
     if (!acquire(lock.current)) {
       return;
     }
@@ -314,11 +325,18 @@ export function CreateProductForm() {
     setBusy(true);
     setFailure(null);
 
-    const result = await runCreateFlow(flowInput(), flowDeps, resume);
+    setIntent(intent);
+
+    const result = await runCreateFlow(flowInput(intent), flowDeps, resume);
 
     setProgress(result);
 
-    if (result.failure === null && result.product !== null) {
+    const pendingPublication =
+      intent === 'publish' &&
+      !result.published &&
+      result.product?.publicationReadiness.ready !== true;
+
+    if (result.failure === null && result.product !== null && !pendingPublication) {
       // Salida terminal: el candado no se libera porque ya se está navegando.
       router.push(`/panel/productos/${result.product.id}`);
 
@@ -327,14 +345,16 @@ export function CreateProductForm() {
 
     release(lock.current);
     setBusy(false);
-    setFailure(describeCatalogFailure(result.failure?.code ?? 'internal_error'));
+
+    // Que falte un requisito no es un fallo: el borrador se guardó entero y lo que falta se
+    // enumera con lo que devolvió el backend.
+    setFailure(result.failure === null ? null : describeCatalogFailure(result.failure.code));
   }
 
   const summary = describeProgress(progress, { queue, variants });
   /** Hay clasificación o contenido escrito que todavía no ha llegado al backend. */
   const enrichmentPending =
     !progress.enriched && enrichmentBody(enrichment, declaredAxes(axes), 'create') !== null;
-  const price = Number(fields.priceCop);
   const pendingImages = summary.pendingImages.length;
   const pendingVariants = summary.pendingVariants.length;
 
@@ -355,9 +375,43 @@ export function CreateProductForm() {
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        void submit(progress);
+        void submit(progress, 'draft');
       }}
     >
+      {/* Acciones principales arriba, como en la referencia: el formulario es largo y guardar no
+          debería exigir recorrerlo entero. Fluye con el contenido, no lo tapa. */}
+      <div className={styles.actionBar}>
+        <div className={styles.actionBarText}>
+          {canPublish
+            ? '«Publicar producto» guarda exactamente lo mismo y, solo después, publica si el backend dice que está listo.'
+            : 'Tu rol no incluye publicar: el producto queda en borrador.'}
+        </div>
+        <div className={styles.actionBarButtons}>
+          {created === null ? null : (
+            <Link className={styles.buttonSecondary} href={`/panel/productos/${created.id}`}>
+              Abrir el producto
+            </Link>
+          )}
+          <button className={styles.buttonSecondary} disabled={busy} type="submit">
+            {busy && intent === 'draft'
+              ? 'Guardando…'
+              : created === null
+                ? 'Guardar borrador'
+                : 'Reintentar lo que falta'}
+          </button>
+          {canPublish ? (
+            <button
+              className={styles.button}
+              disabled={busy}
+              onClick={() => void submit(progress, 'publish')}
+              type="button"
+            >
+              {busy && intent === 'publish' ? 'Guardando y publicando…' : 'Publicar producto'}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
       <div className={styles.stack}>
         <div aria-live="assertive">
           {failure === null ? null : (
@@ -391,14 +445,23 @@ export function CreateProductForm() {
               <Link className={styles.link} href={`/panel/productos/${created.id}`}>
                 Abrir el producto
               </Link>
-              . No se ha publicado: publicarlo es una acción aparte.
+              .{' '}
+              {progress.published
+                ? 'El producto está publicado.'
+                : intent === 'publish' && progress.failure === null
+                  ? `No se publicó: ${describeReadiness(created.publicationReadiness).toLowerCase()}. El borrador quedó guardado.`
+                  : 'No se ha publicado: publicarlo es una acción aparte.'}
             </p>
           </div>
         )}
 
-        <section className={styles.card}>
+        <section className={styles.card} id={SECTION_IDS.basica}>
           <div className={styles.cardPad}>
-            <h2 className={styles.sectionTitle}>Información</h2>
+            <SectionHeading
+              hint="Datos principales de tu producto."
+              icon="basica"
+              title="Información básica"
+            />
             <div className={styles.row}>
               <Field
                 error={errors.sku}
@@ -439,13 +502,25 @@ export function CreateProductForm() {
                 {...field('description')}
               />
             </div>
+
+            <h3 className={styles.subTitle}>Clasificación</h3>
+            <ClassificationFields
+              disabled={busy || progress.enriched}
+              fields={enrichment}
+              mode="create"
+              onChange={setEnrichment}
+            />
           </div>
         </section>
 
-        <section className={styles.card}>
+        <section className={styles.card} id={SECTION_IDS.contenido}>
           <div className={styles.cardPad}>
-            <h2 className={styles.sectionTitle}>Clasificación y contenido</h2>
-            <EnrichmentFieldset
+            <SectionHeading
+              hint="Lo que la ficha muestra bajo la descripción."
+              icon="contenido"
+              title="Características y especificaciones"
+            />
+            <ContentFields
               disabled={busy || progress.enriched}
               fields={enrichment}
               mode="create"
@@ -468,25 +543,27 @@ export function CreateProductForm() {
           </div>
         </section>
 
-        <ImageQueueEditor
-          canAdd={created === null}
-          disabled={busy}
-          lockedIds={lockedIds}
-          onAdd={handleAdd}
-          onAlt={(entryId, value) => applyChange(setAltText(queue, entryId, value, lockedIds))}
-          onMove={(entryId, direction) =>
-            applyChange(moveInQueue(queue, entryId, direction, lockedIds))
-          }
-          onPrimary={(entryId) => setChosenPrimary(entryId)}
-          onRemove={(entryId) => applyChange(removeFromQueue(queue, entryId, lockedIds))}
-          onReplace={(entryId, file) =>
-            applyChange(
-              replaceFile(queue, entryId, file, track(file), crypto.randomUUID(), lockedIds),
-            )
-          }
-          primaryEntryId={chosenPrimary}
-          queue={queue}
-        />
+        <div id={SECTION_IDS.imagenes}>
+          <ImageQueueEditor
+            canAdd={created === null}
+            disabled={busy}
+            lockedIds={lockedIds}
+            onAdd={handleAdd}
+            onAlt={(entryId, value) => applyChange(setAltText(queue, entryId, value, lockedIds))}
+            onMove={(entryId, direction) =>
+              applyChange(moveInQueue(queue, entryId, direction, lockedIds))
+            }
+            onPrimary={(entryId) => setChosenPrimary(entryId)}
+            onRemove={(entryId) => applyChange(removeFromQueue(queue, entryId, lockedIds))}
+            onReplace={(entryId, file) =>
+              applyChange(
+                replaceFile(queue, entryId, file, track(file), crypto.randomUUID(), lockedIds),
+              )
+            }
+            primaryEntryId={chosenPrimary}
+            queue={queue}
+          />
+        </div>
         {errors.images === undefined ? null : (
           <p className={styles.error} role="alert">
             {errors.images}
@@ -494,23 +571,27 @@ export function CreateProductForm() {
         )}
 
         <div className={styles.row}>
-          <section className={styles.card}>
+          <section className={styles.card} id={SECTION_IDS.precio}>
             <div className={styles.cardPad}>
-              <h2 className={styles.sectionTitle}>Precio</h2>
-              <Field
-                error={errors.priceCop}
-                hint="Pesos enteros. COP no usa decimales."
-                id={ids.priceCop}
-                input={field('priceCop')}
-                label="Precio (COP)"
+              <SectionHeading icon="precio" title="Precio" />
+              <CopField
+                disabled={busy || created !== null}
+                hint="Pesos enteros. El símbolo y los puntos de miles son de la pantalla; al backend va el número."
+                label="Precio"
+                onChange={(value) => setFields((current) => ({ ...current, priceCop: value }))}
                 required
-                type="number"
+                value={fields.priceCop}
               />
+              {errors.priceCop === undefined ? null : (
+                <p className={styles.fieldError} role="alert">
+                  {errors.priceCop}
+                </p>
+              )}
             </div>
           </section>
-          <section className={styles.card}>
+          <section className={styles.card} id={SECTION_IDS.inventario}>
             <div className={styles.cardPad}>
-              <h2 className={styles.sectionTitle}>Inventario</h2>
+              <SectionHeading icon="inventario" title="Inventario" />
               <Field
                 id={ids.stockQuantity}
                 input={field('stockQuantity')}
@@ -534,13 +615,13 @@ export function CreateProductForm() {
           </p>
         )}
 
-        <section className={styles.card}>
+        <section className={styles.card} id={SECTION_IDS.variantes}>
           <div className={styles.cardPad}>
-            <h2 className={styles.sectionTitle}>Variantes</h2>
-            <p className={styles.hint}>
-              Opcionales. Sin variantes, el producto se vende por su propio SKU, precio e
-              inventario.
-            </p>
+            <SectionHeading
+              hint="Opcionales. Sin variantes, el producto se vende por su propio SKU, precio e inventario."
+              icon="variantes"
+              title="Variantes"
+            />
             <AttributeAxesEditor
               axes={axes}
               disabled={busy || progress.enriched}
@@ -590,36 +671,26 @@ export function CreateProductForm() {
           </div>
         </section>
 
-        <div className={styles.actions}>
-          <button className={styles.button} disabled={busy} type="submit">
-            {busy
-              ? created === null
-                ? 'Creando…'
-                : 'Reintentando…'
-              : created === null
-                ? 'Crear producto'
-                : 'Reintentar lo que falta'}
-          </button>
-          {created === null ? null : (
-            <Link className={styles.buttonSecondary} href={`/panel/productos/${created.id}`}>
-              Abrir el producto
-            </Link>
-          )}
-        </div>
         {errors.variants === undefined ? null : (
           <p className={styles.error} role="alert">
             {errors.variants}
           </p>
         )}
+
+        <p className={styles.hint}>
+          {created === null
+            ? 'Nada se ha enviado todavía: los datos, las imágenes y las variantes viven en esta pantalla hasta que guardes.'
+            : 'El producto ya existe. Lo que falte se reintenta sin repetir lo guardado.'}
+        </p>
       </div>
 
       <aside className={styles.preview}>
         <section className={styles.card}>
           <div className={styles.cardPad}>
-            <h2 className={styles.sectionTitle}>Vista previa</h2>
+            <SectionHeading icon="vistaPrevia" title="Vista previa del producto" />
             <Preview
               fields={fields}
-              price={price}
+              price={price.ok ? price.value : null}
               primaryEntryId={chosenPrimary}
               queue={queue}
               variantCount={variants.length}
@@ -628,11 +699,22 @@ export function CreateProductForm() {
         </section>
         <section className={styles.card} style={{ marginTop: 'var(--space-lg)' }}>
           <div className={styles.cardPad}>
-            <h2 className={styles.sectionTitle}>Estado</h2>
-            <p className={styles.hint}>
-              El producto nace como <strong>borrador</strong>. No es visible en la tienda hasta que
-              se publica, y publicar es una acción aparte desde el detalle.
-            </p>
+            <SectionHeading icon="estado" title="Preparación para publicar" />
+            {created === null ? (
+              <p className={styles.hint}>
+                El producto nace como <strong>borrador</strong>. Quien decide si está listo para
+                publicarse es el backend, al guardarlo: hasta entonces esta pantalla no puede
+                adelantarlo sin inventárselo.
+              </p>
+            ) : (
+              <>
+                <PublicationChecklist readiness={created.publicationReadiness} />
+                <p className={styles.hint}>
+                  Para completar lo que falta, abre el producto: aquí los datos guardados ya no se
+                  editan.
+                </p>
+              </>
+            )}
           </div>
         </section>
       </aside>
@@ -654,7 +736,8 @@ function Preview({
   variantCount,
 }: {
   readonly fields: Fields;
-  readonly price: number;
+  /** `null` mientras el precio escrito no sea convertible: no se inventa un número. */
+  readonly price: number | null;
   readonly queue: readonly QueuedImage[];
   readonly primaryEntryId: string | null;
   readonly variantCount: number;
@@ -672,9 +755,7 @@ function Preview({
       <p className={styles.previewName}>
         {fields.name.trim() === '' ? 'Nombre del producto' : fields.name}
       </p>
-      <p className={styles.previewPrice}>
-        {Number.isInteger(price) && price >= 0 ? formatCop(price) : '—'}
-      </p>
+      <p className={styles.previewPrice}>{price === null ? '—' : formatCop(price)}</p>
       {fields.shortDescription.trim() === '' ? null : (
         <p className={styles.previewText}>{fields.shortDescription}</p>
       )}

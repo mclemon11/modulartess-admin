@@ -21,6 +21,7 @@ import {
   VARIANT_MAX_ACTIVE,
 } from '@/lib/api/variant-limits';
 
+import { describeCopProblem, parseCop } from './money';
 import { SKU_PATTERN } from './product-input';
 import { toSku, toSlug } from './slug';
 
@@ -50,6 +51,10 @@ export type VariantAttributeDraft = {
  *
  * El precio y el inventario se guardan como texto, igual que el resto de campos numéricos del
  * formulario: se convierten al validar, y así un campo a medio escribir no se convierte en `NaN`.
+ *
+ * El precio se lee con `parseCop`, el mismo conversor que el precio del producto: admite
+ * `1.450.000` y `$ 1.450.000`, y rechaza centavos, negativos y agrupaciones ambiguas en lugar de
+ * adivinarlas.
  */
 export type VariantDraft = {
   readonly draftId: string;
@@ -274,7 +279,7 @@ export function validateVariantDrafts(
 
   for (const draft of drafts) {
     const sku = draft.sku.trim().toUpperCase();
-    const price = Number(draft.priceCop);
+    const price = parseCop(draft.priceCop);
     const stock = Number(draft.stockQuantity);
     const keys = [...draft.attributes.map((attribute) => attribute.key)].sort();
     const key = combinationKey(draft.attributes);
@@ -291,8 +296,11 @@ export function validateVariantDrafts(
       message = 'Cada eje necesita su valor.';
     } else if (takenCombinations.has(key)) {
       message = 'Esa combinación ya existe en otra variante activa.';
-    } else if (!Number.isInteger(price) || price <= 0 || draft.priceCop.trim() === '') {
-      message = 'Precio en pesos enteros, mayor que cero.';
+    } else if (!price.ok) {
+      message = `Precio: ${describeCopProblem(price.problem)}`;
+    } else if (price.value <= 0) {
+      // El contrato pide «Whole pesos, greater than zero» para una variante.
+      message = 'Precio: tiene que ser mayor que cero.';
     } else if (!Number.isInteger(stock) || stock < 0 || draft.stockQuantity.trim() === '') {
       message = 'Inventario entero y no negativo.';
     }
@@ -314,10 +322,14 @@ export function variantRequestBody(
   draft: VariantDraft,
   expectedVersion: number,
 ): CreateProductVariantRequest {
+  const price = parseCop(draft.priceCop);
+
   return {
     expectedVersion,
     sku: draft.sku.trim().toUpperCase(),
-    priceCop: Number(draft.priceCop),
+    // Al backend va siempre el entero. Un precio ilegible no llega hasta aquí: `validateVariantDrafts`
+    // bloquea el envío antes, y el `0` de respaldo lo rechazaría el backend igualmente.
+    priceCop: price.ok ? price.value : 0,
     stockQuantity: Number(draft.stockQuantity || 0),
     attributes: draft.attributes.map((attribute) => ({
       key: attribute.key.trim(),

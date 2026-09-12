@@ -208,6 +208,31 @@ describe('copia versionada del contrato', () => {
     ]);
   });
 
+  it('el producto administrativo publica la preparación para publicar', () => {
+    const product = contract.components.schemas.AdminProductDto;
+
+    // El panel la muestra tal cual y NO recalcula ninguna regla: publish consume esta misma
+    // evaluación, así que derivarla aquí acabaría contradiciendo al backend.
+    expect(product.required).toContain('publicationReadiness');
+    expect(product.properties.publicationReadiness.allOf[0]).toEqual({
+      $ref: '#/components/schemas/PublicationReadinessDto',
+    });
+
+    const readiness = contract.components.schemas.PublicationReadinessDto;
+
+    expect(readiness.required).toEqual(['ready', 'missing']);
+    expect(readiness.properties.missing.items.enum).toHaveLength(17);
+  });
+
+  it('el precio viaja como entero, sin símbolo ni separadores', () => {
+    const price = contract.components.schemas.AdminProductDto.properties.priceCop;
+
+    expect(price.type).toBe('number');
+    expect(price.format).toBe('int32');
+    // El símbolo y los puntos de miles son de la pantalla, no del dato.
+    expect(price.description).toContain('never stored as formatted text');
+  });
+
   it('fija los límites del idToken que replica la validación del BFF', () => {
     const { idToken } = contract.components.schemas.AdminSessionRequestDto.properties;
 

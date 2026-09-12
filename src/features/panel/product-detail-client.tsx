@@ -15,20 +15,32 @@ import {
   type MutationResult,
 } from './catalog-client';
 import { describeCatalogFailure } from './catalog-errors';
+import { CopField } from './cop-field';
 import { enrichmentBody, enrichmentFromProduct, enrichmentProblems } from './enrichment';
-import { EnrichmentFieldset } from './enrichment-fields';
-import { formatCop, formatDateTime } from './format';
-import { variantPermissions, type DetailPermissions } from './product-permissions';
+import { ClassificationFields, ContentFields } from './enrichment-fields';
+import { formatDateTime } from './format';
+import { formatCop, parseCop } from './money';
+import {
+  canPublishNow,
+  imagePermissions,
+  variantPermissions,
+  type DetailPermissions,
+} from './product-permissions';
 import { ProductImages } from './product-images';
 import { ProductVariants } from './product-variants';
+import { PublicationChecklist } from './publication-checklist';
+import { describeReadiness, SECTION_IDS } from './publication-readiness';
+import { SectionHeading } from './section-icon';
 import { StatusBadge } from './status-badge';
 
 /**
  * Detalle, edición y acciones de un producto.
  *
  * Todo el estado parte del producto que renderizó el servidor y se **reemplaza** por la respuesta
- * autoritativa de cada mutación: el backend devuelve el producto completo, incluida la nueva
- * `version`, así que el panel nunca calcula por su cuenta cómo quedó.
+ * autoritativa de cada mutación: el backend devuelve el producto completo —versión,
+ * `publicationReadiness`, imágenes y variantes incluidas—, así que el panel nunca calcula por su
+ * cuenta cómo quedó. En particular, la preparación para publicar **no se toca de forma optimista**:
+ * si se adelantara en React, el botón diría «listo» antes de que el backend lo confirme.
  *
  * Un `409` no se trata como un error más: significa que alguien cambió el producto entre la
  * lectura y el envío. Se ofrece recargar en lugar de reintentar a ciegas, porque reintentar con la
@@ -47,6 +59,9 @@ export function ProductDetailClient({
   const router = useRouter();
   const [product, setProduct] = useState(initial);
   const [enrichment, setEnrichment] = useState(() => enrichmentFromProduct(initial));
+  const [price, setPrice] = useState(() => String(initial.priceCop));
+  const [delta, setDelta] = useState('');
+  const [reason, setReason] = useState('');
   const [failure, setFailure] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -66,7 +81,6 @@ export function ProductDetailClient({
     name: useId(),
     shortDescription: useId(),
     description: useId(),
-    priceCop: useId(),
     lowStockThreshold: useId(),
     delta: useId(),
     reason: useId(),
@@ -102,19 +116,31 @@ export function ProductDetailClient({
   /**
    * Reemplaza el estado local con la respuesta autoritativa del backend.
    *
-   * Incluye el formulario de clasificación: si se sincronizara solo el producto, los campos
-   * seguirían mostrando lo que se escribió antes de la respuesta y el siguiente guardado enviaría
-   * eso, no lo que el backend guardó.
+   * Incluye los formularios: si se sincronizara solo el producto, los campos seguirían mostrando lo
+   * que se escribió antes de la respuesta y el siguiente guardado enviaría eso, no lo que el
+   * backend guardó.
    */
   function applyProduct(next: AdminProduct) {
     setProduct(next);
     setEnrichment(enrichmentFromProduct(next));
+    setPrice(String(next.priceCop));
+    setConflict(false);
   }
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!begin()) {
+      return;
+    }
+
+    const parsedPrice = parseCop(price);
+
+    if (!parsedPrice.ok) {
+      release(lock.current);
+      setBusy(false);
+      setFailure('Revisa el precio antes de guardar.');
+
       return;
     }
 
@@ -128,7 +154,7 @@ export function ProductDetailClient({
       name: String(data.get('name') ?? '').trim(),
       shortDescription: String(data.get('shortDescription') ?? ''),
       description: String(data.get('description') ?? ''),
-      priceCop: Number(data.get('priceCop')),
+      priceCop: parsedPrice.value,
       lowStockThreshold: Number(data.get('lowStockThreshold')),
     });
 
@@ -151,23 +177,18 @@ export function ProductDetailClient({
     });
   }
 
-  async function handleAdjust(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  async function handleAdjust() {
     if (!begin()) {
       return;
     }
-
-    const form = event.currentTarget;
-    const data = new FormData(form);
 
     // Una clave por operación, conservada entre reintentos de esa misma operación.
     inventoryKey.current ??= crypto.randomUUID();
 
     const result = await adjustInventory(product.id, {
       expectedVersion: product.version,
-      delta: Number(data.get('delta')),
-      reason: String(data.get('reason') ?? '').trim(),
+      delta: Number(delta),
+      reason: reason.trim(),
       idempotencyKey: inventoryKey.current,
     });
 
@@ -180,7 +201,8 @@ export function ProductDetailClient({
       );
       // Operación cerrada: el siguiente ajuste necesita su propia clave.
       inventoryKey.current = null;
-      form.reset();
+      setDelta('');
+      setReason('');
     });
   }
 
@@ -193,6 +215,13 @@ export function ProductDetailClient({
    */
   const sellsByVariant = product.variants.some((variant) => variant.status === 'active');
   const enrichmentIssues = enrichmentProblems(enrichment);
+  const readiness = product.publicationReadiness;
+  const deltaValue = Number(delta);
+  const canApplyAdjust =
+    delta.trim() !== '' &&
+    Number.isInteger(deltaValue) &&
+    deltaValue !== 0 &&
+    reason.trim().length > 0;
 
   return (
     <>
@@ -217,99 +246,147 @@ export function ProductDetailClient({
         {notice === null ? null : <p className={styles.notice}>{notice}</p>}
       </div>
 
-      <div className={styles.grid}>
-        <section className={styles.card}>
-          <div className={styles.cardPad}>
-            <h2 className={styles.sectionTitle}>Datos del producto</h2>
-            {permissions.canUpdate ? (
-              <form noValidate onSubmit={handleSave}>
-                <div className={styles.field}>
-                  <label className={styles.label} htmlFor={ids.name}>
-                    Nombre
-                  </label>
-                  <input
-                    className={styles.input}
-                    defaultValue={product.name}
-                    disabled={busy}
-                    id={ids.name}
-                    name="name"
-                    required
-                    type="text"
-                  />
-                </div>
-                <div className={styles.field}>
-                  <label className={styles.label} htmlFor={ids.shortDescription}>
-                    Descripción corta
-                  </label>
-                  <input
-                    className={styles.input}
-                    defaultValue={product.shortDescription}
-                    disabled={busy}
-                    id={ids.shortDescription}
-                    name="shortDescription"
-                    type="text"
-                  />
-                </div>
-                <div className={styles.field}>
-                  <label className={styles.label} htmlFor={ids.description}>
-                    Descripción
-                  </label>
-                  <textarea
-                    className={styles.textarea}
-                    defaultValue={product.description}
-                    disabled={busy}
-                    id={ids.description}
-                    name="description"
-                  />
-                </div>
-                <h3 className={styles.sectionTitle}>Clasificación y contenido</h3>
-                <EnrichmentFieldset
-                  disabled={busy}
-                  fields={enrichment}
-                  mode="edit"
-                  onChange={setEnrichment}
-                />
-                {enrichmentIssues.length === 0 ? null : (
-                  <ul className={styles.problemList}>
-                    {enrichmentIssues.map((problem) => (
-                      <li className={styles.fieldError} key={problem}>
-                        {problem}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+      <div className={styles.detailGrid}>
+        <div className={styles.stack}>
+          {permissions.canUpdate ? (
+            <form noValidate onSubmit={handleSave}>
+              <div className={styles.stack}>
+                <section className={styles.card} id={SECTION_IDS.basica}>
+                  <div className={styles.cardPad}>
+                    <SectionHeading
+                      hint="Datos principales, clasificación e identificadores."
+                      icon="basica"
+                      title="Información básica"
+                    />
+                    <div className={styles.field}>
+                      <label className={styles.label} htmlFor={ids.name}>
+                        Nombre *
+                      </label>
+                      <input
+                        className={styles.input}
+                        defaultValue={product.name}
+                        disabled={busy}
+                        id={ids.name}
+                        name="name"
+                        required
+                        type="text"
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label className={styles.label} htmlFor={ids.shortDescription}>
+                        Descripción corta
+                      </label>
+                      <input
+                        className={styles.input}
+                        defaultValue={product.shortDescription}
+                        disabled={busy}
+                        id={ids.shortDescription}
+                        name="shortDescription"
+                        type="text"
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label className={styles.label} htmlFor={ids.description}>
+                        Descripción
+                      </label>
+                      <textarea
+                        className={styles.textarea}
+                        defaultValue={product.description}
+                        disabled={busy}
+                        id={ids.description}
+                        name="description"
+                      />
+                    </div>
+
+                    <h3 className={styles.subTitle}>Clasificación</h3>
+                    <ClassificationFields
+                      disabled={busy}
+                      fields={enrichment}
+                      mode="edit"
+                      onChange={setEnrichment}
+                    />
+
+                    <h3 className={styles.subTitle}>Identificadores</h3>
+                    <dl className={styles.definition}>
+                      <dt>SKU</dt>
+                      <dd className={styles.immutable}>{product.sku}</dd>
+                      <dt>Slug</dt>
+                      <dd className={styles.immutable}>{product.slug}</dd>
+                    </dl>
+                    <p className={styles.hint}>
+                      SKU y slug son inmutables: el backend no los deja cambiar.
+                    </p>
+                  </div>
+                </section>
+
+                <section className={styles.card} id={SECTION_IDS.contenido}>
+                  <div className={styles.cardPad}>
+                    <SectionHeading icon="contenido" title="Características y especificaciones" />
+                    <ContentFields
+                      disabled={busy}
+                      fields={enrichment}
+                      mode="edit"
+                      onChange={setEnrichment}
+                    />
+                    {enrichmentIssues.length === 0 ? null : (
+                      <ul className={styles.problemList}>
+                        {enrichmentIssues.map((problem) => (
+                          <li className={styles.fieldError} key={problem} role="alert">
+                            {problem}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </section>
 
                 <div className={styles.row}>
-                  <div className={styles.field}>
-                    <label className={styles.label} htmlFor={ids.priceCop}>
-                      Precio (COP)
-                    </label>
-                    <input
-                      className={styles.input}
-                      defaultValue={product.priceCop}
-                      disabled={busy}
-                      id={ids.priceCop}
-                      min={0}
-                      name="priceCop"
-                      required
-                      type="number"
-                    />
-                  </div>
-                  <div className={styles.field}>
-                    <label className={styles.label} htmlFor={ids.lowStockThreshold}>
-                      Umbral de stock bajo
-                    </label>
-                    <input
-                      className={styles.input}
-                      defaultValue={product.lowStockThreshold}
-                      disabled={busy}
-                      id={ids.lowStockThreshold}
-                      min={0}
-                      name="lowStockThreshold"
-                      type="number"
-                    />
-                  </div>
+                  <section className={styles.card} id={SECTION_IDS.precio}>
+                    <div className={styles.cardPad}>
+                      <SectionHeading icon="precio" title="Precio" />
+                      <CopField
+                        disabled={busy}
+                        hint="Pesos enteros. Al backend viaja el número, no el texto."
+                        label="Precio"
+                        onChange={setPrice}
+                        required
+                        value={price}
+                      />
+                      {sellsByVariant ? (
+                        <p className={styles.hint}>
+                          Se conserva, pero lo que se vende es el precio de cada variante.
+                        </p>
+                      ) : null}
+                    </div>
+                  </section>
+
+                  <section className={styles.card} id={SECTION_IDS.inventario}>
+                    <div className={styles.cardPad}>
+                      <SectionHeading icon="inventario" title="Inventario" />
+                      <dl className={styles.definition}>
+                        <dt>Existencias</dt>
+                        <dd className={lowStock ? styles.lowStock : undefined}>
+                          {product.stockQuantity}
+                        </dd>
+                      </dl>
+                      <div className={styles.field}>
+                        <label className={styles.label} htmlFor={ids.lowStockThreshold}>
+                          Umbral de stock bajo
+                        </label>
+                        <input
+                          className={styles.input}
+                          defaultValue={product.lowStockThreshold}
+                          disabled={busy}
+                          id={ids.lowStockThreshold}
+                          min={0}
+                          name="lowStockThreshold"
+                          type="number"
+                        />
+                      </div>
+                    </div>
+                  </section>
                 </div>
+
                 {sellsByVariant ? (
                   <p className={styles.notice}>
                     Este producto se vende por variantes: el precio y el inventario que valen son
@@ -317,47 +394,145 @@ export function ProductDetailClient({
                     lo que se compra.
                   </p>
                 ) : null}
-                <div className={styles.actions}>
-                  <button
-                    className={styles.button}
-                    disabled={busy || enrichmentIssues.length > 0}
-                    type="submit"
-                  >
-                    {busy ? 'Guardando…' : 'Guardar cambios'}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <p className={styles.hint}>Tu rol no permite editar este producto.</p>
-            )}
-          </div>
-        </section>
 
-        <div>
+                <div className={styles.actionBar}>
+                  <div className={styles.actionBarText}>
+                    Se envía con la versión {product.version}, la que estás viendo.
+                  </div>
+                  <div className={styles.actionBarButtons}>
+                    <button
+                      className={styles.button}
+                      disabled={busy || enrichmentIssues.length > 0}
+                      type="submit"
+                    >
+                      {busy ? 'Guardando…' : 'Guardar cambios'}
+                    </button>
+                  </div>
+                  {enrichmentIssues.length === 0 ? null : (
+                    <p className={styles.hint}>
+                      Corrige lo marcado en «Características y especificaciones» para poder guardar.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </form>
+          ) : (
+            <section className={styles.card} id={SECTION_IDS.basica}>
+              <div className={styles.cardPad}>
+                <SectionHeading icon="basica" title="Información básica" />
+                <dl className={styles.definition}>
+                  <dt>Nombre</dt>
+                  <dd>{product.name}</dd>
+                  <dt>SKU</dt>
+                  <dd className={styles.immutable}>{product.sku}</dd>
+                  <dt>Slug</dt>
+                  <dd className={styles.immutable}>{product.slug}</dd>
+                  <dt>Precio</dt>
+                  <dd>{formatCop(product.priceCop)}</dd>
+                </dl>
+                <p className={styles.hint}>Tu rol no permite editar este producto.</p>
+              </div>
+            </section>
+          )}
+
+          {permissions.canAdjustInventory ? (
+            <section className={styles.card}>
+              <div className={styles.cardPad}>
+                <SectionHeading icon="inventario" title="Ajustar inventario" />
+                {sellsByVariant ? (
+                  <p className={styles.notice}>
+                    El inventario de este producto se gestiona por variante desde que tiene la
+                    primera. El stock base se queda como estaba —no se borra ni se reparte— y aquí
+                    ya no se ajusta: hazlo en cada variante.
+                  </p>
+                ) : (
+                  <>
+                    <div className={styles.row}>
+                      <div className={styles.field}>
+                        <label className={styles.label} htmlFor={ids.delta}>
+                          Diferencia
+                        </label>
+                        <input
+                          className={styles.input}
+                          disabled={busy}
+                          id={ids.delta}
+                          onChange={(event) => setDelta(event.target.value)}
+                          step={1}
+                          type="number"
+                          value={delta}
+                        />
+                        <span className={styles.hint}>
+                          Entero distinto de cero. Negativo para descontar. El stock nunca baja de
+                          cero.
+                        </span>
+                      </div>
+                      <div className={styles.field}>
+                        <label className={styles.label} htmlFor={ids.reason}>
+                          Motivo
+                        </label>
+                        <input
+                          className={styles.input}
+                          disabled={busy}
+                          id={ids.reason}
+                          onChange={(event) => setReason(event.target.value)}
+                          type="text"
+                          value={reason}
+                        />
+                      </div>
+                    </div>
+                    <div className={styles.actions}>
+                      <button
+                        className={styles.buttonSecondary}
+                        disabled={busy || !canApplyAdjust}
+                        onClick={() => void handleAdjust()}
+                        type="button"
+                      >
+                        {busy ? 'Ajustando…' : 'Aplicar ajuste'}
+                      </button>
+                    </div>
+                    {canApplyAdjust ? null : (
+                      <p className={styles.hint}>
+                        Para aplicar un ajuste hace falta una diferencia distinta de cero y un
+                        motivo.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          <div id={SECTION_IDS.imagenes}>
+            <ProductImages
+              canArchive={imagePermissions(role).canArchive}
+              canEdit={imagePermissions(role).canEdit}
+              onProduct={applyProduct}
+              product={product}
+            />
+          </div>
+
+          <div id={SECTION_IDS.variantes}>
+            <ProductVariants
+              onProduct={applyProduct}
+              permissions={variantPermissions(role)}
+              product={product}
+            />
+          </div>
+        </div>
+
+        <aside className={styles.detailAside}>
           <section className={styles.card}>
             <div className={styles.cardPad}>
-              <h2 className={styles.sectionTitle}>Estado</h2>
+              <SectionHeading icon="estado" title="Estado del producto" />
               <dl className={styles.definition}>
                 <dt>Estado</dt>
                 <dd>
                   <StatusBadge status={product.status} />
                 </dd>
-                <dt>SKU</dt>
-                <dd className={styles.immutable}>{product.sku}</dd>
-                <dt>Slug</dt>
-                <dd className={styles.immutable}>{product.slug}</dd>
                 <dt>Categoría</dt>
-                <dd>
-                  {product.category === null
-                    ? 'Sin categoría'
-                    : `${product.category.name} (${product.category.slug})`}
-                </dd>
+                <dd>{product.category === null ? 'Sin categoría' : product.category.name}</dd>
                 <dt>Tipo</dt>
-                <dd>
-                  {product.productType === null
-                    ? 'Sin tipo'
-                    : `${product.productType.name} (${product.productType.slug})`}
-                </dd>
+                <dd>{product.productType === null ? 'Sin tipo' : product.productType.name}</dd>
                 <dt>Destacado</dt>
                 <dd>{product.featured ? 'Sí' : 'No'}</dd>
                 <dt>Precio base</dt>
@@ -369,20 +544,24 @@ export function ProductDetailClient({
                 <dt>Actualizado</dt>
                 <dd>{formatDateTime(product.updatedAt)}</dd>
               </dl>
-              <p className={styles.hint}>
-                SKU y slug son inmutables: el backend no los deja cambiar.
-              </p>
+            </div>
+          </section>
+
+          <section className={styles.card}>
+            <div className={styles.cardPad}>
+              <SectionHeading icon="vistaPrevia" title="Preparación para publicar" />
+              <PublicationChecklist readiness={readiness} />
 
               {permissions.canPublish || permissions.canArchive ? (
                 <div className={styles.actions}>
                   {permissions.canPublish && product.status !== 'active' ? (
                     <button
                       className={styles.button}
-                      disabled={busy}
+                      disabled={busy || !canPublishNow(permissions, product)}
                       onClick={() => void handleTransition('publish')}
                       type="button"
                     >
-                      Publicar
+                      Publicar producto
                     </button>
                   ) : null}
                   {permissions.canArchive && product.status !== 'archived' ? (
@@ -392,93 +571,25 @@ export function ProductDetailClient({
                       onClick={() => void handleTransition('archive')}
                       type="button"
                     >
-                      Archivar
+                      Archivar producto
                     </button>
                   ) : null}
                 </div>
               ) : null}
+
+              {permissions.canPublish && product.status !== 'active' && !readiness.ready ? (
+                <p className={styles.hint}>
+                  «Publicar producto» está deshabilitado:{' '}
+                  {describeReadiness(readiness).toLowerCase()}. Complétalos y vuelve a guardar; el
+                  backend recalcula esta lista en cada respuesta.
+                </p>
+              ) : null}
+              {permissions.canPublish ? null : (
+                <p className={styles.hint}>Tu rol no incluye publicar ni archivar.</p>
+              )}
             </div>
           </section>
-
-          {permissions.canAdjustInventory && sellsByVariant ? (
-            <section className={styles.card} style={{ marginTop: 'var(--space-lg)' }}>
-              <div className={styles.cardPad}>
-                <h2 className={styles.sectionTitle}>Ajustar inventario</h2>
-                <p className={styles.notice}>
-                  El inventario de este producto se gestiona por variante desde que tiene la
-                  primera. El stock base se queda como estaba —no se borra ni se reparte— y aquí ya
-                  no se ajusta: hazlo en cada variante.
-                </p>
-              </div>
-            </section>
-          ) : null}
-
-          {permissions.canAdjustInventory && !sellsByVariant ? (
-            <section className={styles.card} style={{ marginTop: 'var(--space-lg)' }}>
-              <form className={styles.cardPad} noValidate onSubmit={handleAdjust}>
-                <h2 className={styles.sectionTitle}>Ajustar inventario</h2>
-                <div className={styles.field}>
-                  <label className={styles.label} htmlFor={ids.delta}>
-                    Diferencia
-                  </label>
-                  <input
-                    className={styles.input}
-                    disabled={busy}
-                    id={ids.delta}
-                    name="delta"
-                    required
-                    step={1}
-                    type="number"
-                  />
-                  <span className={styles.hint}>
-                    Entero distinto de cero. Negativo para descontar. El stock nunca baja de cero.
-                  </span>
-                </div>
-                <div className={styles.field}>
-                  <label className={styles.label} htmlFor={ids.reason}>
-                    Motivo
-                  </label>
-                  <input
-                    className={styles.input}
-                    disabled={busy}
-                    id={ids.reason}
-                    name="reason"
-                    required
-                    type="text"
-                  />
-                </div>
-                <div className={styles.actions}>
-                  <button className={styles.buttonSecondary} disabled={busy} type="submit">
-                    {busy ? 'Ajustando…' : 'Aplicar ajuste'}
-                  </button>
-                </div>
-              </form>
-            </section>
-          ) : null}
-        </div>
-      </div>
-
-      <div style={{ marginTop: 'var(--space-lg)' }}>
-        <ProductVariants
-          onProduct={(next) => {
-            applyProduct(next);
-            setConflict(false);
-          }}
-          permissions={variantPermissions(role)}
-          product={product}
-        />
-      </div>
-
-      <div style={{ marginTop: 'var(--space-lg)' }}>
-        <ProductImages
-          canArchive={permissions.canArchive}
-          canEdit={permissions.canUpdate}
-          onProduct={(next) => {
-            applyProduct(next);
-            setConflict(false);
-          }}
-          product={product}
-        />
+        </aside>
       </div>
     </>
   );

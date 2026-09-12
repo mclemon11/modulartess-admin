@@ -5,7 +5,7 @@ import { useId } from 'react';
 import { VARIANT_MAX_ACTIVE } from '@/lib/api/variant-limits';
 
 import styles from './catalog.module.css';
-import { formatCop } from './format';
+import { CopField } from './cop-field';
 import type { AxisDraft, VariantDraft, VariantValidation } from './variant-draft';
 
 /**
@@ -110,7 +110,6 @@ export function VariantDraftEditor({
         <ul className={styles.variantList}>
           {drafts.map((draft) => {
             const problem = validation.byDraft[draft.draftId];
-            const price = Number(draft.priceCop);
             const locked = lockedDraftIds.includes(draft.draftId);
 
             if (locked) {
@@ -191,28 +190,18 @@ export function VariantDraftEditor({
                       value={draft.sku}
                     />
                   </div>
-                  <div className={styles.field}>
-                    <label className={styles.label} htmlFor={`${fieldId}-${draft.draftId}-price`}>
-                      Precio (COP)
-                    </label>
-                    <input
-                      className={styles.input}
-                      disabled={disabled}
-                      id={`${fieldId}-${draft.draftId}-price`}
-                      min={1}
-                      onChange={(event) =>
-                        update(draft.draftId, (current) => ({
-                          ...current,
-                          priceCop: event.target.value,
-                        }))
-                      }
-                      type="number"
-                      value={draft.priceCop}
-                    />
-                    <span className={styles.hint}>
-                      {Number.isInteger(price) && price > 0 ? formatCop(price) : 'Pesos enteros.'}
-                    </span>
-                  </div>
+                  {/* Mismo campo y mismo conversor que el precio del producto: prefijo `$`, miles
+                      con punto y entero al backend. */}
+                  <CopField
+                    disabled={disabled}
+                    hint="Pesos enteros, mayor que cero."
+                    label="Precio de la variante"
+                    onChange={(value) =>
+                      update(draft.draftId, (current) => ({ ...current, priceCop: value }))
+                    }
+                    required
+                    value={draft.priceCop}
+                  />
                   <div className={styles.field}>
                     <label className={styles.label} htmlFor={`${fieldId}-${draft.draftId}-stock`}>
                       Inventario inicial

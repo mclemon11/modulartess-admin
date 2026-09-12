@@ -9,11 +9,13 @@
 export type NavigationItem = {
   readonly href: string;
   readonly label: string;
+  /** Icono de `section-icon`, para que la barra lateral tenga la misma iconografía que las tarjetas. */
+  readonly icon: 'panel' | 'productos';
 };
 
 export const NAVIGATION: readonly NavigationItem[] = [
-  { href: '/panel', label: 'Panel' },
-  { href: '/panel/productos', label: 'Productos' },
+  { href: '/panel', label: 'Panel', icon: 'panel' },
+  { href: '/panel/productos', label: 'Productos', icon: 'productos' },
 ];
 
 /**

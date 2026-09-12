@@ -32,17 +32,31 @@ function draft(draftId: string): VariantDraft {
   };
 }
 
-/** Producto con la versión y las imágenes que el backend devolvería tras cada paso. */
-function product(version: number, images: { id: string; isPrimary: boolean }[] = []): AdminProduct {
+/**
+ * Producto con la versión, las imágenes y la preparación que el backend devolvería tras cada paso.
+ *
+ * `publicationReadiness` viene del backend en **cada** respuesta: el flujo la lee de ahí y nunca la
+ * calcula.
+ */
+function product(
+  version: number,
+  images: { id: string; isPrimary: boolean }[] = [],
+  ready = false,
+): AdminProduct {
   return {
     id: 'prd_1',
     version,
     images: images.map((image) => ({ ...image, status: 'active' })),
+    publicationReadiness: {
+      ready,
+      missing: ready ? [] : ['description', 'gallery'],
+    },
   } as unknown as AdminProduct;
 }
 
 function input(overrides: Partial<CreateFlowInput> = {}): CreateFlowInput {
   return {
+    intent: 'draft',
     fields: {},
     enrichment: null,
     queue: [],
@@ -52,17 +66,22 @@ function input(overrides: Partial<CreateFlowInput> = {}): CreateFlowInput {
   };
 }
 
-/** Dobles que imitan al backend: cada operación incrementa la versión del producto. */
-function backendDouble(overrides: Partial<CreateFlowDeps> = {}): CreateFlowDeps {
+/**
+ * Dobles que imitan al backend: cada operación incrementa la versión del producto.
+ *
+ * `ready` fija lo que el backend responderá en `publicationReadiness`, que es lo único que decide
+ * si el flujo llega a publicar.
+ */
+function backendDouble(overrides: Partial<CreateFlowDeps> = {}, ready = false): CreateFlowDeps {
   const images: { id: string; isPrimary: boolean }[] = [];
   let version = 1;
 
   return {
-    createProduct: vi.fn(async () => ({ ok: true as const, data: product(version, []) })),
+    createProduct: vi.fn(async () => ({ ok: true as const, data: product(version, [], ready) })),
     enrichProduct: vi.fn(async () => {
       version += 1;
 
-      return { ok: true as const, data: product(version, images) };
+      return { ok: true as const, data: product(version, images, ready) };
     }),
     uploadImage: vi.fn(async ({ entry: queued }) => {
       version += 1;
@@ -71,7 +90,7 @@ function backendDouble(overrides: Partial<CreateFlowDeps> = {}): CreateFlowDeps 
 
       images.push(image);
 
-      return { ok: true as const, data: { product: product(version, images), image } };
+      return { ok: true as const, data: { product: product(version, images, ready), image } };
     }),
     setPrimary: vi.fn(async ({ imageId }) => {
       version += 1;
@@ -80,15 +99,23 @@ function backendDouble(overrides: Partial<CreateFlowDeps> = {}): CreateFlowDeps 
         image.isPrimary = image.id === imageId;
       }
 
-      return { ok: true as const, data: { product: product(version, images) } };
+      return { ok: true as const, data: { product: product(version, images, ready) } };
     }),
     createVariant: vi.fn(async ({ draft: pending }) => {
       version += 1;
 
       return {
         ok: true as const,
-        data: { product: product(version, images), variant: { id: `var-${pending.draftId}` } },
+        data: {
+          product: product(version, images, ready),
+          variant: { id: `var-${pending.draftId}` },
+        },
       };
+    }),
+    publishProduct: vi.fn(async () => {
+      version += 1;
+
+      return { ok: true as const, data: product(version, images, ready) };
     }),
     ...overrides,
   };
@@ -335,6 +362,7 @@ describe('fallo parcial y reintento', () => {
         ],
         primaryApplied: false,
         variants: [{ draftId: 'fantasma', variantId: 'var-x' }],
+        published: false,
         failure: null,
       },
       { queue: [entry('a')], variants: [] },
@@ -476,6 +504,7 @@ describe('fallo parcial y reintento', () => {
       uploaded: [],
       primaryApplied: false,
       variants: [],
+      published: false,
       failure: { step: 'create', entryId: null, code: 'invalid_request' },
     });
     expect(deps.enrichProduct).not.toHaveBeenCalled();
@@ -536,5 +565,113 @@ describe('claves de idempotencia', () => {
       'key-b',
       'key-b',
     ]);
+  });
+});
+
+describe('intención de publicar', () => {
+  it('guardar borrador nunca publica, aunque el producto esté listo', async () => {
+    const deps = backendDouble({}, true);
+
+    const progress = await runCreateFlow(input({ intent: 'draft' }), deps);
+
+    expect(deps.publishProduct).not.toHaveBeenCalled();
+    expect(progress.published).toBe(false);
+  });
+
+  it('publicar guarda primero y publica con la última versión cuando ready=true', async () => {
+    const deps = backendDouble({}, true);
+
+    const progress = await runCreateFlow(
+      input({
+        intent: 'publish',
+        enrichment: { featured: true },
+        queue: [entry('a')],
+        primaryEntryId: 'a',
+        variants: [draft('roble')],
+      }),
+      deps,
+    );
+
+    expect(deps.publishProduct).toHaveBeenCalledTimes(1);
+    // 1 crear, 2 enriquecer, 3 imagen, 4 variante: publica con la versión 4, la última devuelta.
+    expect(vi.mocked(deps.publishProduct).mock.calls[0]?.[0]).toMatchObject({
+      productId: 'prd_1',
+      expectedVersion: 4,
+    });
+    expect(progress.published).toBe(true);
+    expect(progress.failure).toBeNull();
+  });
+
+  it('con ready=false conserva el borrador y NO llama a publish', async () => {
+    const deps = backendDouble({}, false);
+
+    const progress = await runCreateFlow(
+      input({ intent: 'publish', queue: [entry('a')], primaryEntryId: 'a' }),
+      deps,
+    );
+
+    expect(deps.publishProduct).not.toHaveBeenCalled();
+    expect(progress.published).toBe(false);
+    // Todo lo demás sí se guardó: el borrador queda completo y con sus imágenes.
+    expect(progress.product).not.toBeNull();
+    expect(progress.uploaded.map((done) => done.entryId)).toEqual(['a']);
+    expect(progress.failure).toBeNull();
+    expect(progress.product?.publicationReadiness.ready).toBe(false);
+  });
+
+  it('la preparación sale de la última respuesta, no de la primera', async () => {
+    // El backend puede pasar de «no listo» a «listo» al enriquecer: lo que decide es la respuesta
+    // más reciente.
+    let version = 1;
+    const deps = backendDouble({
+      createProduct: vi.fn(async () => ({ ok: true as const, data: product(version, [], false) })),
+      enrichProduct: vi.fn(async () => {
+        version = 2;
+
+        return { ok: true as const, data: product(version, [], true) };
+      }),
+    });
+
+    const progress = await runCreateFlow(
+      input({ intent: 'publish', enrichment: { featured: true } }),
+      deps,
+    );
+
+    expect(deps.publishProduct).toHaveBeenCalledTimes(1);
+    expect(progress.published).toBe(true);
+  });
+
+  it('un fallo al publicar conserva todo lo guardado y no lo repite al reintentar', async () => {
+    const base = backendDouble({}, true);
+    let failNext = true;
+    const deps = backendDouble(
+      {
+        createProduct: base.createProduct,
+        publishProduct: vi.fn(async (args) => {
+          if (failNext) {
+            failNext = false;
+
+            return { ok: false as const, code: 'version_conflict' };
+          }
+
+          return base.publishProduct(args);
+        }),
+      },
+      true,
+    );
+
+    const payload = input({ intent: 'publish', queue: [entry('a')], primaryEntryId: 'a' });
+    const first = await runCreateFlow(payload, deps);
+
+    expect(first.failure).toEqual({ step: 'publish', entryId: null, code: 'version_conflict' });
+    expect(first.product).not.toBeNull();
+    expect(first.published).toBe(false);
+
+    const second = await runCreateFlow(payload, deps, first);
+
+    expect(second.published).toBe(true);
+    expect(deps.createProduct).toHaveBeenCalledTimes(1);
+    // La imagen no se volvió a subir: ya estaba confirmada en el primer intento.
+    expect(deps.uploadImage).toHaveBeenCalledTimes(1);
   });
 });

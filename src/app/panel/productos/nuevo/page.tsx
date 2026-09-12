@@ -29,15 +29,19 @@ export default async function NewProductPage() {
           { label: 'Nuevo' },
         ]}
       />
-      <div className={styles.cardPad}>
-        <h1 className={styles.pageTitle}>Crear producto</h1>
-        <p className={styles.pageLead}>
-          SKU y slug quedan fijos al crear: el backend los vuelve inmutables. Todo lo demás se puede
-          editar después.
-        </p>
-        <section className={styles.card}>
-          <CreateProductForm />
-        </section>
+      <div className={styles.page}>
+        <div className={styles.pageHead}>
+          <div className={styles.pageHeadText}>
+            <h1 className={styles.pageTitle}>Nuevo producto</h1>
+            <p className={styles.pageLead}>
+              SKU y slug quedan fijos al crear: el backend los vuelve inmutables. Todo lo demás se
+              puede editar después. Nada se envía hasta que pulses «Guardar borrador» o «Publicar
+              producto».
+            </p>
+          </div>
+        </div>
+        {/* El formulario ya son tarjetas: envolverlo en otra crearía un marco dentro de un marco. */}
+        <CreateProductForm canPublish={can(session.session.role, 'products.publish')} />
       </div>
     </>
   );

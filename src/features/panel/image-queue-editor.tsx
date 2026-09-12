@@ -10,6 +10,7 @@ import {
 
 import styles from './catalog.module.css';
 import type { QueuedImage } from './image-queue';
+import { SectionHeading } from './section-icon';
 
 /**
  * Editor de la cola local de imágenes.
@@ -54,7 +55,11 @@ export function ImageQueueEditor({
   return (
     <section className={styles.card}>
       <div className={styles.cardPad}>
-        <h2 className={styles.sectionTitle}>Imágenes del producto</h2>
+        <SectionHeading
+          hint="Se suben al guardar, una detrás de otra."
+          icon="imagenes"
+          title="Imágenes del producto"
+        />
         <p className={styles.hint}>
           Se suben cuando pulses «Crear producto», una detrás de otra. Hasta {IMAGE_MAX_ACTIVE}{' '}
           imágenes, JPG, PNG o WebP, máximo 10 MB cada una.

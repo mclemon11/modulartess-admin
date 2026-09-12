@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-09-11.
+Última actualización: 2026-09-12.
 
 ## Fase
 
@@ -8,34 +8,32 @@ Fase 2 — primera vertical completa de sesión administrativa. Sobre la autenti
 el objetivo era cerrar el recorrido: canjear el ID token en el BFF, guardar la sesión en una cookie
 `__Host-` y proteger una ruta mínima verificándola contra el backend.
 
-Fase 3 — preparación del despliegue. Está el material completo para llevar el panel a Cloud Run
-staging: `Dockerfile`, `.dockerignore`, `deploy/cloudbuild.yaml`, `deploy/staging.sh` con
+Fase 3 — despliegue. El panel **está desplegado en Cloud Run staging** con el material de este
+repositorio: `Dockerfile`, `.dockerignore`, `deploy/cloudbuild.yaml`, `deploy/staging.sh` con
 `preflight`/`build`/`deploy`/`verify`/`all`, y el runbook en `../../deploy/README.md`.
 
-**Límite real:** el panel **todavía no está desplegado**. El backend ya tiene su superficie
-administrativa activa, pero la identidad `modulartess-admin-stg-run` no existe aún y no tiene
-`roles/run.invoker`. Hasta que se creen a mano (runbook, sección 2) y se despliegue, el recorrido
-en Cloud Run sigue sin verificar.
+Fase 4 — catálogo. **Productos** está terminado de extremo a extremo y diseñado para escritorio y
+móvil: listado, alta con contenido enriquecido, imágenes y variantes, detalle con edición por
+secciones, inventario, variantes y publicación gobernada por `publicationReadiness`.
 
 ## Estado real del entorno
 
 Esto es lo que ya existe fuera de este repositorio, y no debe describirse como pendiente:
 
-| Hecho                                 | Estado                                                |
-| ------------------------------------- | ----------------------------------------------------- |
-| Firebase Authentication               | Habilitado                                            |
-| Primera cuenta administrativa         | Creada, con el correo **verificado**                  |
-| Claim `super_admin` de esa cuenta     | **Ya asignado**                                       |
-| Bootstrap del backend                 | `completed`; **no puede repetirse**                   |
-| Roles admitidos por backend y OpenAPI | `super_admin`, `master_admin`, `moderator`            |
-| `master_admin` y `moderator`          | Implementados en el contrato; **sin cuentas creadas** |
-| Cuentas existentes                    | Solo la `super_admin` del bootstrap                   |
-| Backend desplegado                    | **`ADMIN_AUTH_MODE=firebase`**, `/v1/admin/*` activa  |
-| Backend `modulartess-backend-staging` | Ready, privado por IAM, revisión `...-00003-6hz`      |
-| Invocador actual del backend          | `modulartess-web-stg-run`, el único                   |
-| `modulartess-admin-stg-run`           | **No existe todavía**                                 |
-| `roles/run.invoker` para el panel     | **No concedido todavía**                              |
-| Servicio `modulartess-admin-staging`  | **No desplegado todavía**                             |
+| Hecho                                 | Estado                                               |
+| ------------------------------------- | ---------------------------------------------------- |
+| Firebase Authentication               | Habilitado                                           |
+| Primera cuenta administrativa         | Creada, con el correo **verificado**                 |
+| Claim `super_admin` de esa cuenta     | **Ya asignado**                                      |
+| Bootstrap del backend                 | `completed`; **no puede repetirse**                  |
+| Roles admitidos por backend y OpenAPI | `super_admin`, `master_admin`, `moderator`           |
+| `master_admin` y `moderator`          | Implementados y publicados en el contrato            |
+| Cuentas existentes                    | La `super_admin` del bootstrap                       |
+| Backend desplegado                    | **`ADMIN_AUTH_MODE=firebase`**, `/v1/admin/*` activa |
+| Backend `modulartess-backend-staging` | Ready, privado por IAM                               |
+| `modulartess-admin-stg-run`           | Creada                                               |
+| `roles/run.invoker` para el panel     | Concedido sobre el backend de staging                |
+| Servicio `modulartess-admin-staging`  | **Desplegado**                                       |
 
 ## Implementado
 
@@ -70,33 +68,36 @@ Esto es lo que ya existe fuera de este repositorio, y no debe describirse como p
 
 Implementado en el repositorio y comprobado con dobles locales.
 
-| Área                     | Estado | Detalle                                                              |
-| ------------------------ | ------ | -------------------------------------------------------------------- |
-| Copia OpenAPI            | Listo  | `openapi/backend-v1.json`, comiteada; build y runtime solo de ahí.   |
-| Tipos generados          | Listo  | `src/lib/api/generated/schema.d.ts`; `pnpm api:check` los valida.    |
-| Cliente del backend      | Listo  | `openapi-fetch` tipado, `server-only`, `no-store` y temporizador.    |
-| Identity token IAM       | Listo  | `google-auth-library`, caché por audiencia con retirada en fallo.    |
-| `POST` del BFF           | Listo  | Origin exacto, `application/json`, cuerpo en bytes UTF-8, `201`.     |
-| `GET` del BFF            | Listo  | Verifica contra el backend. **Solo lectura**: nunca emite cookie.    |
-| `DELETE` del BFF         | Listo  | Origin exacto, borra la cookie, `204`. Independiente del backend.    |
-| Limpieza de sesión       | Listo  | Frontera cliente: `DELETE` y navegación solo tras el `204`.          |
-| Validación de orígenes   | Listo  | HTTPS salvo loopback; audiencia igual a la URL en `google-oidc`.     |
-| `expiresAt`              | Listo  | RFC 3339 estricto con zona explícita; sin `Date.parse` permisivo.    |
-| Cookie de sesión         | Listo  | `__Host-`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`.        |
-| Integración con el login | Listo  | ID token reciente, canje y cierre de Firebase tras el canje.         |
-| Cierre de la sesión SDK  | Listo  | Si `signOut` falla, `location.replace` destruye el documento.        |
-| Ruta protegida `/panel`  | Listo  | Server Component; verifica en cada visita; solo muestra el rol.      |
-| Shell del panel          | Listo  | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión. |
-| Catálogo de productos    | Listo  | Listado, alta, detalle, edición, publicar, archivar e inventario.    |
-| Catálogo enriquecido     | Listo  | Categoría, tipo, destacado, características y especificaciones.      |
-| Variantes                | Listo  | Ejes, combinaciones, precio, inventario y archivado por variante.    |
-| Imágenes de producto     | Listo  | Subir, editar texto alternativo, orden, principal y archivar.        |
-| Alta completa            | Listo  | Un envío: crea el borrador, enriquece, sube y crea variantes.        |
-| Reanudación tras fallo   | Listo  | No recrea nada guardado; reintenta solo lo que falta.                |
-| Shell responsive         | Listo  | Sidebar fija en escritorio; cajón por debajo de 60rem.               |
-| Mutaciones por BFF       | Listo  | Nueve Route Handlers; el navegador no llama al backend.              |
-| Permisos por rol         | Listo  | Matriz explícita en `src/features/session/permissions.ts`.           |
-| ADR local del BFF        | Listo  | `../decisions/0003-admin-session-bff.md`.                            |
+| Área                      | Estado | Detalle                                                               |
+| ------------------------- | ------ | --------------------------------------------------------------------- |
+| Copia OpenAPI             | Listo  | `openapi/backend-v1.json`, comiteada; build y runtime solo de ahí.    |
+| Tipos generados           | Listo  | `src/lib/api/generated/schema.d.ts`; `pnpm api:check` los valida.     |
+| Cliente del backend       | Listo  | `openapi-fetch` tipado, `server-only`, `no-store` y temporizador.     |
+| Identity token IAM        | Listo  | `google-auth-library`, caché por audiencia con retirada en fallo.     |
+| `POST` del BFF            | Listo  | Origin exacto, `application/json`, cuerpo en bytes UTF-8, `201`.      |
+| `GET` del BFF             | Listo  | Verifica contra el backend. **Solo lectura**: nunca emite cookie.     |
+| `DELETE` del BFF          | Listo  | Origin exacto, borra la cookie, `204`. Independiente del backend.     |
+| Limpieza de sesión        | Listo  | Frontera cliente: `DELETE` y navegación solo tras el `204`.           |
+| Validación de orígenes    | Listo  | HTTPS salvo loopback; audiencia igual a la URL en `google-oidc`.      |
+| `expiresAt`               | Listo  | RFC 3339 estricto con zona explícita; sin `Date.parse` permisivo.     |
+| Cookie de sesión          | Listo  | `__Host-`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`.         |
+| Integración con el login  | Listo  | ID token reciente, canje y cierre de Firebase tras el canje.          |
+| Cierre de la sesión SDK   | Listo  | Si `signOut` falla, `location.replace` destruye el documento.         |
+| Ruta protegida `/panel`   | Listo  | Server Component; verifica en cada visita; solo muestra el rol.       |
+| Shell del panel           | Listo  | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión.  |
+| Catálogo de productos     | Listo  | Listado, alta, detalle, edición, publicar, archivar e inventario.     |
+| Preparación para publicar | Listo  | `publicationReadiness` del backend, traducida y enlazada por sección. |
+| Precio en pesos           | Listo  | Se escribe y se lee `$ 1.450.000`; viaja el entero `1450000`.         |
+| Portada y navegación      | Listo  | Sesión, rol, acceso a Productos y cierre de sesión en la barra.       |
+| Catálogo enriquecido      | Listo  | Categoría, tipo, destacado, características y especificaciones.       |
+| Variantes                 | Listo  | Ejes, combinaciones, precio, inventario y archivado por variante.     |
+| Imágenes de producto      | Listo  | Subir, editar texto alternativo, orden, principal y archivar.         |
+| Alta completa             | Listo  | Un envío: crea el borrador, enriquece, sube y crea variantes.         |
+| Reanudación tras fallo    | Listo  | No recrea nada guardado; reintenta solo lo que falta.                 |
+| Shell responsive          | Listo  | Sidebar fija en escritorio; cajón por debajo de 60rem.                |
+| Mutaciones por BFF        | Listo  | Nueve Route Handlers; el navegador no llama al backend.               |
+| Permisos por rol          | Listo  | Matriz explícita en `src/features/session/permissions.ts`.            |
+| ADR local del BFF         | Listo  | `../decisions/0003-admin-session-bff.md`.                             |
 
 ### Material de despliegue (fase 3)
 
@@ -112,39 +113,34 @@ Preparado y comprobado con shims. Nada de esto se ha ejecutado contra la nube.
 | Harness con shims        | Listo  | `deploy/staging.test.sh`, 129 comprobaciones sin red.                |
 | Runbook                  | Listo  | `../../deploy/README.md`.                                            |
 
-### Todavía no verificado en Cloud Run
+### Desplegado en Cloud Run staging
 
-| Área                     | Estado        | Detalle                                                  |
-| ------------------------ | ------------- | -------------------------------------------------------- |
-| Identidad del panel      | Sin crear     | `modulartess-admin-stg-run`; comando en el runbook.      |
-| `roles/run.invoker`      | Sin conceder  | Solo sobre `modulartess-backend-staging`, sin condición. |
-| Servicio del panel       | Sin desplegar | `modulartess-admin-staging`.                             |
-| Recorrido completo real  | Sin verificar | Requiere el panel desplegado y el dominio autorizado.    |
-| Identity token IAM real  | Sin verificar | Requiere la identidad creada y el binding concedido.     |
-| Dominio en Firebase Auth | Sin autorizar | Obligatorio **antes** de la primera prueba manual.       |
+| Área                | Estado     | Detalle                                                  |
+| ------------------- | ---------- | -------------------------------------------------------- |
+| Identidad del panel | Creada     | `modulartess-admin-stg-run`, su identidad de ejecución.  |
+| `roles/run.invoker` | Concedido  | Solo sobre `modulartess-backend-staging`, sin condición. |
+| Servicio del panel  | Desplegado | `modulartess-admin-staging`.                             |
 
 ## Previsto, todavía no implementado
 
 Elementos que forman parte del diseño acordado, pero que aún no existen en el repositorio.
 
-| Área                             | Estado        | Detalle                                                        |
-| -------------------------------- | ------------- | -------------------------------------------------------------- |
-| Métricas del dashboard           | Pendiente     | El backend no publica agregaciones; no se inventan.            |
-| Pedidos, clientes y usuarios     | Pendiente     | El shell ya está preparado para añadirlos sin rehacerlo.       |
-| Búsqueda y filtros del catálogo  | Pendiente     | `GET /v1/admin/products` solo admite `pageToken` y `pageSize`. |
-| Contadores por estado            | Pendiente     | No hay agregaciones; las cifras de las referencias no existen. |
-| Catálogo de categorías           | Pendiente     | No hay endpoint que las liste: se escriben nombre y slug.      |
-| Colecciones, SEO, envío, dtos.   | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.         |
-| Lectura aparte de variantes      | Pendiente     | Viajan dentro del producto; un `GET` propio no tendría uso.    |
-| Paginación numérica              | Descartada    | El cursor es opaco: permite avanzar, no saltar de página.      |
-| Reordenar imágenes arrastrando   | Pendiente     | Hoy se reordena con botones accesibles sobre el mismo PATCH.   |
-| Biblioteca de medios             | Pendiente     | Sin endpoint que liste objetos del bucket.                     |
-| CRUD de cuentas administrativas  | Pendiente     | Vertical posterior; hoy solo existe la cuenta `super_admin`.   |
-| Revocación al cerrar sesión      | Pendiente     | El contrato no publica un `DELETE`; el panel no lo inventa.    |
-| Roles `master_admin`/`moderator` | Pendiente     | Decididos en la ADR 0007 del backend, aún sin implementar.     |
-| IAM y autorización del backend   | Fuera de aquí | El panel no la ejerce; es autoridad del backend.               |
-| CI                               | Pendiente     | Hay pruebas unitarias, pero no pipeline.                       |
-| Despliegue                       | Pendiente     | Sin estrategia definida para el panel privado.                 |
+| Área                            | Estado        | Detalle                                                         |
+| ------------------------------- | ------------- | --------------------------------------------------------------- |
+| Métricas del dashboard          | Pendiente     | El backend no publica agregaciones; no se inventan.             |
+| Pedidos, clientes y usuarios    | Pendiente     | El shell ya está preparado para añadirlos sin rehacerlo.        |
+| Búsqueda y filtros del catálogo | Pendiente     | Solo hay `pageToken` y `pageSize`: filtrar una página mentiría. |
+| Contadores por estado           | Pendiente     | No hay agregaciones; las cifras de las referencias no existen.  |
+| Catálogo de categorías          | Pendiente     | No hay endpoint que las liste: se escriben nombre y slug.       |
+| Colecciones, SEO, envío, dtos.  | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.          |
+| Lectura aparte de variantes     | Pendiente     | Viajan dentro del producto; un `GET` propio no tendría uso.     |
+| Paginación numérica             | Descartada    | El cursor es opaco: permite avanzar, no saltar de página.       |
+| Reordenar imágenes arrastrando  | Pendiente     | Hoy se reordena con botones accesibles sobre el mismo PATCH.    |
+| Biblioteca de medios            | Pendiente     | Sin endpoint que liste objetos del bucket.                      |
+| CRUD de cuentas administrativas | Pendiente     | Vertical posterior; hoy solo existe la cuenta `super_admin`.    |
+| Revocación al cerrar sesión     | Pendiente     | El contrato no publica un `DELETE`; el panel no lo inventa.     |
+| IAM y autorización del backend  | Fuera de aquí | El panel no la ejerce; es autoridad del backend.                |
+| CI                              | Pendiente     | Hay pruebas unitarias, pero no pipeline.                        |
 
 Sobre el mecanismo de identidad: el flujo es navegador → Firebase Auth para la identidad, navegador
 → servidor Next.js, servidor Next.js (BFF) → backend de Cloud Run con su identidad de ejecución, y
@@ -252,15 +248,41 @@ campos, los archivos y las variantes se conservan en pantalla.
 La lógica vive en `src/features/panel/create-product-flow.ts`, aislada de React para poder
 comprobarla con dobles.
 
+### Preparación para publicar
+
+`AdminProductDto.publicationReadiness` llega calculado por el backend —imágenes y variantes
+incluidas— con `ready` y la lista cerrada de `missing`. El panel:
+
+- traduce **los diecisiete códigos** del contrato a texto en español, con un mapa exhaustivo por
+  tipo: si el backend añade uno, el proyecto deja de compilar;
+- enlaza cada requisito con la sección de la misma pantalla donde se resuelve;
+- habilita «Publicar producto» solo cuando `ready` es `true` y el rol tiene `products.publish`;
+- reemplaza la evaluación con la respuesta autoritativa de **cada** mutación, sin tocarla de forma
+  optimista en React.
+
+No se recalcula ninguna regla de publicación en el panel: `publish` consume esa misma evaluación, y
+una segunda implementación acabaría diciendo «listo» sobre algo que el backend rechaza.
+
+### Guardar borrador y publicar
+
+El alta ofrece dos intenciones sobre **el mismo** guardado completo:
+
+- **Guardar borrador** ejecuta la secuencia y se queda ahí.
+- **Publicar producto** ejecuta exactamente la misma secuencia y, solo después, mira la preparación
+  de la última respuesta: con `ready: true` publica con esa versión; con `ready: false` conserva el
+  borrador, enumera lo que falta y **no** llama a `publish`.
+
+Ningún producto nace publicado, y no hay selector de estado.
+
 ## Estado de los datos
 
 No existen datos de ejemplo de productos, precios, inventario, pedidos ni clientes, ni acciones de
 interfaz que no hagan nada. El panel no lee ni escribe en Firestore ni en Cloud Storage.
 
-La autenticación y la sesión administrativa son **reales**, no simuladas: Firebase Authentication
-verifica credenciales de verdad y el backend es la autoridad que valida la sesión. Lo que no existe
-todavía es cualquier operación comercial, y el recorrido en Cloud Run sigue sin verificar porque
-el panel aún no está desplegado.
+La autenticación, la sesión administrativa y el catálogo son **reales**, no simulados: Firebase
+Authentication verifica credenciales de verdad, el backend es la autoridad que valida la sesión y
+cada producto que se ve en pantalla viene de `/v1/admin/products`. Lo que no existe todavía es
+cualquier operación comercial fuera del catálogo: pedidos, clientes y pagos.
 
 ## Decisiones registradas
 
@@ -272,12 +294,8 @@ el panel aún no está desplegado.
 
 ## Siguiente fase propuesta
 
-1. Crear `modulartess-admin-stg-run` y concederle `roles/run.invoker` sobre
-   `modulartess-backend-staging` (runbook, sección 2).
-2. Autorizar el dominio del panel en Firebase Authentication.
-3. Desplegar con `deploy/staging.sh all` y verificar el recorrido con el `super_admin` real.
-4. Construir el layout de la aplicación autenticada (navegación, cabecera, estados de carga y
-   error).
-5. Añadir la primera operación de lectura real sobre el contrato, ya con tipos generados.
-6. Introducir el pipeline de integración continua.
-7. Definir la estrategia de despliegue del panel.
+1. Crear las cuentas `master_admin` y `moderator` y comprobar en staging que cada rol ve exactamente
+   las acciones de su fila de la matriz.
+2. Introducir el pipeline de integración continua.
+3. Abrir la siguiente sección operativa cuando el contrato publique sus operaciones: pedidos o
+   usuarios administrativos, sobre el mismo shell.

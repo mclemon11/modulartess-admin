@@ -438,11 +438,14 @@ export interface components {
             /** @example Tocador Aura */
             name: string;
             /**
-             * @description Whole Colombian pesos. Never a decimal: COP has no subdivision in use.
-             * @example 1490000
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as "$ 1.450.000".
+             * @example 1450000
              */
             priceCop: number;
             productType: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Computed by the backend from the authoritative record, images and variants included. publish consumes this very evaluation, so ready:false means publish will be rejected with exactly these requirements. */
+            publicationReadiness: components["schemas"]["PublicationReadinessDto"];
             /** Format: date-time */
             publishedAt: string | null;
             shortDescription: string;
@@ -531,8 +534,9 @@ export interface components {
             /** @example var_0123456789abcdef */
             id: string;
             /**
-             * @description Whole pesos, greater than zero.
-             * @example 1490000
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as "$ 1.450.000". Must be greater than zero.
+             * @example 1450000
              */
             priceCop: number;
             productId: string;
@@ -703,8 +707,9 @@ export interface components {
             /** @example Tocador Aura */
             name: string;
             /**
-             * @description Whole pesos.
-             * @example 1490000
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as "$ 1.450.000".
+             * @example 1450000
              */
             priceCop: number;
             shortDescription?: string;
@@ -721,8 +726,9 @@ export interface components {
             /** @description Product version the caller last read. */
             expectedVersion: number;
             /**
-             * @description Whole pesos, greater than zero.
-             * @example 1490000
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as "$ 1.450.000". Must be greater than zero.
+             * @example 1450000
              */
             priceCop: number;
             /**
@@ -890,6 +896,18 @@ export interface components {
             product: components["schemas"]["AdminProductDto"];
             variant: components["schemas"]["AdminProductVariantDto"];
         };
+        PublicationReadinessDto: {
+            /**
+             * @description Closed, stable set of requirement codes still unmet. Empty when ready. The panel renders these; it must not re-derive them.
+             * @example [
+             *       "description",
+             *       "gallery"
+             *     ]
+             */
+            missing: ("name" | "sku" | "slug" | "short_description" | "description" | "category" | "product_type" | "features" | "materials" | "measurements" | "warranty" | "care" | "primary_image" | "gallery" | "sellable_option" | "positive_price" | "unique_variant_combinations")[];
+            /** @description True when publish would succeed. False means missing lists why. */
+            ready: boolean;
+        };
         PublicOrderDto: {
             /** @example Cliente Demo */
             customerName: string;
@@ -955,7 +973,11 @@ export interface components {
             materials: string;
             measurements: string;
             name: string;
-            /** @example 1490000 */
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as "$ 1.450.000".
+             * @example 1450000
+             */
             priceCop: number;
             /**
              * @description Cheapest sellable option. Equal to priceCop.
@@ -997,7 +1019,11 @@ export interface components {
             /** @enum {string} */
             availability: "in_stock" | "out_of_stock";
             id: string;
-            /** @example 1490000 */
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as "$ 1.450.000".
+             * @example 1450000
+             */
             priceCop: number;
             sku: string;
         };

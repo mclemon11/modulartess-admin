@@ -88,8 +88,9 @@
             "type": "string"
           },
           "priceCop": {
-            "description": "Whole Colombian pesos. Never a decimal: COP has no subdivision in use.",
-            "example": 1490000,
+            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as \"$ 1.450.000\".",
+            "example": 1450000,
+            "format": "int32",
             "type": "number"
           },
           "productType": {
@@ -100,6 +101,14 @@
             ],
             "nullable": true,
             "type": "object"
+          },
+          "publicationReadiness": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicationReadinessDto"
+              }
+            ],
+            "description": "Computed by the backend from the authoritative record, images and variants included. publish consumes this very evaluation, so ready:false means publish will be rejected with exactly these requirements."
           },
           "publishedAt": {
             "format": "date-time",
@@ -177,7 +186,8 @@
           "features",
           "specifications",
           "featured",
-          "variants"
+          "variants",
+          "publicationReadiness"
         ],
         "type": "object"
       },
@@ -317,8 +327,9 @@
             "type": "string"
           },
           "priceCop": {
-            "description": "Whole pesos, greater than zero.",
-            "example": 1490000,
+            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as \"$ 1.450.000\". Must be greater than zero.",
+            "example": 1450000,
+            "format": "int32",
             "type": "number"
           },
           "productId": {
@@ -757,8 +768,9 @@
             "type": "string"
           },
           "priceCop": {
-            "description": "Whole pesos.",
-            "example": 1490000,
+            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as \"$ 1.450.000\".",
+            "example": 1450000,
+            "format": "int32",
             "type": "number"
           },
           "shortDescription": {
@@ -801,8 +813,9 @@
             "type": "number"
           },
           "priceCop": {
-            "description": "Whole pesos, greater than zero.",
-            "example": 1490000,
+            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as \"$ 1.450.000\". Must be greater than zero.",
+            "example": 1450000,
+            "format": "int32",
             "type": "number"
           },
           "sku": {
@@ -1278,6 +1291,49 @@
         ],
         "type": "object"
       },
+      "PublicationReadinessDto": {
+        "properties": {
+          "missing": {
+            "description": "Closed, stable set of requirement codes still unmet. Empty when ready. The panel renders these; it must not re-derive them.",
+            "example": [
+              "description",
+              "gallery"
+            ],
+            "items": {
+              "enum": [
+                "name",
+                "sku",
+                "slug",
+                "short_description",
+                "description",
+                "category",
+                "product_type",
+                "features",
+                "materials",
+                "measurements",
+                "warranty",
+                "care",
+                "primary_image",
+                "gallery",
+                "sellable_option",
+                "positive_price",
+                "unique_variant_combinations"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ready": {
+            "description": "True when publish would succeed. False means missing lists why.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ready",
+          "missing"
+        ],
+        "type": "object"
+      },
       "PublicOrderDto": {
         "properties": {
           "customerName": {
@@ -1491,7 +1547,9 @@
             "type": "string"
           },
           "priceCop": {
-            "example": 1490000,
+            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as \"$ 1.450.000\".",
+            "example": 1450000,
+            "format": "int32",
             "type": "number"
           },
           "priceFromCop": {
@@ -1641,7 +1699,9 @@
             "type": "string"
           },
           "priceCop": {
-            "example": 1490000,
+            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as \"$ 1.450.000\".",
+            "example": 1450000,
+            "format": "int32",
             "type": "number"
           },
           "sku": {

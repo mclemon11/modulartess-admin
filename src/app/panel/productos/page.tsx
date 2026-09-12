@@ -2,9 +2,11 @@ import Link from 'next/link';
 
 import styles from '@/features/panel/catalog.module.css';
 import { describeBackendFailure } from '@/features/panel/catalog-errors';
-import { formatCop, formatDateTime } from '@/features/panel/format';
+import { formatDateTime } from '@/features/panel/format';
+import { formatCop } from '@/features/panel/money';
 import { PanelHeader } from '@/features/panel/panel-header';
 import { ProductThumb } from '@/features/panel/product-thumb';
+import { describeReadiness } from '@/features/panel/publication-readiness';
 import { resolvePanelSession } from '@/features/panel/session-context';
 import { StatusBadge } from '@/features/panel/status-badge';
 import { can } from '@/features/session/permissions';
@@ -24,15 +26,16 @@ function firstValue(value: string | string[] | undefined): string | undefined {
 /**
  * Listado de productos con datos reales del backend.
  *
- * Sigue las referencias de escritorio y móvil en lo que el contrato permite: tabla con miniatura
- * en escritorio, tarjetas apiladas en móvil, badges de estado y precio en COP.
+ * Sigue las referencias de escritorio y móvil en lo que el contrato permite: tabla con miniatura en
+ * escritorio, tarjetas apiladas en móvil, badges de estado, categoría, precio en pesos y, en los
+ * borradores, la preparación para publicar que evalúa el backend.
  *
  * Lo que las referencias muestran y **no** está aquí, porque OpenAPI todavía no lo publica:
  * buscador, filtros por categoría/colección/stock/fecha/visibilidad, contadores por estado
- * (`Publicados 128`, `Borradores 16`…), columna de categoría, columna de visibilidad, exportación,
- * selección múltiple, «Filtros rápidos», «Resumen del catálogo» y «Acciones sugeridas». Ninguna de
- * esas cifras se puede calcular con `GET /v1/admin/products`, y fabricarlas sería aparentar
- * funcionalidad.
+ * (`Publicados 128`, `Borradores 16`…), columna de visibilidad, exportación, selección múltiple,
+ * «Filtros rápidos», «Resumen del catálogo» y «Acciones sugeridas». `GET /v1/admin/products` solo
+ * admite `pageToken` y `pageSize`: un buscador que filtrara la página ya cargada mentiría sobre el
+ * catálogo entero, y los contadores globales no se pueden calcular.
  *
  * La paginación tampoco puede ser numérica: el contrato devuelve un `pageToken` opaco, que permite
  * avanzar pero no saltar a una página concreta ni saber cuántas hay.
@@ -47,6 +50,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const pageToken = firstValue(params.pageToken);
   const canCreate = can(session.session.role, 'products.create');
+  const canEdit = can(session.session.role, 'products.update');
   const trail = [{ href: '/panel', label: 'Panel' }, { label: 'Productos' }];
 
   let page;
@@ -64,7 +68,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
     return (
       <>
         <PanelHeader trail={trail} />
-        <div className={styles.cardPad}>
+        <div className={styles.page}>
           <h1 className={styles.pageTitle}>Productos</h1>
           <p className={styles.error} role="alert">
             {message}
@@ -77,23 +81,23 @@ export default async function ProductsPage({ searchParams }: PageProps) {
     );
   }
 
-  const createLink = canCreate ? (
-    <Link className={styles.button} href="/panel/productos/nuevo">
-      Nuevo producto
-    </Link>
-  ) : undefined;
-
   return (
     <>
-      <PanelHeader actions={createLink} trail={trail} />
-      <div className={styles.cardPad}>
+      <PanelHeader trail={trail} />
+      <div className={styles.page}>
         <div className={styles.pageHead}>
-          <div>
+          <div className={styles.pageHeadText}>
             <h1 className={styles.pageTitle}>Productos</h1>
             <p className={styles.pageLead}>
-              Gestiona los productos publicados, borradores y archivados de tu tienda.
+              Publicados, borradores y archivados, ordenados por última actualización. En los
+              borradores se indica lo que el backend pide para poder publicarlos.
             </p>
           </div>
+          {canCreate ? (
+            <Link className={styles.buttonPrimary} href="/panel/productos/nuevo">
+              <span aria-hidden="true">+</span> Nuevo producto
+            </Link>
+          ) : null}
         </div>
 
         {page.items.length === 0 ? (
@@ -110,15 +114,19 @@ export default async function ProductsPage({ searchParams }: PageProps) {
                     </th>
                     <th scope="col">Producto</th>
                     <th scope="col">SKU</th>
+                    <th scope="col">Categoría</th>
                     <th scope="col">Precio</th>
-                    <th scope="col">Stock</th>
+                    <th scope="col">Inventario</th>
                     <th scope="col">Estado</th>
                     <th scope="col">Última actualización</th>
+                    <th scope="col">
+                      <span className="sr-only">Acciones</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {page.items.map((product) => (
-                    <ProductRow key={product.id} product={product} />
+                    <ProductRow canEdit={canEdit} key={product.id} product={product} />
                   ))}
                 </tbody>
               </table>
@@ -127,7 +135,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
             <ul className={styles.cardList}>
               {page.items.map((product) => (
                 <li key={product.id}>
-                  <ProductCard product={product} />
+                  <ProductCard canEdit={canEdit} product={product} />
                 </li>
               ))}
             </ul>
@@ -154,11 +162,38 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   );
 }
 
+/**
+ * Preparación para publicar de un borrador.
+ *
+ * Solo se pinta en `draft`: en un producto publicado o archivado la evaluación no le dice nada a
+ * nadie. El texto sale de `publicationReadiness`, que calcula el backend; aquí no se deriva ninguna
+ * regla.
+ */
+function ReadinessPill({ product }: { readonly product: AdminProduct }) {
+  if (product.status !== 'draft') {
+    return null;
+  }
+
+  const { publicationReadiness: readiness } = product;
+
+  return (
+    <span className={readiness.ready ? styles.readyPill : styles.pendingPill}>
+      {describeReadiness(readiness)}
+    </span>
+  );
+}
+
 function stockClass(product: AdminProduct): string | undefined {
   return product.stockQuantity <= product.lowStockThreshold ? styles.lowStock : undefined;
 }
 
-function ProductRow({ product }: { readonly product: AdminProduct }) {
+function ProductRow({
+  product,
+  canEdit,
+}: {
+  readonly product: AdminProduct;
+  readonly canEdit: boolean;
+}) {
   return (
     <tr>
       <td className={styles.thumbCell}>
@@ -173,20 +208,37 @@ function ProductRow({ product }: { readonly product: AdminProduct }) {
         </span>
       </td>
       <td className={styles.mono}>{product.sku}</td>
+      {/* La categoría solo se pinta si el backend la trae: los productos anteriores al catálogo
+          enriquecido no la tienen, y «—» dice eso sin inventar una. */}
+      <td>{product.category === null ? '—' : product.category.name}</td>
       <td className={styles.numeric}>{formatCop(product.priceCop)}</td>
       <td className={styles.numeric}>
         <span className={stockClass(product)}>{product.stockQuantity}</span>
       </td>
       <td>
-        <StatusBadge status={product.status} />
+        <span className={styles.statusCell}>
+          <StatusBadge status={product.status} />
+          <ReadinessPill product={product} />
+        </span>
       </td>
-      <td className={styles.mono}>{formatDateTime(product.updatedAt)}</td>
+      <td className={styles.timestamp}>{formatDateTime(product.updatedAt)}</td>
+      <td className={styles.actionCell}>
+        <Link className={styles.rowAction} href={`/panel/productos/${product.id}`}>
+          {canEdit ? 'Editar' : 'Ver'}
+        </Link>
+      </td>
     </tr>
   );
 }
 
-/** Tarjeta de móvil: misma información, jerarquía distinta, como en la referencia. */
-function ProductCard({ product }: { readonly product: AdminProduct }) {
+/** Tarjeta de móvil: misma información que la tabla, con la jerarquía de la referencia. */
+function ProductCard({
+  product,
+  canEdit,
+}: {
+  readonly product: AdminProduct;
+  readonly canEdit: boolean;
+}) {
   return (
     <article className={styles.productCard}>
       <ProductThumb product={product} variant="card" />
@@ -194,16 +246,22 @@ function ProductCard({ product }: { readonly product: AdminProduct }) {
         <h2 className={styles.productCardTitle}>
           <Link href={`/panel/productos/${product.id}`}>{product.name}</Link>
         </h2>
-        <p className={styles.productCardMeta}>
-          <span className={styles.mono}>SKU: {product.sku}</span>
-          <span className={stockClass(product)}>Stock: {product.stockQuantity}</span>
-        </p>
+        <p className={styles.productCardSku}>SKU: {product.sku}</p>
+        {product.category === null ? null : (
+          <p className={styles.productCardMeta}>{product.category.name}</p>
+        )}
         <p className={styles.productCardPrice}>{formatCop(product.priceCop)}</p>
-        <p className={styles.productCardMeta}>Actualizado {formatDateTime(product.updatedAt)}</p>
-        <div className={styles.productCardFooter}>
+        <div className={styles.productCardStatus}>
           <StatusBadge status={product.status} />
-          <Link className={styles.buttonSecondary} href={`/panel/productos/${product.id}`}>
-            Ver producto
+          <ReadinessPill product={product} />
+        </div>
+        <p className={styles.productCardMeta}>
+          <span className={stockClass(product)}>Inventario: {product.stockQuantity}</span>
+          <span>Actualizado {formatDateTime(product.updatedAt)}</span>
+        </p>
+        <div className={styles.productCardFooter}>
+          <Link className={styles.rowAction} href={`/panel/productos/${product.id}`}>
+            {canEdit ? 'Editar' : 'Ver producto'} <span aria-hidden="true">→</span>
           </Link>
         </div>
       </div>

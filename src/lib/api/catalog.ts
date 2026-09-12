@@ -41,6 +41,7 @@ export type ProductTaxonomy = components['schemas']['ProductTaxonomyDto'];
 export type ProductAttributeDefinition = components['schemas']['ProductAttributeDefinitionDto'];
 export type ProductVariantAttribute = components['schemas']['ProductVariantAttributeDto'];
 export type ProductSpecifications = components['schemas']['ProductSpecificationsDto'];
+export type PublicationReadiness = components['schemas']['PublicationReadinessDto'];
 
 /**
  * Los límites de imagen viven en `./image-limits`, que no es `server-only`: el formulario del

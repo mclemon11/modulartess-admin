@@ -24,8 +24,10 @@ Aplicación Next.js con App Router. Su servidor es la **frontera BFF** del siste
 Responsabilidades:
 
 - Renderizar vistas y formularios administrativos, con Server Components por defecto.
-- Servir `/iniciar-sesion`, `/verificar-correo` y `/panel`. Todas son Server Components; los únicos
-  componentes cliente son el formulario y el botón de cerrar sesión, porque necesitan interacción.
+- Servir `/iniciar-sesion`, `/verificar-correo`, `/panel` y la sección **Productos** completa
+  (`/panel/productos`, `/panel/productos/nuevo` y `/panel/productos/[productId]`). Las páginas son
+  Server Components; los componentes cliente son los que necesitan interacción real: formularios,
+  gestor de imágenes, editor de variantes y cierre de sesión.
 - Validar la forma de la entrada en el cliente **solo** como ayuda de usabilidad.
 - Exponer las tres rutas de la frontera de sesión: `POST`, `GET` y `DELETE`
   `/api/admin/auth/session`. Son el **único** camino del navegador hacia la superficie
@@ -78,6 +80,10 @@ Es la **autoridad** del sistema:
 
 - Verifica la identidad administrativa de cada petición y aplica la autorización.
 - Aplica las reglas de negocio (precios, impuestos, disponibilidad, transiciones de estado).
+- Evalúa **si un producto puede publicarse** y lo publica en `publicationReadiness`, con la lista
+  cerrada de requisitos que faltan. `publish` consume esa misma evaluación. El panel la muestra y
+  habilita el botón con ella; no la recalcula, porque dos implementaciones de la misma regla
+  acabarían discrepando.
 - Es el único componente que lee y escribe en Firestore y Cloud Storage.
 - Publica su superficie mediante OpenAPI.
 
@@ -197,6 +203,11 @@ deliberada y no por fase pendiente:
 
 - El panel autentica personas reales y mantiene una sesión administrativa real, verificada por el
   backend en cada lectura protegida.
+- La sección Productos está completa y diseñada para escritorio y móvil: listado, alta con
+  imágenes y variantes, detalle con edición, inventario, variantes y publicación. Es la única
+  sección operativa; las demás esperan a que el contrato publique sus operaciones.
+- El precio se muestra y se escribe como `$ 1.450.000`, pero viaja como el entero `1450000`: el
+  símbolo y los puntos de miles son de la pantalla, y la conversión vive en un único módulo puro.
 - El material de sesión no existe para el JavaScript del navegador en ningún momento.
 - Cada lectura protegida cuesta una llamada al backend. Es el precio de que la revocación sea
   inmediata.

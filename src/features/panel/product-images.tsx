@@ -19,6 +19,7 @@ import {
   type MutationResult,
 } from './catalog-client';
 import { describeCatalogFailure } from './catalog-errors';
+import { SectionHeading } from './section-icon';
 
 /**
  * Gestor de imágenes del producto.
@@ -186,7 +187,11 @@ export function ProductImages({
   return (
     <section className={styles.card}>
       <div className={styles.cardPad}>
-        <h2 className={styles.sectionTitle}>Imágenes del producto</h2>
+        <SectionHeading
+          hint="La principal es la que abre la ficha en la tienda."
+          icon="imagenes"
+          title="Imágenes del producto"
+        />
 
         <div aria-live="assertive">
           {failure === null ? null : (

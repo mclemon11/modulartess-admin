@@ -258,8 +258,12 @@ describe('validación de variantes', () => {
   });
 
   it.each([
-    ['precio cero', { priceCop: '0' }, 'Precio'],
-    ['precio con decimales', { priceCop: '1490000.5' }, 'Precio'],
+    ['precio cero', { priceCop: '0' }, 'mayor que cero'],
+    // El precio de la variante pasa por el mismo conversor que el del producto: admite los puntos
+    // de miles y rechaza lo ambiguo en lugar de interpretarlo.
+    ['precio con miles mal agrupados', { priceCop: '1.45' }, 'Precio'],
+    ['precio con centavos', { priceCop: '1450000,50' }, 'Precio'],
+    ['precio negativo', { priceCop: '-1450000' }, 'Precio'],
     ['precio vacío', { priceCop: '' }, 'Precio'],
     ['inventario negativo', { stockQuantity: '-1' }, 'Inventario'],
     ['inventario con decimales', { stockQuantity: '1.5' }, 'Inventario'],
@@ -327,6 +331,19 @@ describe('validación de variantes', () => {
 });
 
 describe('cuerpo del alta', () => {
+  it('acepta el precio escrito con puntos de miles', () => {
+    const validation = validateVariantDrafts(
+      [draft('uno', [['finish', 'roble']], { priceCop: '1.450.000' })],
+      [{ key: 'finish' }],
+    );
+
+    expect(validation.byDraft).toEqual({});
+    expect(
+      variantRequestBody(draft('uno', [['finish', 'roble']], { priceCop: '$ 1.450.000' }), 3)
+        .priceCop,
+    ).toBe(1_450_000);
+  });
+
   it('normaliza el SKU y convierte los números, con la versión del producto', () => {
     const body = variantRequestBody(
       draft('uno', [['finish', 'roble']], { sku: ' tocador-uno ', stockQuantity: '' }),
