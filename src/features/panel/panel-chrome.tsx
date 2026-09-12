@@ -8,6 +8,7 @@ import { usePathname } from 'next/navigation';
 import { describeRole } from '@/features/session/role-labels';
 import { SignOutButton } from '@/features/session/sign-out-button';
 
+import { BrandLogo } from './brand-logo';
 import { isActive, NAVIGATION } from './navigation';
 import styles from './panel-shell.module.css';
 import { Icon } from './section-icon';
@@ -28,9 +29,21 @@ type DrawerContext = {
   readonly open: boolean;
   readonly toggle: () => void;
   readonly close: () => void;
+  /**
+   * Rol verificado de la sesión.
+   *
+   * Viaja por contexto porque la cabecera la pinta cada página, y ninguna recibe el rol: quien lo
+   * tiene es el shell. Es el rol y nada más: ni UID ni correo salen del servidor.
+   */
+  readonly role: string;
 };
 
-const Drawer = createContext<DrawerContext>({ open: false, toggle: () => {}, close: () => {} });
+const Drawer = createContext<DrawerContext>({
+  open: false,
+  toggle: () => {},
+  close: () => {},
+  role: '',
+});
 
 export function useDrawer(): DrawerContext {
   return useContext(Drawer);
@@ -50,6 +63,7 @@ export function PanelChrome({
     open,
     toggle: () => setOpen((value) => !value),
     close: () => setOpen(false),
+    role,
   };
 
   return (
@@ -67,13 +81,9 @@ export function PanelChrome({
 
           <aside className={styles.sidebar} id="panel-sidebar">
             <div className={styles.brand}>
-              <span aria-hidden="true" className={styles.brandMark} />
-              <span className={styles.brandText}>
-                <span className={styles.brandName}>MODULARTESS</span>
-                <span className={styles.brandTag}>Admin</span>
-              </span>
+              <BrandLogo className={styles.brandLogo} height={34} />
             </div>
-            <p className={styles.brandCaption}>Panel administrativo</p>
+            <p className={styles.brandCaption}>MODULARTESS Admin</p>
 
             <nav aria-label="Secciones del panel" className={styles.nav}>
               {NAVIGATION.map((item) => {
@@ -97,8 +107,15 @@ export function PanelChrome({
             <div className={styles.sidebarFooter}>
               {/* La persona se identifica por su rol y nada más: el UID y el correo no se pintan
                   en ninguna pantalla del panel. */}
-              <p className={styles.roleLabel}>Sesión administrativa</p>
-              <p className={styles.roleValue}>{describeRole(role)}</p>
+              <div className={styles.sidebarUser}>
+                <span aria-hidden="true" className={styles.avatar}>
+                  <Icon name="cliente" />
+                </span>
+                <span className={styles.sidebarUserText}>
+                  <span className={styles.roleLabel}>Sesión</span>
+                  <span className={styles.roleValue}>{describeRole(role)}</span>
+                </span>
+              </div>
               <div className={styles.sidebarSignOut}>
                 <SignOutButton />
               </div>

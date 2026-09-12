@@ -1,67 +1,186 @@
+/*
+ * Inicio de sesión en dos columnas.
+ *
+ * La proporción es la de la referencia: mitad y mitad en escritorio. Por debajo de 60rem la
+ * columna decorativa se retira y el formulario ocupa la pantalla entera.
+ */
 .shell {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100dvh;
+  background-color: var(--color-surface-light);
+  color: var(--color-text-light);
+}
+
+/* ------------------------------------------------------- columna izquierda */
+
+.aside {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(2rem, 4vw, 3.5rem);
+  background-color: var(--color-canvas-light);
+  background-image:
+    radial-gradient(circle at 12% 8%, rgb(124 58 237 / 10%), transparent 45%),
+    radial-gradient(circle at 85% 75%, rgb(109 40 217 / 8%), transparent 50%);
+}
+
+.asideContent {
+  position: relative;
+  z-index: 1;
+  max-width: 34rem;
+}
+
+.asideLogo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 15rem;
+  margin-bottom: clamp(1.5rem, 4vw, 3rem);
+}
+
+.title {
+  margin: 0 0 var(--space-md);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.subtitle {
+  margin: 0;
+  max-width: 30rem;
+  color: var(--color-text-light-muted);
+  font-size: clamp(1rem, 1.4vw, 1.125rem);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+/*
+ * Decoración.
+ *
+ * Formas abstractas en los tonos de la marca. No imitan una tienda ni una ficha de producto: lo
+ * que no existe no se dibuja, ni siquiera de adorno.
+ */
+.decoration {
+  position: relative;
+  height: clamp(8rem, 22vw, 16rem);
+  margin: clamp(1.5rem, 4vw, 2.5rem) 0;
+}
+
+.decorationGlow {
+  position: absolute;
+  top: 10%;
+  left: 6%;
+  width: 62%;
+  height: 80%;
+  border-radius: 40% 60% 55% 45%;
+  background-image: linear-gradient(135deg, rgb(124 58 237 / 16%), rgb(56 189 248 / 10%));
+  filter: blur(2px);
+}
+
+.decorationCard {
+  position: absolute;
+  top: 22%;
+  left: 28%;
+  width: 46%;
+  height: 62%;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-card);
+  background-color: rgb(255 255 255 / 70%);
+  box-shadow: var(--shadow-card-raised);
+}
+
+.decorationCardSmall {
+  position: absolute;
+  top: 48%;
+  left: 58%;
+  width: 26%;
+  height: 34%;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-control);
+  background-color: rgb(255 255 255 / 92%);
+  box-shadow: var(--shadow-card);
+}
+
+.asideTagline {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: var(--color-text-light-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+/* -------------------------------------------------------- columna derecha */
+
+.panel {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100dvh;
-  padding: var(--space-lg) var(--space-md);
-  background-color: var(--color-canvas-light);
-  background-image: radial-gradient(circle at 50% 0%, var(--color-brand-soft), transparent 70%);
-  color: var(--color-text-light);
+  padding: clamp(1.5rem, 4vw, 3.5rem);
+  background-color: var(--color-surface-light);
 }
 
 .card {
   width: 100%;
-  max-width: 27rem;
-  padding: clamp(1.5rem, 5vw, 2.5rem);
+  max-width: 30rem;
+  padding: clamp(1.5rem, 3.5vw, 2.75rem);
   border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
+  border-radius: 20px;
   background-color: var(--color-surface-light);
   box-shadow:
     0 1px 2px rgb(27 24 48 / 4%),
-    0 12px 32px rgb(27 24 48 / 6%);
+    0 24px 48px rgb(27 24 48 / 8%);
 }
 
-.brand {
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: clamp(1.25rem, 3vw, 2rem);
+}
+
+.overline {
+  margin: 0 0 0.25rem;
+  color: var(--color-text-light-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+/* Distintivo de acceso: dice a quién pertenece esta puerta, no promete ninguna función. */
+.accessChip {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  margin-bottom: var(--space-lg);
-}
-
-.brandMark {
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: var(--radius-sm);
-  background-image: linear-gradient(135deg, var(--color-brand), var(--color-brand-strong));
-}
-
-.brandName {
-  font-size: 0.9375rem;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-control);
+  background-color: var(--color-brand-soft);
+  color: var(--color-brand-strong);
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.brandName span {
-  color: var(--color-brand);
-}
-
-.title {
-  margin: 0 0 var(--space-sm);
-  font-size: clamp(1.375rem, 3.5vw, 1.625rem);
-  font-weight: 600;
-  letter-spacing: -0.02em;
   line-height: 1.25;
 }
 
-.subtitle {
-  margin: 0 0 var(--space-lg);
-  color: var(--color-text-light-muted);
-  font-size: 0.9375rem;
-  text-wrap: pretty;
-}
-
-.subtitle:last-child {
-  margin-bottom: 0;
+.accessIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
 }
 
 .footnote {
@@ -71,4 +190,38 @@
   color: var(--color-text-light-muted);
   font-size: 0.8125rem;
   text-wrap: pretty;
+}
+
+/* ------------------------------------------------------------------ móvil */
+
+@media (max-width: 60rem) {
+  .shell {
+    grid-template-columns: 1fr;
+    background-color: var(--color-canvas-light);
+  }
+
+  /* Sin columna decorativa: quedan el logotipo, el título y el formulario. */
+  .aside {
+    padding: clamp(1.5rem, 6vw, 2rem) var(--space-md) 0;
+    background-image: none;
+  }
+
+  .decoration,
+  .asideTagline {
+    display: none;
+  }
+
+  .asideLogo {
+    max-width: 11rem;
+    margin-bottom: var(--space-lg);
+  }
+
+  .panel {
+    padding: var(--space-lg) var(--space-md) var(--space-xl);
+    background-color: transparent;
+  }
+
+  .card {
+    max-width: 32rem;
+  }
 }

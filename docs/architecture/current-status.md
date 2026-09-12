@@ -72,36 +72,37 @@ Esto es lo que ya existe fuera de este repositorio, y no debe describirse como p
 
 Implementado en el repositorio y comprobado con dobles locales.
 
-| Área                      | Estado | Detalle                                                               |
-| ------------------------- | ------ | --------------------------------------------------------------------- |
-| Copia OpenAPI             | Listo  | `openapi/backend-v1.json`, comiteada; build y runtime solo de ahí.    |
-| Tipos generados           | Listo  | `src/lib/api/generated/schema.d.ts`; `pnpm api:check` los valida.     |
-| Cliente del backend       | Listo  | `openapi-fetch` tipado, `server-only`, `no-store` y temporizador.     |
-| Identity token IAM        | Listo  | `google-auth-library`, caché por audiencia con retirada en fallo.     |
-| `POST` del BFF            | Listo  | Origin exacto, `application/json`, cuerpo en bytes UTF-8, `201`.      |
-| `GET` del BFF             | Listo  | Verifica contra el backend. **Solo lectura**: nunca emite cookie.     |
-| `DELETE` del BFF          | Listo  | Origin exacto, borra la cookie, `204`. Independiente del backend.     |
-| Limpieza de sesión        | Listo  | Frontera cliente: `DELETE` y navegación solo tras el `204`.           |
-| Validación de orígenes    | Listo  | HTTPS salvo loopback; audiencia igual a la URL en `google-oidc`.      |
-| `expiresAt`               | Listo  | RFC 3339 estricto con zona explícita; sin `Date.parse` permisivo.     |
-| Cookie de sesión          | Listo  | `__Host-`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`.         |
-| Integración con el login  | Listo  | ID token reciente, canje y cierre de Firebase tras el canje.          |
-| Cierre de la sesión SDK   | Listo  | Si `signOut` falla, `location.replace` destruye el documento.         |
-| Ruta protegida `/panel`   | Listo  | Server Component; verifica en cada visita; solo muestra el rol.       |
-| Shell del panel           | Listo  | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión.  |
-| Catálogo de productos     | Listo  | Listado, alta, detalle, edición, publicar, archivar e inventario.     |
-| Preparación para publicar | Listo  | `publicationReadiness` del backend, traducida y enlazada por sección. |
-| Precio en pesos           | Listo  | Se escribe y se lee `$ 1.450.000`; viaja el entero `1450000`.         |
-| Portada y navegación      | Listo  | Sesión, rol, acceso a Productos y cierre de sesión en la barra.       |
-| Catálogo enriquecido      | Listo  | Categoría, tipo, destacado, características y especificaciones.       |
-| Variantes                 | Listo  | Ejes, combinaciones, precio, inventario y archivado por variante.     |
-| Imágenes de producto      | Listo  | Subir, editar texto alternativo, orden, principal y archivar.         |
-| Alta completa             | Listo  | Un envío: crea el borrador, enriquece, sube y crea variantes.         |
-| Reanudación tras fallo    | Listo  | No recrea nada guardado; reintenta solo lo que falta.                 |
-| Shell responsive          | Listo  | Sidebar fija en escritorio; cajón por debajo de 60rem.                |
-| Mutaciones por BFF        | Listo  | Nueve Route Handlers; el navegador no llama al backend.               |
-| Permisos por rol          | Listo  | Matriz explícita en `src/features/session/permissions.ts`.            |
-| ADR local del BFF         | Listo  | `../decisions/0003-admin-session-bff.md`.                             |
+| Área                      | Estado     | Detalle                                                               |
+| ------------------------- | ---------- | --------------------------------------------------------------------- |
+| Copia OpenAPI             | Listo      | `openapi/backend-v1.json`, comiteada; build y runtime solo de ahí.    |
+| Tipos generados           | Listo      | `src/lib/api/generated/schema.d.ts`; `pnpm api:check` los valida.     |
+| Cliente del backend       | Listo      | `openapi-fetch` tipado, `server-only`, `no-store` y temporizador.     |
+| Identity token IAM        | Listo      | `google-auth-library`, caché por audiencia con retirada en fallo.     |
+| `POST` del BFF            | Listo      | Origin exacto, `application/json`, cuerpo en bytes UTF-8, `201`.      |
+| `GET` del BFF             | Listo      | Verifica contra el backend. **Solo lectura**: nunca emite cookie.     |
+| `DELETE` del BFF          | Listo      | Origin exacto, borra la cookie, `204`. Independiente del backend.     |
+| Limpieza de sesión        | Listo      | Frontera cliente: `DELETE` y navegación solo tras el `204`.           |
+| Validación de orígenes    | Listo      | HTTPS salvo loopback; audiencia igual a la URL en `google-oidc`.      |
+| `expiresAt`               | Listo      | RFC 3339 estricto con zona explícita; sin `Date.parse` permisivo.     |
+| Cookie de sesión          | Listo      | `__Host-`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`.         |
+| Integración con el login  | Listo      | ID token reciente, canje y cierre de Firebase tras el canje.          |
+| Cierre de la sesión SDK   | Listo      | Si `signOut` falla, `location.replace` destruye el documento.         |
+| Ruta protegida `/panel`   | Listo      | Server Component; verifica en cada visita; solo muestra el rol.       |
+| Shell del panel           | Listo      | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión.  |
+| Catálogo de productos     | Listo      | Listado, alta, detalle, edición, publicar, archivar e inventario.     |
+| Preparación para publicar | Listo      | `publicationReadiness` del backend, traducida y enlazada por sección. |
+| Precio en pesos           | Listo      | Se escribe y se lee `$ 1.450.000`; viaja el entero `1450000`.         |
+| Portada y navegación      | Listo      | Cinco secciones, portada con tarjetas, marca real y bloque de sesión. |
+| Envíos y Wallet           | Anunciadas | Pantallas «Próximamente»: su contrato no existe todavía.              |
+| Catálogo enriquecido      | Listo      | Categoría, tipo, destacado, características y especificaciones.       |
+| Variantes                 | Listo      | Ejes, combinaciones, precio, inventario y archivado por variante.     |
+| Imágenes de producto      | Listo      | Subir, editar texto alternativo, orden, principal y archivar.         |
+| Alta completa             | Listo      | Un envío: crea el borrador, enriquece, sube y crea variantes.         |
+| Reanudación tras fallo    | Listo      | No recrea nada guardado; reintenta solo lo que falta.                 |
+| Shell responsive          | Listo      | Sidebar fija en escritorio; cajón por debajo de 60rem.                |
+| Mutaciones por BFF        | Listo      | Nueve Route Handlers; el navegador no llama al backend.               |
+| Permisos por rol          | Listo      | Matriz explícita en `src/features/session/permissions.ts`.            |
+| ADR local del BFF         | Listo      | `../decisions/0003-admin-session-bff.md`.                             |
 
 ### Material de despliegue (fase 3)
 
@@ -306,11 +307,22 @@ edición de cliente, dirección, líneas o precios. Tampoco hay reembolso ni pag
 
 ### Estado visual del panel
 
-El panel tiene un solo sistema visual, compartido por las dos secciones operativas:
+El panel tiene un solo sistema visual, compartido por todas las pantallas:
 
-- **Shell**: barra lateral blanca con la marca, navegación con iconos de trazo y la sesión —rol y
-  cierre— al pie. Fija en escritorio, estrecha entre 60 y 80 rem, y cajón por debajo de 60 rem con
-  una cabecera compacta. La navegación lista **solo** Panel, Productos y Pedidos.
+- **Marca**: el logotipo real (`public/assets/logo modulartess.svg`) se sirve con `next/image` en el
+  inicio de sesión, en la barra lateral y en la cabecera móvil. No queda ningún marcador dibujado
+  con CSS.
+- **Inicio de sesión**: dos columnas en escritorio —marca, «Bienvenido de nuevo» y una composición
+  decorativa abstracta a la izquierda; tarjeta blanca con «Modulartess Admin», el distintivo de
+  acceso administrativo y el formulario real a la derecha—. En móvil desaparece la columna
+  decorativa. El formulario no cambió: los mismos campos, mensajes, `autocomplete` y candados.
+- **Shell**: barra lateral blanca de ≈236 px con el logotipo, navegación con iconos de trazo y el
+  elemento activo en degradado violeta; al pie, la sesión —avatar genérico, rol y cierre—. Fija en
+  escritorio, estrecha entre 60 y 80 rem y cajón por debajo de 60 rem. La cabecera lleva el menú
+  móvil, la ruta de la sección y el bloque de sesión; donde las referencias ponen buscador y campana
+  no hay nada, porque ninguno tiene endpoint.
+- **Navegación**: cinco entradas fijas —Dashboard, Pedidos, Productos, Envíos y Wallet—, comprobadas
+  en `src/features/panel/navigation.test.ts`.
 - **Tokens compartidos** en `globals.css`: superficies, bordes, sombras, radios, tamaños de
   miniatura y una paleta de estado —éxito, información, aviso, peligro, neutro y marca— que usan
   por igual los badges del catálogo, los de pedidos y el recorrido de estados.
@@ -320,8 +332,13 @@ El panel tiene un solo sistema visual, compartido por las dos secciones operativ
 - **Estados**: cargando, lista vacía, backend no disponible, recurso no encontrado, conflicto de
   versión, acción en curso, resultado de una mutación, imagen ausente e inventario en cero se ven
   igual en todas las pantallas.
-- **Portada**: acceso a Productos y a Pedidos con el rol de la sesión. Sin métricas, gráficas ni
-  contadores: el backend no publica agregaciones.
+- **Portada**: cuadrícula de tarjetas grandes hacia Pedidos, Productos, Envíos y Wallet, con el rol
+  de la sesión. Sin ventas, pedidos recientes, productos más vendidos, gráficas ni porcentajes: el
+  backend no publica agregaciones.
+- **Envíos y Wallet**: pantallas reales con estado «Próximamente». Explican de qué se ocuparán
+  —despacho y seguimiento; vendido y cancelado— y **no** pintan importes, ni siquiera en cero, ni
+  movimientos de ejemplo. Existen para que su entrada de la barra lateral no acabe en un 404; su
+  contrato todavía no está publicado.
 
 Las diferencias con las referencias visuales están enumeradas arriba, sección por sección: todo lo
 que falta es lo que el contrato no publica, y nada de eso se aparenta con adornos.

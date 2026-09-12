@@ -196,23 +196,31 @@
   text-wrap: pretty;
 }
 
+/* Acción principal: violeta en degradado y altura de control, como en las referencias. */
 .button {
-  display: inline-block;
-  padding: 0.5625rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: var(--control-height);
+  padding: 0.5625rem 1.125rem;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control);
   background-color: var(--color-brand);
+  background-image: var(--gradient-brand);
   color: var(--color-brand-contrast);
   font-family: inherit;
   font-size: 0.9375rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   text-decoration: none;
-  transition: background-color 120ms ease;
+  transition:
+    filter 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .button:hover:not(:disabled) {
-  background-color: var(--color-brand-strong);
+  filter: brightness(1.06);
 }
 
 .button:focus-visible {
@@ -229,7 +237,9 @@
   composes: button;
   border-color: var(--color-panel-border-strong);
   background-color: var(--color-panel-surface);
+  background-image: none;
   color: var(--color-panel-text);
+  font-weight: 600;
 }
 
 .buttonSecondary:hover:not(:disabled) {
@@ -706,6 +716,35 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+}
+
+/*
+ * Columna principal del alta.
+ *
+ * A partir de 75rem se reparte en dos, como la referencia: Información e Imágenes comparten la fila
+ * de arriba, y el contenido enriquecido, el precio, el inventario y las variantes ocupan el ancho
+ * completo. Por debajo vuelve a ser una sola columna sin tocar el orden del formulario.
+ */
+@media (min-width: 75rem) {
+  .formStack {
+    display: grid;
+    gap: var(--space-lg);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    align-content: start;
+  }
+
+  .formStack > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .formStack > .formPrimary {
+    grid-column: 1;
+  }
+
+  .formStack > .formImages {
+    grid-column: 2;
+  }
 }
 
 /*
@@ -1316,11 +1355,7 @@
 /* Botón principal de una pantalla: violeta lleno, con el «+» de las referencias. */
 .buttonPrimary {
   composes: button;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.6875rem 1.125rem;
-  box-shadow: 0 6px 16px rgb(109 40 217 / 22%);
+  box-shadow: 0 8px 20px rgb(109 40 217 / 22%);
 }
 
 /* Enlace de acción de una fila o tarjeta: violeta sobre fondo claro. */
@@ -1420,4 +1455,152 @@
   font-size: 0.75rem;
   font-weight: 700;
   white-space: nowrap;
+}
+
+/* ------------------------------------------------- portada */
+
+/*
+ * Cuadrícula de secciones.
+ *
+ * Dos columnas amplias en escritorio, como la referencia; una sola en cuanto la pantalla se
+ * estrecha. Las tarjetas son grandes a propósito: son el acceso principal al panel, no una lista.
+ */
+.dashboardGrid {
+  display: grid;
+  gap: var(--space-lg);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  align-items: stretch;
+}
+
+.dashboardCard {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(1.25rem, 3vw, 1.75rem);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-card);
+  background-color: var(--color-panel-surface);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 140ms ease;
+}
+
+.dashboardCard:hover {
+  box-shadow: var(--shadow-card-raised);
+}
+
+.dashboardCardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.dashboardIcon {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background-image: var(--gradient-brand-soft);
+  color: var(--color-brand-strong);
+}
+
+.dashboardCardTitle {
+  margin: 0 0 var(--space-xs);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.dashboardCardText {
+  margin: 0 0 var(--space-lg);
+  color: var(--color-panel-muted);
+  font-size: 0.9375rem;
+  text-wrap: pretty;
+}
+
+.dashboardCardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: auto;
+}
+
+/* ------------------------------------------------- sección sin contrato */
+
+.comingSoon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(2rem, 6vw, 3.5rem) clamp(1rem, 4vw, 2rem);
+  text-align: center;
+}
+
+.comingSoonIcon {
+  display: grid;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: var(--space-md);
+  place-items: center;
+  border-radius: 50%;
+  background-image: var(--gradient-brand-soft);
+  color: var(--color-brand-strong);
+}
+
+.comingSoonBadge {
+  margin: 0 0 var(--space-sm);
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background-color: var(--color-brand-soft);
+  color: var(--color-brand-strong);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.comingSoonTitle {
+  margin: 0 0 var(--space-sm);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.comingSoonText {
+  margin: 0 auto var(--space-lg);
+  max-width: 48ch;
+  color: var(--color-panel-muted);
+  font-size: 0.9375rem;
+  text-wrap: pretty;
+}
+
+/* Lo que la sección hará: descripciones, nunca cifras. */
+.comingSoonList {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  max-width: 40rem;
+  list-style: none;
+  text-align: left;
+}
+
+.comingSoonList li {
+  position: relative;
+  padding: 0.6875rem 1rem 0.6875rem 2.25rem;
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-panel-subtle);
+  font-size: 0.9375rem;
+}
+
+.comingSoonList li::before {
+  position: absolute;
+  top: 50%;
+  left: 1rem;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background-color: var(--color-brand);
+  content: '';
+  transform: translateY(-50%);
 }

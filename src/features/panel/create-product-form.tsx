@@ -412,7 +412,7 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
         </div>
       </div>
 
-      <div className={styles.stack}>
+      <div className={`${styles.stack} ${styles.formStack}`}>
         <div aria-live="assertive">
           {failure === null ? null : (
             <p className={styles.error} role="alert">
@@ -455,7 +455,7 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
           </div>
         )}
 
-        <section className={styles.card} id={SECTION_IDS.basica}>
+        <section className={`${styles.card} ${styles.formPrimary}`} id={SECTION_IDS.basica}>
           <div className={styles.cardPad}>
             <SectionHeading
               hint="Datos principales de tu producto."
@@ -513,6 +513,28 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
           </div>
         </section>
 
+        <div className={styles.formImages} id={SECTION_IDS.imagenes}>
+          <ImageQueueEditor
+            canAdd={created === null}
+            disabled={busy}
+            lockedIds={lockedIds}
+            onAdd={handleAdd}
+            onAlt={(entryId, value) => applyChange(setAltText(queue, entryId, value, lockedIds))}
+            onMove={(entryId, direction) =>
+              applyChange(moveInQueue(queue, entryId, direction, lockedIds))
+            }
+            onPrimary={(entryId) => setChosenPrimary(entryId)}
+            onRemove={(entryId) => applyChange(removeFromQueue(queue, entryId, lockedIds))}
+            onReplace={(entryId, file) =>
+              applyChange(
+                replaceFile(queue, entryId, file, track(file), crypto.randomUUID(), lockedIds),
+              )
+            }
+            primaryEntryId={chosenPrimary}
+            queue={queue}
+          />
+        </div>
+
         <section className={styles.card} id={SECTION_IDS.contenido}>
           <div className={styles.cardPad}>
             <SectionHeading
@@ -542,28 +564,6 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
             ) : null}
           </div>
         </section>
-
-        <div id={SECTION_IDS.imagenes}>
-          <ImageQueueEditor
-            canAdd={created === null}
-            disabled={busy}
-            lockedIds={lockedIds}
-            onAdd={handleAdd}
-            onAlt={(entryId, value) => applyChange(setAltText(queue, entryId, value, lockedIds))}
-            onMove={(entryId, direction) =>
-              applyChange(moveInQueue(queue, entryId, direction, lockedIds))
-            }
-            onPrimary={(entryId) => setChosenPrimary(entryId)}
-            onRemove={(entryId) => applyChange(removeFromQueue(queue, entryId, lockedIds))}
-            onReplace={(entryId, file) =>
-              applyChange(
-                replaceFile(queue, entryId, file, track(file), crypto.randomUUID(), lockedIds),
-              )
-            }
-            primaryEntryId={chosenPrimary}
-            queue={queue}
-          />
-        </div>
         {errors.images === undefined ? null : (
           <p className={styles.error} role="alert">
             {errors.images}

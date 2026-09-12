@@ -94,8 +94,11 @@ Reglas de uso, también permanentes:
 ## 3. Contrato con el backend
 
 - **OpenAPI es el único contrato** entre el panel y el backend. El contrato publica hoy tres roles
-  (`super_admin`, `master_admin`, `moderator`) y las quince operaciones de `/v1/admin/products`,
-  incluidas las cinco de variantes.
+  (`super_admin`, `master_admin`, `moderator`) y dos superficies administrativas: el catálogo bajo
+  `/v1/admin/products` —producto, imágenes, inventario, variantes y transiciones de estado— y los
+  pedidos bajo `/v1/admin/orders`. Aquí no se fija cuántas operaciones tiene cada una: ese número
+  cambia con el backend, y la copia comiteada del contrato es la que manda. El estado vigente se
+  describe en `docs/architecture/current-status.md`.
 - No se inventan endpoints, formas de respuesta ni campos que no estén en la especificación.
 - Los tipos de las respuestas se derivan del contrato, no se escriben a mano por conveniencia.
 - Si algo falta en el contrato, se corrige en el backend; no se compensa en el panel.
@@ -164,9 +167,10 @@ El backend desplegado en staging corre con **`ADMIN_AUTH_MODE=firebase`** y su s
 `/v1/admin/*` está **activa**. Sigue siendo privado por IAM. La cuenta `super_admin` existe, con el
 correo verificado y el bootstrap `completed`.
 
-Lo que aún no está verificado es el **recorrido del panel en Cloud Run**: el servicio
-`modulartess-admin-staging` todavía no se ha desplegado. Ver `deploy/README.md` y
-`docs/architecture/current-status.md`.
+El panel está desplegado en Cloud Run staging como `modulartess-admin-staging`, con su identidad de
+ejecución y el `roles/run.invoker` sobre el backend. El procedimiento vive en `deploy/README.md` y
+el estado vigente del entorno, en `docs/architecture/current-status.md`: este archivo fija reglas,
+no lleva la cuenta del despliegue.
 
 ## 5. Dependencias
 

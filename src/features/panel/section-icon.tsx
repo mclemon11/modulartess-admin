@@ -26,7 +26,9 @@ export type IconName =
   | 'cliente'
   | 'direccion'
   | 'historial'
-  | 'resumen';
+  | 'resumen'
+  | 'envios'
+  | 'wallet';
 
 const PATHS: Readonly<Record<IconName, readonly string[]>> = {
   basica: ['M6 3h8l4 4v14H6z', 'M14 3v4h4', 'M9 12h6', 'M9 16h6'],
@@ -48,6 +50,15 @@ const PATHS: Readonly<Record<IconName, readonly string[]>> = {
   ],
   historial: ['M12 21a9 9 0 100-18 9 9 0 000 18z', 'M12 7v5l3 2'],
   resumen: ['M6 3h12v18l-3-2-3 2-3-2-3 2z', 'M9 8h6', 'M9 12h6'],
+  // Camión de reparto.
+  envios: [
+    'M3 7h11v9H3z',
+    'M14 10h3.5l2.5 3v3h-6z',
+    'M7 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3z',
+    'M17.5 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3z',
+  ],
+  // Cartera.
+  wallet: ['M3 7a2 2 0 012-2h12v14H5a2 2 0 01-2-2z', 'M17 9h4v6h-4a3 3 0 010-6z', 'M18.5 12h.01'],
 };
 
 export function Icon({

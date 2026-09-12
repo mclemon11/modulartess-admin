@@ -4,6 +4,8 @@
   gap: var(--space-md);
 }
 
+/* Controles con la altura y el radio de la referencia, iguales a los del panel. */
+
 .field {
   display: flex;
   flex-direction: column;
@@ -12,14 +14,15 @@
 
 .label {
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .input {
   width: 100%;
-  padding: 0.625rem 0.75rem;
+  min-height: var(--control-height);
+  padding: 0.625rem 0.875rem;
   border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control);
   background-color: var(--color-surface-light);
   color: var(--color-text-light);
   font-family: inherit;
@@ -44,22 +47,25 @@
 
 .submit {
   margin-top: var(--space-xs);
+  min-height: var(--control-height);
   padding: 0.6875rem 1rem;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control);
   background-color: var(--color-brand);
+  background-image: var(--gradient-brand);
   color: var(--color-brand-contrast);
   font-family: inherit;
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 8px 20px rgb(109 40 217 / 22%);
   transition:
-    background-color 120ms ease,
+    filter 120ms ease,
     box-shadow 120ms ease;
 }
 
 .submit:hover:not(:disabled) {
-  background-color: var(--color-brand-strong);
+  filter: brightness(1.06);
 }
 
 .submit:focus-visible {
@@ -75,8 +81,10 @@
 .secondary {
   composes: submit;
   background-color: var(--color-surface-light);
+  background-image: none;
   border-color: var(--color-brand-border);
   color: var(--color-brand-strong);
+  box-shadow: none;
 }
 
 .secondary:hover:not(:disabled) {

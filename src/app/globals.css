@@ -59,9 +59,9 @@
   --color-danger-soft: #fdf0f0;
   --color-danger-border: #f1cfd1;
 
-  /* Lienzo del panel: gris lavanda muy suave, para que las tarjetas blancas destaquen sin bordes
-     duros. */
-  --color-panel-canvas: #f7f6fc;
+  /* Lienzo del panel: gris azulado muy claro, el de las referencias, para que las tarjetas
+     blancas destaquen sin bordes duros. */
+  --color-panel-canvas: #f5f6fb;
   --color-panel-surface: #ffffff;
   --color-panel-border: #e8e5f2;
   --color-panel-border-strong: #d9d4ea;
@@ -77,8 +77,16 @@
   --color-badge-archived-bg: #f6efe9;
   --color-badge-archived-fg: #8a5a2b;
 
-  --sidebar-width: 15.5rem;
-  --header-height: 3.75rem;
+  --sidebar-width: 14.75rem; /* ≈236 px, el de las referencias */
+  --header-height: 4rem;
+
+  /* Alturas de control de las referencias: campos y botones de la misma familia. */
+  --control-height: 2.75rem;
+  --control-height-sm: 2.25rem;
+
+  /* Acento violeta en degradado, el de los botones principales y del elemento activo. */
+  --gradient-brand: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  --gradient-brand-soft: linear-gradient(135deg, #f3edff 0%, #ece4ff 100%);
 
   /*
    * Valores visuales compartidos por las pantallas del panel.

@@ -10,13 +10,22 @@ export type NavigationItem = {
   readonly href: string;
   readonly label: string;
   /** Icono de `section-icon`, para que la barra lateral tenga la misma iconografía que las tarjetas. */
-  readonly icon: 'panel' | 'productos' | 'pedidos';
+  readonly icon: 'panel' | 'productos' | 'pedidos' | 'envios' | 'wallet';
 };
 
+/**
+ * Las cinco entradas del panel, en este orden.
+ *
+ * Envíos y Wallet todavía no tienen contrato: sus pantallas existen, lo dicen y no fingen datos.
+ * Están en la navegación porque el enlace lleva a un sitio real que explica en qué punto está, no a
+ * un 404.
+ */
 export const NAVIGATION: readonly NavigationItem[] = [
-  { href: '/panel', label: 'Panel', icon: 'panel' },
-  { href: '/panel/productos', label: 'Productos', icon: 'productos' },
+  { href: '/panel', label: 'Dashboard', icon: 'panel' },
   { href: '/panel/pedidos', label: 'Pedidos', icon: 'pedidos' },
+  { href: '/panel/productos', label: 'Productos', icon: 'productos' },
+  { href: '/panel/envios', label: 'Envíos', icon: 'envios' },
+  { href: '/panel/wallet', label: 'Wallet', icon: 'wallet' },
 ];
 
 /**

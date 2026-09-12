@@ -19,8 +19,8 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
-  padding: var(--space-md) 0.75rem;
+  gap: var(--space-md);
+  padding: var(--space-lg) 0.875rem var(--space-md);
   border-right: 1px solid var(--color-panel-border);
   background-color: var(--color-panel-surface);
 }
@@ -28,46 +28,25 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
   padding: 0.25rem 0.5rem 0;
+}
+
+/* El archivo real de la marca. Se escala por altura para no deformarlo. */
+.brandLogo {
+  width: auto;
+  height: auto;
+  max-width: 100%;
 }
 
 /* Línea de apoyo bajo la marca, como en las referencias. */
 .brandCaption {
-  margin: 0.375rem 0 0;
-  padding: 0 0.5rem var(--space-md);
+  margin: 0.625rem 0 var(--space-md);
+  padding: 0 0.5rem;
   color: var(--color-panel-muted);
   font-size: 0.6875rem;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-}
-
-.brandMark {
-  width: 2rem;
-  height: 2rem;
-  flex: 0 0 auto;
-  border-radius: 0.5rem;
-  background-image: linear-gradient(135deg, var(--color-brand), var(--color-brand-strong));
-}
-
-.brandText {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  line-height: 1.15;
-}
-
-.brandName {
-  color: var(--color-brand-strong);
-  font-size: 1.0625rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  line-height: 1.1;
-}
-
-.brandTag {
-  color: var(--color-panel-muted);
-  font-size: 0.75rem;
 }
 
 .nav {
@@ -100,9 +79,10 @@
 
 .navLinkActive {
   composes: navLink;
-  background-color: var(--color-brand-soft);
+  background-image: var(--gradient-brand-soft);
   color: var(--color-brand-strong);
-  font-weight: 600;
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--color-brand);
 }
 
 /* Icono de trazo, el mismo juego que usan las tarjetas de las pantallas. */
@@ -117,12 +97,35 @@
 
 .sidebarFooter {
   margin-top: auto;
-  padding: var(--space-md) 0.75rem 0;
+  padding: var(--space-md) 0.5rem 0;
   border-top: 1px solid var(--color-panel-border);
 }
 
+/* Bloque de sesión: avatar genérico y rol. Sin nombre, correo ni UID. */
+.sidebarUser {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.sidebarUserText {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.avatar {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background-image: var(--gradient-brand-soft);
+  color: var(--color-brand-strong);
+}
+
 .roleLabel {
-  margin: 0 0 0.125rem;
   color: var(--color-panel-muted);
   font-size: 0.6875rem;
   letter-spacing: 0.06em;
@@ -130,10 +133,10 @@
 }
 
 .roleValue {
-  margin: 0;
-  color: var(--color-brand-strong);
+  color: var(--color-panel-text);
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .scrim {
@@ -161,20 +164,52 @@
   background-color: var(--color-panel-surface);
 }
 
-/* Móvil: la cabecera es compacta y la marca se centra, como en las referencias. */
-.headerBrand {
+/* En escritorio la marca ya está en la barra lateral; el logotipo de la cabecera es de móvil. */
+.headerLogo {
   display: none;
-  color: var(--color-brand-strong);
-  font-size: 0.9375rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  width: auto;
+  height: auto;
+}
+
+.headerSide {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-left: auto;
+}
+
+.headerUser {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding-left: var(--space-md);
+  border-left: 1px solid var(--color-panel-border);
+}
+
+.headerUserText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.headerUserLabel {
+  color: var(--color-panel-muted);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.headerUserRole {
+  color: var(--color-panel-text);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .headerActions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm);
-  margin-left: auto;
 }
 
 .menuButton {
@@ -334,9 +369,14 @@
     gap: var(--space-sm);
   }
 
-  .headerBrand {
+  .headerLogo {
     display: block;
-    margin: 0 auto;
+    max-width: 9rem;
+  }
+
+  /* En móvil la cabecera solo lleva marca y menú: el rol se lee en el cajón. */
+  .headerUser {
+    display: none;
   }
 
   /* El breadcrumb completo no cabe en 390 px: se conserva el último salto, que es el que ubica. */
