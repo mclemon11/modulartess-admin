@@ -457,6 +457,17 @@
   width: var(--thumb-size);
 }
 
+/*
+ * Superficie de un listado.
+ *
+ * En escritorio es la tarjeta blanca que envuelve la tabla y su paginación. En móvil se disuelve:
+ * las tarjetas de cada fila ya son superficie, y encerrarlas en otra caja blanca dibujaba un borde
+ * dentro de otro borde. Lo usan Productos y Pedidos por igual.
+ */
+.listSurface {
+  composes: card;
+}
+
 /* Tarjetas de móvil: la tabla desaparece por debajo de 60rem. */
 .cardList {
   display: none;
@@ -551,6 +562,12 @@
 
   .cardList {
     display: flex;
+  }
+
+  .listSurface {
+    border: none;
+    background-color: transparent;
+    box-shadow: none;
   }
 
   .pagination {
@@ -1354,4 +1371,53 @@
   flex-wrap: wrap;
   gap: 0.375rem;
   margin-top: 0.125rem;
+}
+
+/* ------------------------------------------------- estados comunes */
+
+/*
+ * Icono del estado vacío o de error.
+ *
+ * Da un ancla visual a una pantalla que, por definición, no tiene contenido que mostrar. Es
+ * decorativo: el título y el texto dicen lo mismo.
+ */
+.emptyIcon {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  margin: 0 auto var(--space-md);
+  place-items: center;
+  border-radius: 50%;
+  background-color: var(--color-brand-soft);
+  color: var(--color-brand-strong);
+}
+
+.emptyIconDanger {
+  composes: emptyIcon;
+  background-color: var(--color-state-danger-bg);
+  color: var(--color-state-danger-fg);
+}
+
+/* Dentro de un estado, el aviso se centra con el resto del bloque. */
+.empty .error {
+  margin: 0 auto var(--space-lg);
+  max-width: 44ch;
+  text-align: left;
+}
+
+/*
+ * Inventario en cero.
+ *
+ * Se dice con palabras y con color, no solo con color: quien no distingue el rojo lee «Sin
+ * existencias» igual.
+ */
+.outOfStock {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background-color: var(--color-state-danger-bg);
+  color: var(--color-state-danger-fg);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
 }

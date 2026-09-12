@@ -304,6 +304,28 @@ venta, miniatura del producto en el listado, selección múltiple, paginación n
 cliente», «Imprimir», «Ver perfil», «Ver en mapa», notas internas, observaciones del cliente y
 edición de cliente, dirección, líneas o precios. Tampoco hay reembolso ni pago manual.
 
+### Estado visual del panel
+
+El panel tiene un solo sistema visual, compartido por las dos secciones operativas:
+
+- **Shell**: barra lateral blanca con la marca, navegación con iconos de trazo y la sesión —rol y
+  cierre— al pie. Fija en escritorio, estrecha entre 60 y 80 rem, y cajón por debajo de 60 rem con
+  una cabecera compacta. La navegación lista **solo** Panel, Productos y Pedidos.
+- **Tokens compartidos** en `globals.css`: superficies, bordes, sombras, radios, tamaños de
+  miniatura y una paleta de estado —éxito, información, aviso, peligro, neutro y marca— que usan
+  por igual los badges del catálogo, los de pedidos y el recorrido de estados.
+- **Piezas comunes**: tarjeta, cabecera de tarjeta con icono, tabla, superficie de listado que se
+  disuelve en móvil, paginación por cursor, campo de precio, estados de vacío y de error. Pedidos
+  no duplica ninguna: las compone desde la base del catálogo.
+- **Estados**: cargando, lista vacía, backend no disponible, recurso no encontrado, conflicto de
+  versión, acción en curso, resultado de una mutación, imagen ausente e inventario en cero se ven
+  igual en todas las pantallas.
+- **Portada**: acceso a Productos y a Pedidos con el rol de la sesión. Sin métricas, gráficas ni
+  contadores: el backend no publica agregaciones.
+
+Las diferencias con las referencias visuales están enumeradas arriba, sección por sección: todo lo
+que falta es lo que el contrato no publica, y nada de eso se aparenta con adornos.
+
 ### Preparación para publicar
 
 `AdminProductDto.publicationReadiness` llega calculado por el backend —imágenes y variantes

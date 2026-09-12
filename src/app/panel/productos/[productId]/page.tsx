@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import styles from '@/features/panel/catalog.module.css';
 import { describeBackendFailure } from '@/features/panel/catalog-errors';
+import { ErrorState } from '@/features/panel/panel-states';
 import { PanelHeader } from '@/features/panel/panel-header';
 import { ProductDetailClient } from '@/features/panel/product-detail-client';
 import { detailPermissions } from '@/features/panel/product-permissions';
@@ -44,12 +45,15 @@ export default async function ProductDetailPage({ params }: PageProps) {
           ]}
         />
         <div className={styles.page}>
-          <p className={styles.error} role="alert">
-            {message}
-          </p>
-          <Link className={styles.buttonSecondary} href="/panel/productos">
-            Volver al catálogo
-          </Link>
+          <ErrorState
+            action={
+              <Link className={styles.buttonSecondary} href="/panel/productos">
+                Volver al catálogo
+              </Link>
+            }
+            message={message}
+            title="No pudimos cargar el producto"
+          />
         </div>
       </>
     );

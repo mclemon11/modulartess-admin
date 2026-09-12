@@ -257,6 +257,35 @@
   color: var(--color-panel-border-strong);
 }
 
+/* ------------------------------------------------------------- tablet */
+
+/*
+ * Entre 60 y 80 rem la barra lateral se estrecha en vez de desaparecer.
+ *
+ * A esos anchos la navegación sigue cabiendo y tenerla siempre visible ahorra un toque; lo que
+ * sobra es el espacio en blanco alrededor del texto, no el texto.
+ */
+@media (min-width: 60rem) and (max-width: 80rem) {
+  .layout {
+    grid-template-columns: var(--sidebar-width-compact) 1fr;
+  }
+
+  .sidebar {
+    gap: var(--space-md);
+    padding: var(--space-md) 0.5rem;
+  }
+
+  .navLink {
+    gap: 0.5rem;
+    padding: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .brandCaption {
+    display: none;
+  }
+}
+
 /* ------------------------------------------------------ tablet y móvil */
 
 @media (max-width: 60rem) {

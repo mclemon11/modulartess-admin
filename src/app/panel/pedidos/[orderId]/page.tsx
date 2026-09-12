@@ -3,6 +3,7 @@ import Link from 'next/link';
 import catalog from '@/features/panel/catalog.module.css';
 import { describeBackendFailure } from '@/features/panel/catalog-errors';
 import { OrderDetailView } from '@/features/panel/order-detail-view';
+import { ErrorState } from '@/features/panel/panel-states';
 import { PanelHeader } from '@/features/panel/panel-header';
 import { resolvePanelSession } from '@/features/panel/session-context';
 import { getOrder } from '@/lib/api/orders';
@@ -48,13 +49,15 @@ export default async function OrderDetailPage({ params }: PageProps) {
       <>
         <PanelHeader trail={trail} />
         <div className={catalog.page}>
-          <h1 className={catalog.pageTitle}>Pedido</h1>
-          <p className={catalog.error} role="alert">
-            {message}
-          </p>
-          <Link className={catalog.buttonSecondary} href="/panel/pedidos">
-            Volver a pedidos
-          </Link>
+          <ErrorState
+            action={
+              <Link className={catalog.buttonSecondary} href="/panel/pedidos">
+                Volver a pedidos
+              </Link>
+            }
+            message={message}
+            title="No pudimos cargar el pedido"
+          />
         </div>
       </>
     );

@@ -4,6 +4,7 @@ import styles from '@/features/panel/catalog.module.css';
 import { PanelHeader } from '@/features/panel/panel-header';
 import { SectionHeading } from '@/features/panel/section-icon';
 import { resolvePanelSession } from '@/features/panel/session-context';
+import { can } from '@/features/session/permissions';
 import { describeRole } from '@/features/session/role-labels';
 
 export const dynamic = 'force-dynamic';
@@ -11,13 +12,12 @@ export const dynamic = 'force-dynamic';
 /**
  * Portada del panel.
  *
- * No hay métricas de ventas, pedidos ni catálogo: el backend no publica **ninguna** agregación, y
- * un número inventado en un panel administrativo es peor que un panel vacío. Lo que se dice aquí
- * es lo que se sabe de verdad: que la sesión está activa, con qué rol, y cuál es la sección
- * operativa disponible.
+ * Es un punto de partida, no un cuadro de mando: el backend no publica **ninguna** agregación, así
+ * que aquí no hay ventas, conteos, gráficas ni alertas. Un número inventado en un panel
+ * administrativo es peor que un panel sin números.
  *
- * El shell está preparado para que las siguientes secciones sean una entrada en `navigation.ts` y
- * una carpeta bajo `src/app/panel/`: esta portada no habrá que rehacerla.
+ * Lo que sí se dice es real: qué rol tiene la sesión y cuáles son las dos secciones operativas.
+ * Los accesos se ocultan según la matriz de permisos, igual que en el resto del panel.
  */
 export default async function PanelPage() {
   const result = await resolvePanelSession();
@@ -29,11 +29,10 @@ export default async function PanelPage() {
       <div className={styles.page}>
         <div className={styles.pageHead}>
           <div className={styles.pageHeadText}>
-            <h1 className={styles.pageTitle}>Sesión administrativa activa</h1>
+            <h1 className={styles.pageTitle}>Panel de administración</h1>
             <p className={styles.pageLead}>
-              Tu rol es <strong>{describeRole(role)}</strong>. Cada acción se verifica en el
-              backend, que es quien decide qué puede hacer tu rol: el panel solo oculta lo que no te
-              corresponde.
+              Sesión activa con el rol <strong>{describeRole(role)}</strong>. Cada acción se
+              verifica en el backend: el panel solo oculta lo que tu rol no puede hacer.
             </p>
           </div>
         </div>
@@ -41,28 +40,44 @@ export default async function PanelPage() {
         <div className={styles.homeGrid}>
           <section className={styles.card}>
             <div className={styles.cardPad}>
-              <SectionHeading icon="productos" title="Productos" />
+              <SectionHeading
+                hint="Catálogo, imágenes, inventario y variantes."
+                icon="productos"
+                title="Productos"
+              />
               <p className={styles.hint}>
-                La sección operativa disponible. Desde ahí se crea el catálogo, se suben imágenes,
-                se gestionan variantes e inventario y se publica cuando el backend confirma que el
-                producto está listo.
+                Crea y edita productos, sube sus imágenes, ajusta inventario y publícalos cuando el
+                backend confirme que están listos.
               </p>
               <div className={styles.actions}>
                 <Link className={styles.buttonPrimary} href="/panel/productos">
-                  Ir a productos
+                  Abrir catálogo
                 </Link>
+                {can(role, 'products.create') ? (
+                  <Link className={styles.buttonSecondary} href="/panel/productos/nuevo">
+                    Crear producto
+                  </Link>
+                ) : null}
               </div>
             </div>
           </section>
 
           <section className={styles.card}>
             <div className={styles.cardPad}>
-              <SectionHeading icon="estado" title="Lo que todavía no está" />
+              <SectionHeading
+                hint="Las compras que llegan desde la tienda."
+                icon="pedidos"
+                title="Pedidos"
+              />
               <p className={styles.hint}>
-                Pedidos, clientes, cupones, envíos y las métricas del catálogo no aparecen en la
-                navegación porque el contrato todavía no publica sus operaciones. Se añadirán sobre
-                este mismo shell cuando existan; mientras tanto, no se aparentan.
+                Consulta los pedidos recibidos y mueve su estado a medida que avanzan. No se crean
+                desde el panel: un pedido nace cuando alguien compra.
               </p>
+              <div className={styles.actions}>
+                <Link className={styles.buttonPrimary} href="/panel/pedidos">
+                  Ver pedidos
+                </Link>
+              </div>
             </div>
           </section>
         </div>

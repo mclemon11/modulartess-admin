@@ -7,64 +7,45 @@
  * estados, el recorrido de estados, las líneas compradas y el resumen de importes.
  */
 
-/* Badges de los seis estados del contrato. Misma pastilla que el catálogo, otros colores. */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.625rem;
-  border-radius: 999px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  flex: none;
-  border-radius: 50%;
-  background-color: currentcolor;
-}
-
+/*
+ * Colores de los seis estados del contrato.
+ *
+ * Aquí **solo** viven los colores: la pastilla y el punto son los del catálogo, y
+ * `OrderStatusBadge` aplica las dos clases juntas. Se hace desde el componente y no con
+ * `composes … from`, porque la composición entre archivos no la resuelve el compilador de CSS
+ * Modules de esta versión y la forma se perdería sin avisar.
+ */
 .badgePendingPayment {
-  composes: badge;
-  background-color: #fff4e5;
-  color: #92400e;
+  background-color: var(--color-state-warning-bg);
+  color: var(--color-state-warning-fg);
 }
 
 .badgePaid {
-  composes: badge;
-  background-color: #e7f8ef;
-  color: #10643c;
+  background-color: var(--color-state-success-bg);
+  color: var(--color-state-success-fg);
 }
 
 .badgePreparing {
-  composes: badge;
-  background-color: #efeafe;
-  color: #5b2bb8;
+  background-color: var(--color-state-brand-bg);
+  color: var(--color-state-brand-fg);
 }
 
 .badgeShipped {
-  composes: badge;
-  background-color: #e6f1fe;
-  color: #1a4f9c;
+  background-color: var(--color-state-info-bg);
+  color: var(--color-state-info-fg);
 }
 
 .badgeDelivered {
-  composes: badge;
-  background-color: #e7f8ef;
-  color: #0b7a43;
+  background-color: var(--color-state-success-bg);
+  color: var(--color-state-success-fg);
 }
 
 .badgeCancelled {
-  composes: badge;
-  background-color: #fdeaea;
-  color: #9b1c1c;
+  background-color: var(--color-state-danger-bg);
+  color: var(--color-state-danger-fg);
 }
 
 .badgeUnknown {
-  composes: badge;
   background-color: var(--color-panel-subtle);
   color: var(--color-panel-muted);
 }
@@ -132,7 +113,7 @@
 }
 
 .progressStepDone::before {
-  background-color: #34a26b;
+  background-color: var(--color-state-success-line);
 }
 
 .progressMark {
@@ -152,16 +133,16 @@
 
 .progressMarkDone {
   composes: progressMark;
-  border-color: #34a26b;
-  background-color: #34a26b;
-  color: #ffffff;
+  border-color: var(--color-state-success-line);
+  background-color: var(--color-state-success-line);
+  color: var(--color-brand-contrast);
 }
 
 .progressMarkCurrent {
   composes: progressMark;
-  border-color: var(--color-brand-strong, #6d28d9);
-  background-color: var(--color-brand-strong, #6d28d9);
-  color: #ffffff;
+  border-color: var(--color-brand-strong);
+  background-color: var(--color-brand-strong);
+  color: var(--color-brand-contrast);
 }
 
 .progressLabel {
@@ -261,7 +242,7 @@
 .lineSku {
   margin: 0;
   color: var(--color-panel-muted);
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--font-mono);
   font-size: 0.8125rem;
 }
 
@@ -401,42 +382,23 @@
   margin-top: 0.25rem;
 }
 
-/* En escritorio manda la tabla; en móvil, las tarjetas. Nunca las dos a la vez. */
-.cardList {
-  display: grid;
-  gap: 0.75rem;
-  margin: 0;
-  padding: clamp(0.75rem, 3vw, 1rem);
-  list-style: none;
-}
-
-@media (min-width: 60rem) {
-  .cardList {
-    display: none;
-  }
-}
-
-.tableScroll {
-  display: none;
-  overflow-x: auto;
-}
-
-@media (min-width: 60rem) {
-  .tableScroll {
-    display: block;
-  }
-}
-
-/* El detalle se reparte en dos columnas cuando hay sitio, y en una cuando no. */
+/*
+ * El detalle se reparte en dos columnas cuando hay sitio, y en una cuando no.
+ *
+ * El corte se escribe igual que en el detalle de producto —«se colapsa por debajo de 64rem»— para
+ * que las dos pantallas cambien de forma en el mismo punto exacto. Con una en `min-width` y otra en
+ * `max-width`, a 1024 px justos una tenía dos columnas y la otra una.
+ */
 .detailGrid {
   display: grid;
   gap: var(--space-md);
+  grid-template-columns: minmax(0, 1fr) 21rem;
   align-items: start;
 }
 
-@media (min-width: 64rem) {
+@media (max-width: 64rem) {
   .detailGrid {
-    grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -446,19 +408,77 @@
   min-width: 0;
 }
 
-.conflict {
-  margin: 0 0 var(--space-md);
-  padding: 0.875rem 1rem;
-  border: 1px solid #f3c9c9;
-  border-radius: var(--radius-control);
-  background-color: #fdf2f2;
-  color: #9b1c1c;
-  font-size: 0.875rem;
-}
+/*
+ * Aviso de una mutación rechazada.
+ *
+ * La caja es la del catálogo (`error`): misma forma, mismos colores, un solo sitio donde
+ * cambiarlos. Aquí solo vive la separación del botón de recargar.
+ */
 
 .conflictActions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.625rem;
+}
+
+/* ------------------------------------------------- ajustes de pantalla estrecha */
+
+/*
+ * El recorrido en móvil.
+ *
+ * Los cinco pasos siguen cabiendo, pero la fecha bajo cada uno no: en 390 px se parte en cuatro
+ * líneas y deja el paso ilegible. Se oculta ahí, no se pierde nada: el historial del pedido, justo
+ * debajo, lista cada estado con su fecha completa.
+ */
+@media (max-width: 40rem) {
+  .progress {
+    gap: 0.125rem;
+  }
+
+  .progressMark {
+    width: 1.25rem;
+    height: 1.25rem;
+    font-size: 0.625rem;
+  }
+
+  .progressStep::before {
+    top: 0.5625rem;
+  }
+
+  .progressLabel {
+    font-size: 0.6875rem;
+  }
+
+  .progressAt {
+    display: none;
+  }
+}
+
+/* El número de pedido es el enlace principal de la tarjeta: se pinta con el violeta de marca. */
+.orderCardId a {
+  color: var(--color-brand-strong);
+  text-decoration: none;
+}
+
+.orderCardId a:hover {
+  text-decoration: underline;
+}
+
+/* Los importes de una línea se separan del nombre con un filete, como en la referencia. */
+.lineAmounts {
+  padding-top: 0.375rem;
+  border-top: 1px solid var(--color-panel-border);
+}
+
+/* Identificador del pedido en la tabla: mismo tratamiento que en la tarjeta. */
+.orderLink {
+  color: var(--color-brand-strong);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.orderLink:hover {
+  text-decoration: underline;
 }

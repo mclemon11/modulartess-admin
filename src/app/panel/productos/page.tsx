@@ -5,6 +5,7 @@ import { describeBackendFailure } from '@/features/panel/catalog-errors';
 import { formatDateTime } from '@/features/panel/format';
 import { formatCop } from '@/features/panel/money';
 import { PanelHeader } from '@/features/panel/panel-header';
+import { EmptyState, ErrorState } from '@/features/panel/panel-states';
 import { ProductThumb } from '@/features/panel/product-thumb';
 import { describeReadiness } from '@/features/panel/publication-readiness';
 import { resolvePanelSession } from '@/features/panel/session-context';
@@ -69,13 +70,20 @@ export default async function ProductsPage({ searchParams }: PageProps) {
       <>
         <PanelHeader trail={trail} />
         <div className={styles.page}>
-          <h1 className={styles.pageTitle}>Productos</h1>
-          <p className={styles.error} role="alert">
-            {message}
-          </p>
-          <Link className={styles.buttonSecondary} href="/panel/productos">
-            Reintentar
-          </Link>
+          <div className={styles.pageHead}>
+            <div className={styles.pageHeadText}>
+              <h1 className={styles.pageTitle}>Productos</h1>
+            </div>
+          </div>
+          <ErrorState
+            action={
+              <Link className={styles.buttonSecondary} href="/panel/productos">
+                Reintentar
+              </Link>
+            }
+            message={message}
+            title="No pudimos cargar el catálogo"
+          />
         </div>
       </>
     );
@@ -101,9 +109,9 @@ export default async function ProductsPage({ searchParams }: PageProps) {
         </div>
 
         {page.items.length === 0 ? (
-          <EmptyState canCreate={canCreate} />
+          <CatalogEmpty canCreate={canCreate} />
         ) : (
-          <section className={styles.card}>
+          <section className={styles.listSurface}>
             <div className={styles.tableScroll}>
               <table className={styles.table}>
                 <caption className="sr-only">Productos del catálogo administrativo</caption>
@@ -187,6 +195,21 @@ function stockClass(product: AdminProduct): string | undefined {
   return product.stockQuantity <= product.lowStockThreshold ? styles.lowStock : undefined;
 }
 
+/**
+ * Inventario de la fila.
+ *
+ * «Sin existencias» no es un estado inventado: es el mismo `stockQuantity` dicho en palabras cuando
+ * vale cero. El estado del producto sigue siendo el del contrato —borrador, publicado o
+ * archivado—, y la disponibilidad la deriva el backend, no esta pantalla.
+ */
+function StockCell({ product }: { readonly product: AdminProduct }) {
+  if (product.stockQuantity === 0) {
+    return <span className={styles.outOfStock}>Sin existencias</span>;
+  }
+
+  return <span className={stockClass(product)}>{product.stockQuantity}</span>;
+}
+
 function ProductRow({
   product,
   canEdit,
@@ -213,7 +236,7 @@ function ProductRow({
       <td>{product.category === null ? '—' : product.category.name}</td>
       <td className={styles.numeric}>{formatCop(product.priceCop)}</td>
       <td className={styles.numeric}>
-        <span className={stockClass(product)}>{product.stockQuantity}</span>
+        <StockCell product={product} />
       </td>
       <td>
         <span className={styles.statusCell}>
@@ -256,7 +279,9 @@ function ProductCard({
           <ReadinessPill product={product} />
         </div>
         <p className={styles.productCardMeta}>
-          <span className={stockClass(product)}>Inventario: {product.stockQuantity}</span>
+          <span>
+            Inventario: <StockCell product={product} />
+          </span>
           <span>Actualizado {formatDateTime(product.updatedAt)}</span>
         </p>
         <div className={styles.productCardFooter}>
@@ -269,23 +294,23 @@ function ProductCard({
   );
 }
 
-function EmptyState({ canCreate }: { readonly canCreate: boolean }) {
+function CatalogEmpty({ canCreate }: { readonly canCreate: boolean }) {
   return (
-    <section className={styles.card}>
-      <div className={styles.empty}>
-        <h2 className={styles.emptyTitle}>Todavía no hay productos</h2>
-        <p className={styles.emptyText}>
-          El catálogo está vacío. Un producto nuevo nace como borrador y no es visible en la tienda
-          hasta que se publica.
-        </p>
-        {canCreate ? (
-          <Link className={styles.button} href="/panel/productos/nuevo">
-            Nuevo producto
+    <EmptyState
+      action={
+        canCreate ? (
+          <Link className={styles.buttonPrimary} href="/panel/productos/nuevo">
+            <span aria-hidden="true">+</span> Nuevo producto
           </Link>
         ) : (
-          <p className={styles.emptyText}>Tu rol no permite crear productos.</p>
-        )}
-      </div>
-    </section>
+          <p className={styles.hint}>Tu rol no permite crear productos.</p>
+        )
+      }
+      icon="productos"
+      title="Todavía no hay productos"
+    >
+      El catálogo está vacío. Un producto nuevo nace como borrador y no es visible en la tienda
+      hasta que se publica.
+    </EmptyState>
   );
 }

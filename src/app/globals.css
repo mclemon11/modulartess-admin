@@ -94,6 +94,31 @@
   --thumb-size: 3.5rem;
   --thumb-size-card: 6.5rem;
 
+  /*
+   * Paleta de estado compartida por Productos y Pedidos.
+   *
+   * Las dos secciones pintan pastillas, avisos y recorridos con los mismos seis significados. Con
+   * los colores aquí, «entregado» y «publicado» se parecen porque son la misma idea, y retocar uno
+   * no deja al otro atrás.
+   */
+  --color-state-success-bg: #e7f8ef;
+  --color-state-success-fg: #0b6b3f;
+  --color-state-success-line: #34a26b;
+  --color-state-info-bg: #e6f1fe;
+  --color-state-info-fg: #1a4f9c;
+  --color-state-warning-bg: #fff4e5;
+  --color-state-warning-fg: #92400e;
+  --color-state-danger-bg: #fdeaea;
+  --color-state-danger-fg: #9b1c1c;
+  --color-state-danger-border: #f3c9c9;
+  --color-state-neutral-bg: #f1f0f6;
+  --color-state-neutral-fg: #5b5470;
+  --color-state-brand-bg: #efeafe;
+  --color-state-brand-fg: #5b2bb8;
+
+  /* Ancho de la barra lateral cuando la pantalla es de tablet. */
+  --sidebar-width-compact: 12.5rem;
+
   /* Punto de color de los badges de estado. */
   --color-dot-active: #16a34a;
   --color-dot-draft: #7c6ba8;

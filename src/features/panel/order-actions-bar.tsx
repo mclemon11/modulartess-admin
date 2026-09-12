@@ -87,7 +87,7 @@ export function OrderActionsBar({
       {actions.length === 0 ? <NoActions role={role} status={order.status} /> : null}
 
       {failure === null ? null : (
-        <p className={styles.conflict} role="alert">
+        <p className={catalog.error} role="alert">
           {describeOrderFailure(failure)}
           {offersReload(failure) ? (
             <span className={styles.conflictActions}>

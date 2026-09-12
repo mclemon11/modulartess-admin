@@ -79,7 +79,7 @@ export function OrderDetailView({
           <section className={`${catalog.card} ${catalog.cardPad}`}>
             <SectionHeading
               hint="Se añade una entrada por cada cambio de estado y no se edita ninguna."
-              icon="contenido"
+              icon="historial"
               title="Historial del pedido"
             />
             <ol className={styles.timeline}>
@@ -95,7 +95,7 @@ export function OrderDetailView({
 
         <div className={styles.detailColumn}>
           <section className={`${catalog.card} ${catalog.cardPad}`}>
-            <SectionHeading icon="basica" title="Cliente" />
+            <SectionHeading icon="cliente" title="Cliente" />
             <dl className={styles.facts}>
               <Fact label="Nombre" value={order.customer.fullName} />
               <Fact label="Correo" value={order.customer.email} />
@@ -104,7 +104,7 @@ export function OrderDetailView({
           </section>
 
           <section className={`${catalog.card} ${catalog.cardPad}`}>
-            <SectionHeading icon="inventario" title="Dirección de entrega" />
+            <SectionHeading icon="direccion" title="Dirección de entrega" />
             <dl className={styles.facts}>
               <Fact label="Dirección" value={order.shippingAddress.addressLine} />
               <Fact label="Ciudad" value={order.shippingAddress.city} />
@@ -117,7 +117,7 @@ export function OrderDetailView({
           </section>
 
           <section className={`${catalog.card} ${catalog.cardPad}`}>
-            <SectionHeading icon="precio" title="Resumen" />
+            <SectionHeading icon="resumen" title="Resumen del pedido" />
             <div className={styles.amounts}>
               <p className={styles.amountRow}>
                 <span className={styles.amountLabel}>Subtotal</span>

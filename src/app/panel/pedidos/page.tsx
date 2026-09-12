@@ -6,6 +6,7 @@ import { formatDateTime } from '@/features/panel/format';
 import { formatCop } from '@/features/panel/money';
 import { OrderStatusBadge } from '@/features/panel/order-status-badge';
 import styles from '@/features/panel/orders.module.css';
+import { EmptyState, ErrorState } from '@/features/panel/panel-states';
 import { PanelHeader } from '@/features/panel/panel-header';
 import { resolvePanelSession } from '@/features/panel/session-context';
 import { listOrders, type AdminOrderSummary } from '@/lib/api/orders';
@@ -67,13 +68,20 @@ export default async function OrdersPage({ searchParams }: PageProps) {
       <>
         <PanelHeader trail={trail} />
         <div className={catalog.page}>
-          <h1 className={catalog.pageTitle}>Pedidos</h1>
-          <p className={catalog.error} role="alert">
-            {message}
-          </p>
-          <Link className={catalog.buttonSecondary} href="/panel/pedidos">
-            Reintentar
-          </Link>
+          <div className={catalog.pageHead}>
+            <div className={catalog.pageHeadText}>
+              <h1 className={catalog.pageTitle}>Pedidos</h1>
+            </div>
+          </div>
+          <ErrorState
+            action={
+              <Link className={catalog.buttonSecondary} href="/panel/pedidos">
+                Reintentar
+              </Link>
+            }
+            message={message}
+            title="No pudimos cargar los pedidos"
+          />
         </div>
       </>
     );
@@ -95,10 +103,10 @@ export default async function OrdersPage({ searchParams }: PageProps) {
         </div>
 
         {page.items.length === 0 ? (
-          <EmptyState />
+          <OrdersEmpty />
         ) : (
-          <section className={catalog.card}>
-            <div className={styles.tableScroll}>
+          <section className={catalog.listSurface}>
+            <div className={catalog.tableScroll}>
               <table className={catalog.table}>
                 <caption className="sr-only">Pedidos recibidos</caption>
                 <thead>
@@ -123,7 +131,7 @@ export default async function OrdersPage({ searchParams }: PageProps) {
               </table>
             </div>
 
-            <ul className={styles.cardList}>
+            <ul className={catalog.cardList}>
               {page.items.map((order) => (
                 <li key={order.id}>
                   <OrderCard order={order} />
@@ -161,7 +169,7 @@ function OrderRow({ order }: { readonly order: AdminOrderSummary }) {
   return (
     <tr>
       <td>
-        <Link className={catalog.productName} href={`/panel/pedidos/${order.id}`}>
+        <Link className={styles.orderLink} href={`/panel/pedidos/${order.id}`}>
           {order.publicId}
         </Link>
       </td>
@@ -207,16 +215,11 @@ function OrderCard({ order }: { readonly order: AdminOrderSummary }) {
   );
 }
 
-function EmptyState() {
+function OrdersEmpty() {
   return (
-    <section className={catalog.card}>
-      <div className={catalog.empty}>
-        <h2 className={catalog.emptyTitle}>Todavía no hay pedidos</h2>
-        <p className={catalog.emptyText}>
-          Aquí aparecerán las compras que lleguen desde la tienda. No se crean desde el panel: un
-          pedido nace cuando alguien compra.
-        </p>
-      </div>
-    </section>
+    <EmptyState icon="pedidos" title="Todavía no hay pedidos">
+      Aquí aparecerán las compras que lleguen desde la tienda. No se crean desde el panel: un pedido
+      nace cuando alguien compra.
+    </EmptyState>
   );
 }
