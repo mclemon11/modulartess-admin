@@ -210,6 +210,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/products/{productId}/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every variant of a product
+         * @description Active and archived. A product with no variants sells through its own SKU, price and stock. Requires products.read.
+         */
+        get: operations["AdminProductsController_listVariants"];
+        put?: never;
+        /**
+         * Create a variant
+         * @description The combination must supply every axis the product declares and no other, and no two active variants may share it. The SKU is reserved globally, across products and variants alike, and becomes immutable. Requires expectedVersion and products.create.
+         */
+        post: operations["AdminProductsController_createVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/products/{productId}/variants/{variantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit the attributes or the price of a variant
+         * @description The SKU and the stock are not editable here: the SKU is immutable and the stock moves through an inventory adjustment. An archived variant cannot be edited. Requires expectedVersion and products.update.
+         */
+        patch: operations["AdminProductsController_updateVariant"];
+        trace?: never;
+    };
+    "/v1/admin/products/{productId}/variants/{variantId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a variant
+         * @description Withdraws it from the sellable options and from the public projection immediately. Its SKU and its identifier stay reserved for ever. Archiving the last active variant leaves the product with nothing to sell, and it can no longer be published. Requires expectedVersion and products.archive, which moderator does not have.
+         */
+        post: operations["AdminProductsController_archiveVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/products/{productId}/variants/{variantId}/inventory-adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adjust the stock of a variant
+         * @description Same rules and the same idempotency as the base adjustment, applied to one variant. Stock never goes below zero. Requires expectedVersion, an Idempotency-Key and inventory.adjust; no new role is involved.
+         */
+        post: operations["AdminProductsController_adjustVariantInventory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/demo/checkout": {
         parameters: {
             query?: never;
@@ -286,8 +370,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List active products
-         * @description Ordered by publishedAt descending. Only active products are visible.
+         * Search, filter and sort the active catalogue
+         * @description Only active products are visible. Search and filters are applied before paging, inside the query itself. q is a prefix match over the product name, case- and accent-insensitive: it matches a prefix of any of its words, or a prefix of the whole name. It is not full-text search, and a multi-word q only matches from the start of the name. q combines with every filter. Firestore allows a single array-contains clause per query, so when q is present it takes the indexed slot and finish and size are checked against each candidate projection while the backend reads ordered batches. A 200 is always either a full page or the real end of the query: the page is never filtered after it is built, and the backend answers 503 catalogue_unavailable rather than returning a short page that a client would read as no results. The page token is opaque and bound to this exact combination of search, filters and sort; reusing it with another one answers 400 product_cursor_invalid.
          */
         get: operations["PublicProductsController_list"];
         put?: never;
@@ -307,7 +391,7 @@ export interface paths {
         };
         /**
          * Read one active product by slug
-         * @description Drafts and archived products answer 404: they are not in the projection.
+         * @description The full product sheet: classification, features, specifications, active images in order and active variants with their own SKU, price and availability. Drafts and archived products answer 404: they are not in the projection.
          */
         get: operations["PublicProductsController_get"];
         put?: never;
@@ -335,9 +419,16 @@ export interface components {
         AdminProductDto: {
             /** Format: date-time */
             archivedAt: string | null;
+            /** @description Axes the variants vary on. A variant must supply every declared axis and no other. */
+            attributes: components["schemas"]["ProductAttributeDefinitionDto"][];
+            /** @description Null on products created before the enriched catalogue. */
+            category: components["schemas"]["ProductTaxonomyDto"] | null;
             /** Format: date-time */
             createdAt: string;
             description: string;
+            /** @description Highlighted in the storefront. */
+            featured: boolean;
+            features: string[];
             /** @example prd_0123456789abcdef0123456789abcdef */
             id: string;
             /** @description Active and archived images. At most 10 active ones; archived images stay listed and their identifiers are never reused. */
@@ -351,6 +442,7 @@ export interface components {
              * @example 1490000
              */
             priceCop: number;
+            productType: components["schemas"]["ProductTaxonomyDto"] | null;
             /** Format: date-time */
             publishedAt: string | null;
             shortDescription: string;
@@ -364,6 +456,7 @@ export interface components {
              * @example tocador-aura
              */
             slug: string;
+            specifications: components["schemas"]["ProductSpecificationsDto"];
             /**
              * @example draft
              * @enum {string}
@@ -373,6 +466,8 @@ export interface components {
             stockQuantity: number;
             /** Format: date-time */
             updatedAt: string;
+            /** @description Active and archived variants. At most 72 active ones. A product with no variants sells through its own SKU, price and stock. */
+            variants: components["schemas"]["AdminProductVariantDto"][];
             /**
              * @description Optimistic concurrency token. Mutations require it as expectedVersion.
              * @example 1
@@ -421,6 +516,45 @@ export interface components {
             items: components["schemas"]["AdminProductDto"][];
             /** @description Opaque cursor for the next page, or null when there are no more. */
             nextPageToken: string | null;
+        };
+        AdminProductVariantDto: {
+            /** Format: date-time */
+            archivedAt: string | null;
+            attributes: components["schemas"]["ProductVariantAttributeDto"][];
+            /**
+             * @description Normalised combination. No two active variants may share it.
+             * @example finish:roble-natural|size:80
+             */
+            combinationKey: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** @example var_0123456789abcdef */
+            id: string;
+            /**
+             * @description Whole pesos, greater than zero.
+             * @example 1490000
+             */
+            priceCop: number;
+            productId: string;
+            /**
+             * @description Immutable and unique across every product and variant.
+             * @example TOCADOR-AURA-80-ROBLE
+             */
+            sku: string;
+            /**
+             * @example active
+             * @enum {string}
+             */
+            status: "active" | "archived";
+            /** @example 4 */
+            stockQuantity: number;
+            /** Format: date-time */
+            updatedAt: string;
+            version: number;
+        };
+        AdminProductVariantListDto: {
+            /** @description Every variant of the product, active and archived. */
+            items: components["schemas"]["AdminProductVariantDto"][];
         };
         AdminSessionCreatedDto: {
             /**
@@ -581,6 +715,24 @@ export interface components {
             /** @default 0 */
             stockQuantity: number;
         };
+        CreateProductVariantRequestDto: {
+            /** @description Every axis the product declares, and no other. */
+            attributes: components["schemas"]["ProductVariantAttributeDto"][];
+            /** @description Product version the caller last read. */
+            expectedVersion: number;
+            /**
+             * @description Whole pesos, greater than zero.
+             * @example 1490000
+             */
+            priceCop: number;
+            /**
+             * @description Unique across every product and variant. Immutable once created.
+             * @example TOCADOR-AURA-80-ROBLE
+             */
+            sku: string;
+            /** @default 0 */
+            stockQuantity: number;
+        };
         DemoProductDto: {
             /**
              * @example COP
@@ -662,19 +814,67 @@ export interface components {
              */
             status: "order_received" | "payment_pending" | "payment_confirmed" | "validation" | "manual_review" | "order_confirmed" | "in_production" | "ready_for_dispatch" | "shipping_quote_required" | "shipment_created" | "shipped" | "delivered" | "incident" | "cancelled";
         };
+        ProductAttributeDefinitionDto: {
+            /**
+             * @description Lowercase identifier.
+             * @example finish
+             */
+            key: string;
+            /** @example Acabado */
+            label: string;
+        };
         ProductAttributeDto: {
             /** @example Acabado */
             name: string;
             /** @example Roble claro */
             value: string;
         };
+        ProductFacetOptionDto: {
+            /** @example Roble natural */
+            label: string;
+            /** @example roble-natural */
+            value: string;
+        };
+        ProductFacetsDto: {
+            availability: components["schemas"]["ProductFacetOptionDto"][];
+            category: components["schemas"]["ProductFacetOptionDto"][];
+            finish: components["schemas"]["ProductFacetOptionDto"][];
+            productType: components["schemas"]["ProductFacetOptionDto"][];
+            size: components["schemas"]["ProductFacetOptionDto"][];
+        };
         ProductImageResultDto: {
             image: components["schemas"]["AdminProductImageDto"];
             /** @description Authoritative version and full collection. */
             product: components["schemas"]["AdminProductDto"];
         };
+        ProductSpecificationsDto: {
+            care: string;
+            materials: string;
+            measurements: string;
+            warranty: string;
+        };
+        ProductTaxonomyDto: {
+            /** @example Tocadores */
+            name: string;
+            /** @example tocadores */
+            slug: string;
+        };
         ProductTransitionRequestDto: {
             expectedVersion: number;
+        };
+        ProductVariantAttributeDto: {
+            /** @example finish */
+            key: string;
+            /**
+             * @description Text shown to shoppers.
+             * @example Roble natural
+             */
+            label: string;
+            /**
+             * @description Stable, accent-folded value. This is what the public filter takes.
+             * @example roble-natural
+             */
+            value: string;
         };
         ProductVariantDto: {
             attributes: components["schemas"]["ProductAttributeDto"][];
@@ -684,6 +884,11 @@ export interface components {
             id: string;
             /** @example 1490000 */
             priceCop: number;
+        };
+        ProductVariantResultDto: {
+            /** @description Authoritative version and full collection. */
+            product: components["schemas"]["AdminProductDto"];
+            variant: components["schemas"]["AdminProductVariantDto"];
         };
         PublicOrderDto: {
             /** @example Cliente Demo */
@@ -712,26 +917,67 @@ export interface components {
             /** @example Acabado: Roble claro · Ancho: 80 cm · Espejo: Redondo */
             variantLabel: string;
         };
+        PublicProductCardDto: {
+            /** @enum {string} */
+            availability: "in_stock" | "out_of_stock";
+            category: components["schemas"]["ProductTaxonomyDto"] | null;
+            featured: boolean;
+            id: string;
+            name: string;
+            /** @example 1490000 */
+            priceFromCop: number;
+            /**
+             * @description Equal to priceFromCop when there is a single price.
+             * @example 1890000
+             */
+            priceToCop: number;
+            primaryImage: components["schemas"]["PublicProductImageDto"] | null;
+            productType: components["schemas"]["ProductTaxonomyDto"] | null;
+            shortDescription: string;
+            slug: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         PublicProductDto: {
             /**
              * @example in_stock
              * @enum {string}
              */
             availability: "in_stock" | "out_of_stock";
+            care: string;
+            category: components["schemas"]["ProductTaxonomyDto"] | null;
             description: string;
+            featured: boolean;
+            features: string[];
             id: string;
             /** @description Active images, in order. */
             images: components["schemas"]["PublicProductImageDto"][];
+            materials: string;
+            measurements: string;
             name: string;
             /** @example 1490000 */
             priceCop: number;
+            /**
+             * @description Cheapest sellable option. Equal to priceCop.
+             * @example 1490000
+             */
+            priceFromCop: number;
+            /**
+             * @description Dearest sellable option.
+             * @example 1890000
+             */
+            priceToCop: number;
             /** @description Primary active image, or null when the product has none. */
             primaryImage: components["schemas"]["PublicProductImageDto"] | null;
+            productType: components["schemas"]["ProductTaxonomyDto"] | null;
             shortDescription: string;
             sku: string;
             slug: string;
             /** Format: date-time */
             updatedAt: string;
+            /** @description Active variants only. Empty when the product sells through its own SKU, price and stock. */
+            variants: components["schemas"]["PublicProductVariantDto"][];
+            warranty: string;
         };
         PublicProductImageDto: {
             altText: string;
@@ -741,8 +987,19 @@ export interface components {
             url: string;
         };
         PublicProductPageDto: {
-            items: components["schemas"]["PublicProductDto"][];
+            facets: components["schemas"]["ProductFacetsDto"];
+            items: components["schemas"]["PublicProductCardDto"][];
+            /** @description Opaque cursor bound to this exact combination of search, filters and sort. Reusing it with a different one answers 400 product_cursor_invalid. */
             nextPageToken: string | null;
+        };
+        PublicProductVariantDto: {
+            attributes: components["schemas"]["ProductVariantAttributeDto"][];
+            /** @enum {string} */
+            availability: "in_stock" | "out_of_stock";
+            id: string;
+            /** @example 1490000 */
+            priceCop: number;
+            sku: string;
         };
         UpdateProductImageRequestDto: {
             altText?: string;
@@ -754,13 +1011,29 @@ export interface components {
             position?: number;
         };
         UpdateProductRequestDto: {
+            /** @description Replaces the declared axes. Existing variants are not rewritten. */
+            attributes?: components["schemas"]["ProductAttributeDefinitionDto"][];
+            care?: string;
+            /** @description null clears the category. Omitting the field leaves it unchanged. */
+            category?: components["schemas"]["ProductTaxonomyDto"] | null;
             description?: string;
             /** @description Version the caller last read. */
             expectedVersion: number;
+            featured?: boolean;
+            features?: string[];
             lowStockThreshold?: number;
+            materials?: string;
+            measurements?: string;
             name?: string;
             priceCop?: number;
+            productType?: components["schemas"]["ProductTaxonomyDto"] | null;
             shortDescription?: string;
+            warranty?: string;
+        };
+        UpdateProductVariantRequestDto: {
+            attributes?: components["schemas"]["ProductVariantAttributeDto"][];
+            expectedVersion: number;
+            priceCop?: number;
         };
         UploadProductImageRequestDto: {
             /** @description Mandatory alternative text. Whitespace is collapsed. */
@@ -779,6 +1052,13 @@ export interface components {
             product: components["schemas"]["AdminProductDto"];
             /** @description True when the idempotency key had already been applied. The freshly uploaded object is removed and nothing changed. */
             replayed: boolean;
+        };
+        VariantInventoryAdjustmentResultDto: {
+            /** @description Authoritative version and full collection. */
+            product: components["schemas"]["AdminProductDto"];
+            /** @description True when the idempotency key had already been applied and nothing changed. */
+            replayed: boolean;
+            variant: components["schemas"]["AdminProductVariantDto"];
         };
     };
     responses: never;
@@ -1721,6 +2001,388 @@ export interface operations {
             };
         };
     };
+    AdminProductsController_listVariants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated product identifier. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProductVariantListDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminProductsController_createVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated product identifier. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProductVariantRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductVariantResultDto"];
+                };
+            };
+            /** @description product_invalid or product_variant_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_version_conflict, product_variant_sku_conflict or product_variant_combination_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminProductsController_updateVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated variant identifier. Never reused, not even after archiving. */
+                variantId: string;
+                /** @description Backend-generated product identifier. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProductVariantRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductVariantResultDto"];
+                };
+            };
+            /** @description product_invalid or product_variant_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_not_found or product_variant_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_version_conflict or product_variant_combination_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminProductsController_archiveVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated variant identifier. Never reused, not even after archiving. */
+                variantId: string;
+                /** @description Backend-generated product identifier. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductTransitionRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductVariantResultDto"];
+                };
+            };
+            /** @description product_invalid or product_variant_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_not_found or product_variant_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_version_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminProductsController_adjustVariantInventory: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 8-128 characters. Makes a retried adjustment safe. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description Backend-generated variant identifier. Never reused, not even after archiving. */
+                variantId: string;
+                /** @description Backend-generated product identifier. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryAdjustmentRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantInventoryAdjustmentResultDto"];
+                };
+            };
+            /** @description product_invalid, inventory_invalid or product_variant_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_not_found or product_variant_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_version_conflict or idempotency_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     DemoController_checkout: {
         parameters: {
             query?: never;
@@ -1936,10 +2598,23 @@ export interface operations {
     PublicProductsController_list: {
         parameters: {
             query?: {
-                /** @description Opaque cursor. */
+                /** @description Opaque cursor. Belongs to one combination of search, filters and sort. */
                 pageToken?: string;
-                /** @description Default 20, maximum 50. */
+                /** @description Maximum 24. */
                 pageSize?: number;
+                /** @description Defaults to newest, which is publishedAt descending. */
+                sort?: "newest" | "price_asc" | "price_desc" | "name_asc" | "name_desc";
+                availability?: "in_stock" | "out_of_stock";
+                /** @description Normalised value of the size axis across the active variants. */
+                size?: string;
+                /** @description Normalised value of the finish axis across the active variants. */
+                finish?: string;
+                /** @description Type slug. */
+                productType?: string;
+                /** @description Category slug, exactly as published in the facets. */
+                category?: string;
+                /** @description Single search term, 2 characters or more; longer terms are truncated to 20. Matches a prefix of the product name. */
+                q?: string;
             };
             header?: never;
             path?: never;
@@ -1955,7 +2630,7 @@ export interface operations {
                     "application/json": components["schemas"]["PublicProductPageDto"];
                 };
             };
-            /** @description product_invalid */
+            /** @description product_invalid, product_filter_invalid or product_cursor_invalid */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -1978,7 +2653,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description Public slug of the product, as published in the catalogue. */
+                slug: string;
+            };
             cookie?: never;
         };
         requestBody?: never;

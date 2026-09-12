@@ -15,9 +15,12 @@ import {
   type MutationResult,
 } from './catalog-client';
 import { describeCatalogFailure } from './catalog-errors';
+import { enrichmentBody, enrichmentFromProduct, enrichmentProblems } from './enrichment';
+import { EnrichmentFieldset } from './enrichment-fields';
 import { formatCop, formatDateTime } from './format';
-import type { DetailPermissions } from './product-permissions';
+import { variantPermissions, type DetailPermissions } from './product-permissions';
 import { ProductImages } from './product-images';
+import { ProductVariants } from './product-variants';
 import { StatusBadge } from './status-badge';
 
 /**
@@ -34,12 +37,16 @@ import { StatusBadge } from './status-badge';
 export function ProductDetailClient({
   initial,
   permissions,
+  role,
 }: {
   readonly initial: AdminProduct;
   readonly permissions: DetailPermissions;
+  /** Rol verificado por el servidor. Decide qué acciones de variante se pintan. */
+  readonly role: string;
 }) {
   const router = useRouter();
   const [product, setProduct] = useState(initial);
+  const [enrichment, setEnrichment] = useState(() => enrichmentFromProduct(initial));
   const [failure, setFailure] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -92,6 +99,18 @@ export function ProductDetailClient({
     setFailure(describeCatalogFailure(result.code));
   }
 
+  /**
+   * Reemplaza el estado local con la respuesta autoritativa del backend.
+   *
+   * Incluye el formulario de clasificación: si se sincronizara solo el producto, los campos
+   * seguirían mostrando lo que se escribió antes de la respuesta y el siguiente guardado enviaría
+   * eso, no lo que el backend guardó.
+   */
+  function applyProduct(next: AdminProduct) {
+    setProduct(next);
+    setEnrichment(enrichmentFromProduct(next));
+  }
+
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -101,7 +120,10 @@ export function ProductDetailClient({
 
     const data = new FormData(event.currentTarget);
 
+    // Los ejes no viajan aquí: se declaran en la sección de variantes, que es donde se ven sus
+    // consecuencias. Enviarlos desde dos formularios distintos invitaría a pisarlos sin querer.
     const result = await updateProduct(product.id, {
+      ...enrichmentBody(enrichment, product.attributes, 'edit'),
       expectedVersion: product.version,
       name: String(data.get('name') ?? '').trim(),
       shortDescription: String(data.get('shortDescription') ?? ''),
@@ -111,7 +133,7 @@ export function ProductDetailClient({
     });
 
     settle(result, (updated) => {
-      setProduct(updated);
+      applyProduct(updated);
       setNotice('Cambios guardados.');
     });
   }
@@ -124,7 +146,7 @@ export function ProductDetailClient({
     const result = await transitionProduct(product.id, transition, product.version);
 
     settle(result, (updated) => {
-      setProduct(updated);
+      applyProduct(updated);
       setNotice(transition === 'publish' ? 'Producto publicado.' : 'Producto archivado.');
     });
   }
@@ -150,7 +172,7 @@ export function ProductDetailClient({
     });
 
     settle(result, (adjustment) => {
-      setProduct(adjustment.product);
+      applyProduct(adjustment.product);
       setNotice(
         adjustment.replayed
           ? 'El ajuste ya se había aplicado; el inventario no cambió.'
@@ -163,12 +185,21 @@ export function ProductDetailClient({
   }
 
   const lowStock = product.stockQuantity <= product.lowStockThreshold;
+  /**
+   * Con la primera variante, el precio y el inventario pasan a gestionarse por variante.
+   *
+   * El contrato lo dice al revés: «A product with no variants sells through its own SKU, price and
+   * stock». Los valores base **no se borran ni se transforman**: dejan de ser lo que se vende.
+   */
+  const sellsByVariant = product.variants.some((variant) => variant.status === 'active');
+  const enrichmentIssues = enrichmentProblems(enrichment);
 
   return (
     <>
       <div aria-live="assertive">
         {failure === null ? null : (
           <p className={styles.error} role="alert">
+            {conflict ? 'Los datos cambiaron. ' : ''}
             {failure}{' '}
             {conflict ? (
               <button
@@ -231,6 +262,23 @@ export function ProductDetailClient({
                     name="description"
                   />
                 </div>
+                <h3 className={styles.sectionTitle}>Clasificación y contenido</h3>
+                <EnrichmentFieldset
+                  disabled={busy}
+                  fields={enrichment}
+                  mode="edit"
+                  onChange={setEnrichment}
+                />
+                {enrichmentIssues.length === 0 ? null : (
+                  <ul className={styles.problemList}>
+                    {enrichmentIssues.map((problem) => (
+                      <li className={styles.fieldError} key={problem}>
+                        {problem}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
                 <div className={styles.row}>
                   <div className={styles.field}>
                     <label className={styles.label} htmlFor={ids.priceCop}>
@@ -262,8 +310,19 @@ export function ProductDetailClient({
                     />
                   </div>
                 </div>
+                {sellsByVariant ? (
+                  <p className={styles.notice}>
+                    Este producto se vende por variantes: el precio y el inventario que valen son
+                    los de cada variante. Estos valores base se conservan tal cual, pero ya no son
+                    lo que se compra.
+                  </p>
+                ) : null}
                 <div className={styles.actions}>
-                  <button className={styles.button} disabled={busy} type="submit">
+                  <button
+                    className={styles.button}
+                    disabled={busy || enrichmentIssues.length > 0}
+                    type="submit"
+                  >
                     {busy ? 'Guardando…' : 'Guardar cambios'}
                   </button>
                 </div>
@@ -287,9 +346,23 @@ export function ProductDetailClient({
                 <dd className={styles.immutable}>{product.sku}</dd>
                 <dt>Slug</dt>
                 <dd className={styles.immutable}>{product.slug}</dd>
-                <dt>Precio</dt>
+                <dt>Categoría</dt>
+                <dd>
+                  {product.category === null
+                    ? 'Sin categoría'
+                    : `${product.category.name} (${product.category.slug})`}
+                </dd>
+                <dt>Tipo</dt>
+                <dd>
+                  {product.productType === null
+                    ? 'Sin tipo'
+                    : `${product.productType.name} (${product.productType.slug})`}
+                </dd>
+                <dt>Destacado</dt>
+                <dd>{product.featured ? 'Sí' : 'No'}</dd>
+                <dt>Precio base</dt>
                 <dd>{formatCop(product.priceCop)}</dd>
-                <dt>Inventario</dt>
+                <dt>Inventario base</dt>
                 <dd className={lowStock ? styles.lowStock : undefined}>{product.stockQuantity}</dd>
                 <dt>Versión</dt>
                 <dd>{product.version}</dd>
@@ -327,7 +400,20 @@ export function ProductDetailClient({
             </div>
           </section>
 
-          {permissions.canAdjustInventory ? (
+          {permissions.canAdjustInventory && sellsByVariant ? (
+            <section className={styles.card} style={{ marginTop: 'var(--space-lg)' }}>
+              <div className={styles.cardPad}>
+                <h2 className={styles.sectionTitle}>Ajustar inventario</h2>
+                <p className={styles.notice}>
+                  El inventario de este producto se gestiona por variante desde que tiene la
+                  primera. El stock base se queda como estaba —no se borra ni se reparte— y aquí ya
+                  no se ajusta: hazlo en cada variante.
+                </p>
+              </div>
+            </section>
+          ) : null}
+
+          {permissions.canAdjustInventory && !sellsByVariant ? (
             <section className={styles.card} style={{ marginTop: 'var(--space-lg)' }}>
               <form className={styles.cardPad} noValidate onSubmit={handleAdjust}>
                 <h2 className={styles.sectionTitle}>Ajustar inventario</h2>
@@ -373,11 +459,22 @@ export function ProductDetailClient({
       </div>
 
       <div style={{ marginTop: 'var(--space-lg)' }}>
+        <ProductVariants
+          onProduct={(next) => {
+            applyProduct(next);
+            setConflict(false);
+          }}
+          permissions={variantPermissions(role)}
+          product={product}
+        />
+      </div>
+
+      <div style={{ marginTop: 'var(--space-lg)' }}>
         <ProductImages
           canArchive={permissions.canArchive}
           canEdit={permissions.canUpdate}
           onProduct={(next) => {
-            setProduct(next);
+            applyProduct(next);
             setConflict(false);
           }}
           product={product}

@@ -88,11 +88,13 @@ Implementado en el repositorio y comprobado con dobles locales.
 | Ruta protegida `/panel`  | Listo  | Server Component; verifica en cada visita; solo muestra el rol.      |
 | Shell del panel          | Listo  | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión. |
 | Catálogo de productos    | Listo  | Listado, alta, detalle, edición, publicar, archivar e inventario.    |
+| Catálogo enriquecido     | Listo  | Categoría, tipo, destacado, características y especificaciones.      |
+| Variantes                | Listo  | Ejes, combinaciones, precio, inventario y archivado por variante.    |
 | Imágenes de producto     | Listo  | Subir, editar texto alternativo, orden, principal y archivar.        |
-| Alta con imágenes        | Listo  | Cola local; un solo envío crea el borrador y sube en serie.          |
-| Reanudación tras fallo   | Listo  | No recrea el producto; reintenta con la misma clave por imagen.      |
+| Alta completa            | Listo  | Un envío: crea el borrador, enriquece, sube y crea variantes.        |
+| Reanudación tras fallo   | Listo  | No recrea nada guardado; reintenta solo lo que falta.                |
 | Shell responsive         | Listo  | Sidebar fija en escritorio; cajón por debajo de 60rem.               |
-| Mutaciones por BFF       | Listo  | Cinco Route Handlers; el navegador no llama al backend.              |
+| Mutaciones por BFF       | Listo  | Nueve Route Handlers; el navegador no llama al backend.              |
 | Permisos por rol         | Listo  | Matriz explícita en `src/features/session/permissions.ts`.           |
 | ADR local del BFF        | Listo  | `../decisions/0003-admin-session-bff.md`.                            |
 
@@ -131,8 +133,9 @@ Elementos que forman parte del diseño acordado, pero que aún no existen en el 
 | Pedidos, clientes y usuarios     | Pendiente     | El shell ya está preparado para añadirlos sin rehacerlo.       |
 | Búsqueda y filtros del catálogo  | Pendiente     | `GET /v1/admin/products` solo admite `pageToken` y `pageSize`. |
 | Contadores por estado            | Pendiente     | No hay agregaciones; las cifras de las referencias no existen. |
-| Categorías, colecciones y SEO    | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.         |
-| Variantes, envío y descuentos    | Pendiente     | Sin publicar en OpenAPI.                                       |
+| Catálogo de categorías           | Pendiente     | No hay endpoint que las liste: se escriben nombre y slug.      |
+| Colecciones, SEO, envío, dtos.   | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.         |
+| Lectura aparte de variantes      | Pendiente     | Viajan dentro del producto; un `GET` propio no tendría uso.    |
 | Paginación numérica              | Descartada    | El cursor es opaco: permite avanzar, no saltar de página.      |
 | Reordenar imágenes arrastrando   | Pendiente     | Hoy se reordena con botones accesibles sobre el mismo PATCH.   |
 | Biblioteca de medios             | Pendiente     | Sin endpoint que liste objetos del bucket.                     |
@@ -207,7 +210,8 @@ No son fases pendientes: son restricciones arquitectónicas que no cambian.
   protegido por IAM: su URL es direccionable por internet y no es un secreto, pero rechaza la
   invocación anónima. La futura variable con esa URL será exclusivamente server-side, en el BFF.
 - Llamadas directas del navegador del panel al backend: pasan siempre por el servidor Next.js.
-- Reglas comerciales en el panel.
+- Reglas comerciales en el panel, incluida la disponibilidad: el backend la deriva y el panel solo
+  muestra el inventario y el estado que recibe.
 - Secretos o credenciales en el repositorio.
 - Importar código fuente del backend, dependencias `file:`, symlinks, workspaces compartidos o
   dependencias de rutas locales de otro repositorio en build o en runtime.
@@ -218,28 +222,32 @@ No son fases pendientes: son restricciones arquitectónicas que no cambian.
   WooCommerce ni contra su API REST, y no se considera una fuente de datos de destino. Ver
   `../decisions/0001-admin-application-boundary.md`.
 
-### Alta de producto con imágenes
+### Alta de producto con contenido, imágenes y variantes
 
-El contrato exige `productId` y `expectedVersion` para subir una imagen, así que no se puede subir
-nada antes de crear el producto. El panel lo resuelve **dentro de un solo envío**, sin crear nada al
-abrir la pantalla ni al elegir un archivo:
+`POST /v1/admin/products` solo admite los campos base, y ni una imagen ni una variante se pueden
+crear sin `productId` y sin la `expectedVersion` vigente. El panel lo resuelve **dentro de un solo
+envío**, sin crear nada al abrir la pantalla ni al elegir un archivo:
 
-1. Las imágenes se guardan en una cola local (`File` + `object URL` de vista previa). Nada llega al
-   bucket todavía.
+1. Datos, clasificación, imágenes (`File` + `object URL`) y variantes viven en memoria. Nada llega
+   al backend todavía.
 2. Al pulsar «Crear producto» se crea el borrador con el BFF y se toman su `id` y su `version`.
-3. Las imágenes se suben **en serie**, cada una con la versión autoritativa que devolvió la
+3. Un `PATCH` guarda la clasificación, el contenido enriquecido y los **ejes de variación**. Se
+   omite si no hay nada que enviar. Va antes que las variantes porque el backend exige que cada
+   variante lleve exactamente los ejes declarados.
+4. Las imágenes se suben **en serie**, cada una con la versión autoritativa que devolvió la
    anterior. En paralelo chocarían con un `409`.
-4. Cada imagen lleva su propia `Idempotency-Key`, estable entre reintentos. Cambiar el archivo de
+5. Cada imagen lleva su propia `Idempotency-Key`, estable entre reintentos. Cambiar el archivo de
    una entrada la renueva: es otra operación.
-5. Si la principal elegida no es la que fijó el backend —que marca la primera que recibe—, se
-   designa al final con una llamada extra. Si coincide, no se gasta.
-6. Solo entonces se navega al detalle.
+6. Si la principal elegida no es la que fijó el backend —que marca la primera que recibe—, se
+   designa con una llamada extra. Si coincide, no se gasta.
+7. Las variantes se crean **en serie**, también con la última versión devuelta. No llevan clave de
+   idempotencia: lo que evita duplicados es el SKU reservado globalmente y la combinación única.
+8. Solo entonces se navega al detalle.
 
-Si el producto se creó pero una subida falla, el producto **no** se vuelve a crear: la pantalla
-muestra «Producto creado como borrador», cuántas imágenes entraron y cuáles faltan, ofrece
-«Reintentar imágenes» con las mismas claves y desde la última versión autoritativa, y un enlace para
-abrir el producto. No se publica nada automáticamente. Si falla la creación, los campos y los
-archivos se conservan.
+Si algo falla a mitad, lo guardado **no** se vuelve a enviar: la pantalla dice qué quedó creado
+—producto, contenido, imágenes y variantes—, bloquea esos datos, deja solo lo pendiente y reintenta
+desde la última versión autoritativa. No se publica nada automáticamente. Si falla la creación, los
+campos, los archivos y las variantes se conservan en pantalla.
 
 La lógica vive en `src/features/panel/create-product-flow.ts`, aislada de React para poder
 comprobarla con dobles.
@@ -260,6 +268,7 @@ el panel aún no está desplegado.
 - `../decisions/0002-firebase-auth-closed-sign-in.md` — inicio de sesión cerrado con Firebase
   Authentication.
 - `../decisions/0003-admin-session-bff.md` — sesión administrativa a través de la frontera BFF.
+- `../decisions/0004-enriched-catalogue-and-variants.md` — catálogo enriquecido y variantes.
 
 ## Siguiente fase propuesta
 

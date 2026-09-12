@@ -6,10 +6,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { acquire, createOperationLock, release } from '@/features/auth/operation-lock';
+import { VARIANT_MAX_ACTIVE } from '@/lib/api/variant-limits';
 
+import { AttributeAxesEditor } from './attribute-axes-editor';
 import styles from './catalog.module.css';
 import {
   createProduct as createProductRequest,
+  createVariant as createVariantRequest,
+  updateProduct as updateProductRequest,
   updateProductImage,
   uploadProductImage,
 } from './catalog-client';
@@ -19,8 +23,16 @@ import {
   runCreateFlow,
   EMPTY_PROGRESS,
   type CreateFlowDeps,
+  type CreateFlowInput,
   type CreateFlowProgress,
 } from './create-product-flow';
+import {
+  EMPTY_ENRICHMENT,
+  enrichmentBody,
+  enrichmentProblems,
+  type EnrichmentFields,
+} from './enrichment';
+import { EnrichmentFieldset } from './enrichment-fields';
 import { formatCop } from './format';
 import { ImageQueueEditor } from './image-queue-editor';
 import {
@@ -35,8 +47,19 @@ import {
   type QueuedImage,
 } from './image-queue';
 import { SKU_PATTERN, SLUG_PATTERN } from './product-input';
+import {
+  declaredAxes,
+  generateCombinations,
+  combinationKey,
+  validateAxes,
+  validateVariantDrafts,
+  variantRequestBody,
+  type AxisDraft,
+  type VariantDraft,
+} from './variant-draft';
+import { VariantDraftEditor } from './variant-draft-editor';
 
-type Errors = Partial<Record<'sku' | 'slug' | 'name' | 'priceCop' | 'images', string>>;
+type Errors = Partial<Record<'sku' | 'slug' | 'name' | 'priceCop' | 'images' | 'variants', string>>;
 
 type Fields = {
   sku: string;
@@ -61,22 +84,27 @@ const EMPTY_FIELDS: Fields = {
 };
 
 /**
- * Alta de producto con sus imágenes en un solo envío.
+ * Alta de producto con su contenido enriquecido, sus imágenes y sus variantes en un solo envío.
  *
- * El backend exige `productId` y `expectedVersion` para subir una imagen, así que técnicamente
- * hace falta crear el producto antes. Eso se resuelve **dentro** de este envío, no antes: las
- * imágenes viven en una cola local hasta que se pulsa «Crear producto», y solo entonces se crea el
- * borrador y se suben una a una. Crear el producto al elegir el primer archivo dejaría un borrador
- * huérfano cada vez que alguien abandona la pantalla.
+ * El contrato obliga a repartir el alta en varias llamadas: `POST /v1/admin/products` solo admite
+ * los campos base, la clasificación y los ejes van en un `PATCH`, y ni una imagen ni una variante
+ * se pueden crear sin `productId` y sin la `expectedVersion` vigente. Todo eso ocurre **dentro** de
+ * este envío, no antes: los datos, los archivos y las variantes viven en memoria hasta que se pulsa
+ * «Crear producto». Crear el producto al elegir el primer archivo dejaría un borrador huérfano cada
+ * vez que alguien abandona la pantalla.
  *
  * El orden y la reanudación los decide `runCreateFlow`; aquí solo se recogen datos y se pinta el
- * resultado. Los campos y los archivos **no se pierden** si algo falla.
+ * resultado. Nada se pierde si algo falla, y lo que ya llegó al backend deja de ser editable aquí:
+ * un reintento no lo reenviaría.
  */
 export function CreateProductForm() {
   const router = useRouter();
   const lock = useRef(createOperationLock());
 
   const [fields, setFields] = useState<Fields>(EMPTY_FIELDS);
+  const [enrichment, setEnrichment] = useState<EnrichmentFields>(EMPTY_ENRICHMENT);
+  const [axes, setAxes] = useState<readonly AxisDraft[]>([]);
+  const [variants, setVariants] = useState<readonly VariantDraft[]>([]);
   const [queue, setQueue] = useState<readonly QueuedImage[]>([]);
   const [chosenPrimary, setChosenPrimary] = useState<string | null>(null);
   const [errors, setErrors] = useState<Errors>({});
@@ -99,14 +127,14 @@ export function CreateProductForm() {
    * Producto ya creado por un intento anterior.
    *
    * Con esto a mano la pantalla deja de ser un formulario de alta y pasa a ser una pantalla de
-   * recuperación: los datos ya están en el backend y aquí no se pueden cambiar, porque
-   * «Reintentar imágenes» no los reenvía. Dejarlos editables sugeriría que el reintento los
-   * guardaría.
+   * recuperación: los datos ya están en el backend y aquí no se pueden cambiar, porque un
+   * reintento no los reenvía. Dejarlos editables sugeriría que el reintento los guardaría.
    */
   const created = progress.product;
 
   /** Entradas que ya llegaron al backend. Se muestran, pero no se tocan desde aquí. */
   const lockedIds = progress.uploaded.map((done) => done.entryId);
+  const lockedDraftIds = progress.variants.map((done) => done.draftId);
 
   /**
    * Las `object URL` vivas. Se revocan al desmontar: si no, los archivos siguen retenidos en
@@ -177,6 +205,8 @@ export function CreateProductForm() {
 
   const flowDeps: CreateFlowDeps = {
     createProduct: (body) => createProductRequest(body),
+    enrichProduct: ({ productId, expectedVersion, enrichment: body }) =>
+      updateProductRequest(productId, { ...body, expectedVersion }),
     uploadImage: async ({ productId, expectedVersion, entry }) => {
       const form = new FormData();
 
@@ -188,7 +218,23 @@ export function CreateProductForm() {
     },
     setPrimary: ({ productId, imageId, expectedVersion }) =>
       updateProductImage(productId, imageId, { expectedVersion, isPrimary: true }),
+    createVariant: ({ productId, expectedVersion, draft }) =>
+      createVariantRequest(productId, variantRequestBody(draft, expectedVersion)),
   };
+
+  const axisProblems = validateAxes(axes);
+  /**
+   * Solo se validan las variantes que faltan por crear, contra lo que el backend ya tiene.
+   *
+   * Tras un fallo parcial, las creadas vienen dentro del producto autoritativo: cuentan para el
+   * límite y reservan su SKU, pero volver a comprobarlas no tendría sentido porque ya existen.
+   */
+  const variantValidation = validateVariantDrafts(
+    variants.filter((draft) => !lockedDraftIds.includes(draft.draftId)),
+    declaredAxes(axes),
+    created?.variants ?? [],
+  );
+  const enrichmentIssues = enrichmentProblems(enrichment);
 
   function validate(): Errors {
     const found: Errors = {};
@@ -215,7 +261,39 @@ export function CreateProductForm() {
       found.images = 'Cada imagen necesita su texto alternativo.';
     }
 
+    if (
+      axisProblems.length > 0 ||
+      enrichmentIssues.length > 0 ||
+      variantValidation.general.length > 0 ||
+      Object.keys(variantValidation.byDraft).length > 0
+    ) {
+      found.variants =
+        'Revisa la clasificación y las variantes: hay datos que el backend no acepta.';
+    }
+
     return found;
+  }
+
+  /** Lo que se envía, ya montado: el `POST`, el `PATCH` y las listas de imágenes y variantes. */
+  function flowInput(): CreateFlowInput {
+    return {
+      fields: {
+        sku: fields.sku.trim(),
+        slug: fields.slug.trim(),
+        name: fields.name.trim(),
+        priceCop: Number(fields.priceCop),
+        stockQuantity: Number(fields.stockQuantity || 0),
+        lowStockThreshold: Number(fields.lowStockThreshold || 0),
+        ...(fields.shortDescription.trim() === ''
+          ? {}
+          : { shortDescription: fields.shortDescription.trim() }),
+        ...(fields.description.trim() === '' ? {} : { description: fields.description.trim() }),
+      },
+      enrichment: enrichmentBody(enrichment, declaredAxes(axes), 'create'),
+      queue,
+      primaryEntryId: chosenPrimary,
+      variants,
+    };
   }
 
   async function submit(resume: CreateFlowProgress) {
@@ -236,20 +314,7 @@ export function CreateProductForm() {
     setBusy(true);
     setFailure(null);
 
-    const body = {
-      sku: fields.sku.trim(),
-      slug: fields.slug.trim(),
-      name: fields.name.trim(),
-      priceCop: Number(fields.priceCop),
-      stockQuantity: Number(fields.stockQuantity || 0),
-      lowStockThreshold: Number(fields.lowStockThreshold || 0),
-      ...(fields.shortDescription.trim() === ''
-        ? {}
-        : { shortDescription: fields.shortDescription.trim() }),
-      ...(fields.description.trim() === '' ? {} : { description: fields.description.trim() }),
-    };
-
-    const result = await runCreateFlow(body, queue, chosenPrimary, flowDeps, resume);
+    const result = await runCreateFlow(flowInput(), flowDeps, resume);
 
     setProgress(result);
 
@@ -265,9 +330,13 @@ export function CreateProductForm() {
     setFailure(describeCatalogFailure(result.failure?.code ?? 'internal_error'));
   }
 
-  const summary = describeProgress(progress, queue);
+  const summary = describeProgress(progress, { queue, variants });
+  /** Hay clasificación o contenido escrito que todavía no ha llegado al backend. */
+  const enrichmentPending =
+    !progress.enriched && enrichmentBody(enrichment, declaredAxes(axes), 'create') !== null;
   const price = Number(fields.priceCop);
-  const pendingImages = summary.pending.length;
+  const pendingImages = summary.pendingImages.length;
+  const pendingVariants = summary.pendingVariants.length;
 
   function field(key: keyof Fields) {
     return {
@@ -301,12 +370,24 @@ export function CreateProductForm() {
         {created === null ? null : (
           <div aria-live="polite">
             <p className={styles.success}>
-              <strong>Producto creado como borrador.</strong> Se subieron {summary.uploaded} de{' '}
-              {summary.total} imágenes.
+              <strong>Producto creado como borrador.</strong>{' '}
+              {progress.enriched
+                ? 'La clasificación y el contenido ya están guardados.'
+                : enrichmentPending
+                  ? 'Falta guardar la clasificación y el contenido.'
+                  : ''}{' '}
+              Se subieron {summary.uploaded} de {summary.totalImages} imágenes
+              {summary.totalVariants === 0
+                ? ''
+                : ` y se crearon ${summary.createdVariants} de ${summary.totalVariants} variantes`}
+              .
               {pendingImages > 0
-                ? ` Faltan: ${summary.pending.map((entry) => entry.file.name).join(', ')}.`
-                : ' Queda por aplicar la imagen principal elegida.'}{' '}
-              Los datos del producto ya están guardados y desde aquí no se editan: hazlo en{' '}
+                ? ` Faltan imágenes: ${summary.pendingImages.map((entry) => entry.file.name).join(', ')}.`
+                : ''}
+              {pendingVariants > 0
+                ? ` Faltan variantes: ${summary.pendingVariants.map((draft) => draft.sku).join(', ')}.`
+                : ''}{' '}
+              Lo ya guardado no se vuelve a enviar y desde aquí no se edita: hazlo en{' '}
               <Link className={styles.link} href={`/panel/productos/${created.id}`}>
                 Abrir el producto
               </Link>
@@ -358,6 +439,32 @@ export function CreateProductForm() {
                 {...field('description')}
               />
             </div>
+          </div>
+        </section>
+
+        <section className={styles.card}>
+          <div className={styles.cardPad}>
+            <h2 className={styles.sectionTitle}>Clasificación y contenido</h2>
+            <EnrichmentFieldset
+              disabled={busy || progress.enriched}
+              fields={enrichment}
+              mode="create"
+              onChange={setEnrichment}
+            />
+            {enrichmentIssues.length === 0 ? null : (
+              <ul className={styles.problemList}>
+                {enrichmentIssues.map((problem) => (
+                  <li className={styles.fieldError} key={problem}>
+                    {problem}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {progress.enriched ? (
+              <p className={styles.hint}>
+                Ya está guardado en el producto. Para cambiarlo, ábrelo y edítalo desde su detalle.
+              </p>
+            ) : null}
           </div>
         </section>
 
@@ -420,6 +527,69 @@ export function CreateProductForm() {
           </section>
         </div>
 
+        {variants.length === 0 ? null : (
+          <p className={styles.notice}>
+            Con variantes, el precio y el inventario se gestionan en cada una. El precio y el stock
+            base se guardan igual y no se borran, pero dejan de ser lo que se vende.
+          </p>
+        )}
+
+        <section className={styles.card}>
+          <div className={styles.cardPad}>
+            <h2 className={styles.sectionTitle}>Variantes</h2>
+            <p className={styles.hint}>
+              Opcionales. Sin variantes, el producto se vende por su propio SKU, precio e
+              inventario.
+            </p>
+            <AttributeAxesEditor
+              axes={axes}
+              disabled={busy || progress.enriched}
+              newId={() => crypto.randomUUID()}
+              onChange={setAxes}
+              problems={axisProblems}
+            />
+            <VariantDraftEditor
+              activeCount={
+                created?.variants.filter((variant) => variant.status === 'active').length ?? 0
+              }
+              axes={axes}
+              disabled={busy}
+              drafts={variants}
+              lockedDraftIds={lockedDraftIds}
+              onAdd={() =>
+                setVariants((current) => [
+                  ...current,
+                  {
+                    draftId: crypto.randomUUID(),
+                    sku: '',
+                    priceCop: fields.priceCop,
+                    stockQuantity: '0',
+                    attributes: declaredAxes(axes).map((axis) => ({
+                      key: axis.key,
+                      value: '',
+                      label: '',
+                    })),
+                  },
+                ])
+              }
+              onChange={setVariants}
+              onGenerate={() =>
+                setVariants((current) => [
+                  ...current,
+                  ...generateCombinations(axes, {
+                    existing: current.map((draft) => combinationKey(draft.attributes)),
+                    baseSku: fields.sku,
+                    basePriceCop: fields.priceCop,
+                    newId: () => crypto.randomUUID(),
+                    limit: Math.max(0, VARIANT_MAX_ACTIVE - current.length),
+                  }),
+                ])
+              }
+              validation={variantValidation}
+            />
+          </div>
+        </section>
+
         <div className={styles.actions}>
           <button className={styles.button} disabled={busy} type="submit">
             {busy
@@ -428,9 +598,7 @@ export function CreateProductForm() {
                 : 'Reintentando…'
               : created === null
                 ? 'Crear producto'
-                : pendingImages > 0
-                  ? 'Reintentar imágenes'
-                  : 'Reintentar imagen principal'}
+                : 'Reintentar lo que falta'}
           </button>
           {created === null ? null : (
             <Link className={styles.buttonSecondary} href={`/panel/productos/${created.id}`}>
@@ -438,13 +606,24 @@ export function CreateProductForm() {
             </Link>
           )}
         </div>
+        {errors.variants === undefined ? null : (
+          <p className={styles.error} role="alert">
+            {errors.variants}
+          </p>
+        )}
       </div>
 
       <aside className={styles.preview}>
         <section className={styles.card}>
           <div className={styles.cardPad}>
             <h2 className={styles.sectionTitle}>Vista previa</h2>
-            <Preview fields={fields} price={price} primaryEntryId={chosenPrimary} queue={queue} />
+            <Preview
+              fields={fields}
+              price={price}
+              primaryEntryId={chosenPrimary}
+              queue={queue}
+              variantCount={variants.length}
+            />
           </div>
         </section>
         <section className={styles.card} style={{ marginTop: 'var(--space-lg)' }}>
@@ -461,17 +640,24 @@ export function CreateProductForm() {
   );
 }
 
-/** Vista previa con los campos reales del formulario. Sin datos inventados. */
+/**
+ * Vista previa con los campos reales del formulario. Sin datos inventados.
+ *
+ * No muestra el inventario: la tienda no publica la cantidad exacta, solo si hay o no existencias,
+ * y esa disponibilidad la deriva el backend. Aquí se enseñaría un número que el público no ve.
+ */
 function Preview({
   fields,
   price,
   queue,
   primaryEntryId,
+  variantCount,
 }: {
   readonly fields: Fields;
   readonly price: number;
   readonly queue: readonly QueuedImage[];
   readonly primaryEntryId: string | null;
+  readonly variantCount: number;
 }) {
   const primary = queue.find((entry) => entry.entryId === primaryEntryId) ?? queue[0];
 
@@ -494,6 +680,11 @@ function Preview({
       )}
       <p className={styles.previewText}>
         {queue.length} imagen{queue.length === 1 ? '' : 'es'} en cola
+      </p>
+      <p className={styles.previewText}>
+        {variantCount === 0
+          ? 'Sin variantes: se vende por el SKU base.'
+          : `${variantCount} variante${variantCount === 1 ? '' : 's'} preparada${variantCount === 1 ? '' : 's'}`}
       </p>
     </>
   );

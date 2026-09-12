@@ -94,7 +94,8 @@ Reglas de uso, también permanentes:
 ## 3. Contrato con el backend
 
 - **OpenAPI es el único contrato** entre el panel y el backend. El contrato publica hoy tres roles
-  (`super_admin`, `master_admin`, `moderator`) y las siete operaciones de `/v1/admin/products`.
+  (`super_admin`, `master_admin`, `moderator`) y las quince operaciones de `/v1/admin/products`,
+  incluidas las cinco de variantes.
 - No se inventan endpoints, formas de respuesta ni campos que no estén en la especificación.
 - Los tipos de las respuestas se derivan del contrato, no se escriben a mano por conveniencia.
 - Si algo falta en el contrato, se corrige en el backend; no se compensa en el panel.
@@ -191,12 +192,18 @@ Lo que aún no está verificado es el **recorrido del panel en Cloud Run**: el s
 - Prohibido crear datos ficticios de productos, precios, inventario, pedidos o clientes, incluso
   como marcador de posición visual. El catálogo del panel se pinta **solo** con lo que devuelve el
   backend.
-- El panel solo pinta lo que OpenAPI publica. Las referencias visuales muestran categorías,
-  colecciones, variantes, SEO, envíos, descuentos, buscador, filtros y contadores agregados: nada
-  de eso se implementa mientras no exista en el contrato, ni siquiera como adorno.
+- El panel solo pinta lo que OpenAPI publica. El contrato ya publica la clasificación —`category` y
+  `productType`, como `slug` + `name`— y las variantes, y ambas están implementadas. Lo que sigue
+  sin publicar —colecciones, SEO, envíos, descuentos, buscador, filtros y contadores agregados— no
+  se implementa mientras no exista en el contrato, ni siquiera como adorno. Tampoco hay un catálogo
+  de categorías: sin endpoint que las liste, no se ofrece un selector con opciones inventadas.
 - Los permisos por rol viven en `src/features/session/permissions.ts`, en una matriz explícita. No
   se deducen por jerarquía numérica: ocultar un botón es usabilidad, y la autoridad sigue siendo el
-  backend, que rechaza cualquier petición fabricada.
+  backend, que rechaza cualquier petición fabricada. Las acciones sobre variantes reutilizan los
+  permisos que ya exige el contrato —`products.create`, `products.update`, `inventory.adjust` y
+  `products.archive`—, sin inventar ninguno nuevo.
+- La disponibilidad la deriva el backend. El panel muestra el inventario y el estado que recibe y
+  no calcula si algo está disponible: eso es una regla comercial.
 - Prohibido implementar login simulado o sesiones falsas.
 - Si una pantalla aún no tiene datos reales, debe declarar explícitamente que está pendiente.
 

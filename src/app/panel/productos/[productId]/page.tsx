@@ -68,9 +68,10 @@ export default async function ProductDetailPage({ params }: PageProps) {
         <h1 className={styles.pageTitle}>{product.name}</h1>
         <p className={styles.pageLead}>
           Los cambios se envían con la versión que estás viendo. Si alguien la modifica antes, el
-          backend lo rechaza y podrás recargar.
+          backend lo rechaza y podrás recargar. Las variantes se crean una detrás de otra, cada una
+          con la versión que devolvió la anterior.
         </p>
-        <ProductDetailClient initial={product} permissions={detailPermissions(role)} />
+        <ProductDetailClient initial={product} permissions={detailPermissions(role)} role={role} />
       </div>
     </>
   );

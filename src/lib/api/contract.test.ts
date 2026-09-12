@@ -51,7 +51,7 @@ describe('copia versionada del contrato', () => {
     ]);
   });
 
-  it('publica las diez operaciones de catálogo administrativo', () => {
+  it('publica las quince operaciones de catálogo administrativo', () => {
     const operations: string[] = [];
 
     for (const [path, node] of Object.entries(contract.paths)) {
@@ -69,21 +69,26 @@ describe('copia versionada del contrato', () => {
     expect(operations.sort()).toEqual([
       'GET /v1/admin/products',
       'GET /v1/admin/products/{productId}',
+      'GET /v1/admin/products/{productId}/variants',
       'PATCH /v1/admin/products/{productId}',
       'PATCH /v1/admin/products/{productId}/images/{imageId}',
+      'PATCH /v1/admin/products/{productId}/variants/{variantId}',
       'POST /v1/admin/products',
       'POST /v1/admin/products/{productId}/archive',
       'POST /v1/admin/products/{productId}/images',
       'POST /v1/admin/products/{productId}/images/{imageId}/archive',
       'POST /v1/admin/products/{productId}/inventory-adjustments',
       'POST /v1/admin/products/{productId}/publish',
+      'POST /v1/admin/products/{productId}/variants',
+      'POST /v1/admin/products/{productId}/variants/{variantId}/archive',
+      'POST /v1/admin/products/{productId}/variants/{variantId}/inventory-adjustments',
     ]);
   });
 
   it('describe cada parámetro de ruta en las operaciones dinámicas', () => {
     const dynamic = Object.entries(contract.paths).filter(([path]) => path.includes('{productId}'));
 
-    expect(dynamic.length).toBe(7);
+    expect(dynamic.length).toBe(11);
 
     let declarations = 0;
 
@@ -115,7 +120,92 @@ describe('copia versionada del contrato', () => {
       }
     }
 
-    expect(declarations).toBe(8);
+    expect(declarations).toBe(13);
+  });
+
+  it('el alta de producto no admite clasificación ni ejes: eso viaja en el PATCH', () => {
+    // De aquí sale el orden del alta: crear con los campos base y enriquecer después, antes de
+    // crear ninguna variante.
+    const create = contract.components.schemas.CreateProductRequestDto.properties;
+
+    expect(Object.keys(create).sort()).toEqual([
+      'description',
+      'lowStockThreshold',
+      'name',
+      'priceCop',
+      'shortDescription',
+      'sku',
+      'slug',
+      'stockQuantity',
+    ]);
+
+    const update = contract.components.schemas.UpdateProductRequestDto.properties;
+
+    for (const field of [
+      'attributes',
+      'care',
+      'category',
+      'featured',
+      'features',
+      'materials',
+      'measurements',
+      'productType',
+      'warranty',
+    ]) {
+      expect(update).toHaveProperty([field]);
+    }
+  });
+
+  it('fija los límites de las variantes que replica el panel', () => {
+    const product = contract.components.schemas.AdminProductDto.properties;
+
+    // El máximo de variantes activas solo está en la descripción; de ahí sale VARIANT_MAX_ACTIVE.
+    expect(product.variants.description).toContain('At most 72 active ones');
+    expect(product.attributes.maxItems).toBe(6);
+    expect(contract.components.schemas.ProductVariantAttributeDto.properties.value.maxLength).toBe(
+      60,
+    );
+    expect(contract.components.schemas.ProductTaxonomyDto.properties.slug.maxLength).toBe(60);
+    expect(contract.components.schemas.UpdateProductRequestDto.properties.features.maxItems).toBe(
+      20,
+    );
+  });
+
+  it('el alta de variante exige expectedVersion, SKU, atributos y precio', () => {
+    expect(contract.components.schemas.CreateProductVariantRequestDto.required).toEqual([
+      'expectedVersion',
+      'sku',
+      'attributes',
+      'priceCop',
+    ]);
+
+    // Ni el SKU ni el stock se editan: el SKU es inmutable y el stock va por ajuste de inventario.
+    expect(
+      Object.keys(contract.components.schemas.UpdateProductVariantRequestDto.properties).sort(),
+    ).toEqual(['attributes', 'expectedVersion', 'priceCop']);
+  });
+
+  it('solo los ajustes de inventario y la subida de imagen exigen Idempotency-Key', () => {
+    const withKey: string[] = [];
+
+    for (const [path, node] of Object.entries(contract.paths)) {
+      for (const [method, operation] of Object.entries(node as Record<string, unknown>)) {
+        const parameters = ((operation as { parameters?: { name?: string }[] }).parameters ??
+          []) as { name?: string }[];
+
+        if (parameters.some((parameter) => parameter.name === 'Idempotency-Key')) {
+          withKey.push(`${method.toUpperCase()} ${path}`);
+        }
+      }
+    }
+
+    // Crear una variante NO la lleva: lo que evita duplicados ahí es el SKU reservado y la
+    // combinación única.
+    expect(withKey.sort()).toEqual([
+      'POST /v1/admin/products/{productId}/images',
+      'POST /v1/admin/products/{productId}/inventory-adjustments',
+      'POST /v1/admin/products/{productId}/variants/{variantId}/inventory-adjustments',
+    ]);
   });
 
   it('fija los límites del idToken que replica la validación del BFF', () => {

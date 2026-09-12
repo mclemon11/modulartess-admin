@@ -64,9 +64,25 @@ const SERVER_ONLY_MODULES = [
   'src/app/api/admin/products/[productId]/images/route.ts',
   'src/app/api/admin/products/[productId]/images/[imageId]/route.ts',
   'src/app/api/admin/products/[productId]/images/[imageId]/archive/route.ts',
+  'src/app/api/admin/products/[productId]/variants/route.ts',
+  'src/app/api/admin/products/[productId]/variants/[variantId]/route.ts',
+  'src/app/api/admin/products/[productId]/variants/[variantId]/archive/route.ts',
+  'src/app/api/admin/products/[productId]/variants/[variantId]/inventory-adjustments/route.ts',
 ];
 
 describe('módulos server-only', () => {
+  it('la lista cubre todas las rutas del BFF que existen hoy', () => {
+    // Si alguien añade un Route Handler y olvida la barrera, esto falla aquí en vez de dejar que
+    // el módulo acabe alcanzable desde el cliente.
+    const routes = FILES.filter(
+      (path) => path.startsWith('src/app/api/') && path.endsWith('route.ts'),
+    ).sort();
+
+    expect(routes).toEqual(
+      [...SERVER_ONLY_MODULES].filter((path) => path.startsWith('src/app/api/')).sort(),
+    );
+  });
+
   it.each(SERVER_ONLY_MODULES)("%s empieza con import 'server-only'", (path) => {
     const first = read(path)
       .split('\n')

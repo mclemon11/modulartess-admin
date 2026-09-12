@@ -30,6 +30,17 @@ export type AdminProductImage = components['schemas']['AdminProductImageDto'];
 export type UploadProductImageResult = components['schemas']['UploadProductImageResultDto'];
 export type ProductImageResult = components['schemas']['ProductImageResultDto'];
 export type UpdateProductImageRequest = components['schemas']['UpdateProductImageRequestDto'];
+export type AdminProductVariant = components['schemas']['AdminProductVariantDto'];
+export type AdminProductVariantList = components['schemas']['AdminProductVariantListDto'];
+export type CreateProductVariantRequest = components['schemas']['CreateProductVariantRequestDto'];
+export type UpdateProductVariantRequest = components['schemas']['UpdateProductVariantRequestDto'];
+export type ProductVariantResult = components['schemas']['ProductVariantResultDto'];
+export type VariantInventoryAdjustmentResult =
+  components['schemas']['VariantInventoryAdjustmentResultDto'];
+export type ProductTaxonomy = components['schemas']['ProductTaxonomyDto'];
+export type ProductAttributeDefinition = components['schemas']['ProductAttributeDefinitionDto'];
+export type ProductVariantAttribute = components['schemas']['ProductVariantAttributeDto'];
+export type ProductSpecifications = components['schemas']['ProductSpecificationsDto'];
 
 /**
  * Los límites de imagen viven en `./image-limits`, que no es `server-only`: el formulario del
@@ -42,6 +53,16 @@ export {
   IMAGE_MAX_ACTIVE,
   IMAGE_MAX_BYTES,
 } from './image-limits';
+
+/** Lo mismo con los límites del catálogo enriquecido y de las variantes. */
+export {
+  ATTRIBUTE_MAX_AXES,
+  ATTRIBUTE_VALUE_MAX_LENGTH,
+  FEATURES_MAX_ITEMS,
+  SPECIFICATION_MAX_LENGTH,
+  TAXONOMY_SLUG_MAX_LENGTH,
+  VARIANT_MAX_ACTIVE,
+} from './variant-limits';
 
 /** Estado del producto, tal y como lo publica el contrato. */
 export type ProductStatus = AdminProduct['status'];
@@ -314,6 +335,144 @@ export async function archiveProductImage(
       {
         params: { path: { productId, imageId } },
         body: { expectedVersion },
+        headers: sessionHeaders(sessionMaterial),
+      },
+    );
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+  }
+
+  return response.data;
+}
+
+/**
+ * Crea una variante.
+ *
+ * `expectedVersion` es la del **producto**, no la de la variante: el contrato trata la colección
+ * de variantes como parte del producto y devuelve el producto completo con su versión nueva. Por
+ * eso las altas van en serie: dos a la vez partirían de la misma versión y la segunda chocaría.
+ *
+ * No lleva `Idempotency-Key` —el contrato no la declara aquí—: lo que evita duplicados es el SKU,
+ * reservado globalmente, y la combinación, única entre las variantes activas.
+ */
+export async function createProductVariant(
+  sessionMaterial: string,
+  productId: string,
+  body: CreateProductVariantRequest,
+): Promise<ProductVariantResult> {
+  let response;
+
+  try {
+    response = await backendClient().POST('/v1/admin/products/{productId}/variants', {
+      params: { path: { productId } },
+      body,
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+  }
+
+  return response.data;
+}
+
+/**
+ * Edita los atributos o el precio de una variante.
+ *
+ * El SKU y el stock no entran: el contrato hace el SKU inmutable y mueve el stock solo por ajuste
+ * de inventario.
+ */
+export async function updateProductVariant(
+  sessionMaterial: string,
+  productId: string,
+  variantId: string,
+  body: UpdateProductVariantRequest,
+): Promise<ProductVariantResult> {
+  let response;
+
+  try {
+    response = await backendClient().PATCH('/v1/admin/products/{productId}/variants/{variantId}', {
+      params: { path: { productId, variantId } },
+      body,
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+  }
+
+  return response.data;
+}
+
+/**
+ * Archiva una variante.
+ *
+ * Sale de las opciones vendibles y de la proyección pública de inmediato. **Su SKU y su
+ * identificador quedan reservados para siempre**, y archivar la última activa deja el producto sin
+ * nada que vender.
+ */
+export async function archiveProductVariant(
+  sessionMaterial: string,
+  productId: string,
+  variantId: string,
+  expectedVersion: number,
+): Promise<ProductVariantResult> {
+  let response;
+
+  try {
+    response = await backendClient().POST(
+      '/v1/admin/products/{productId}/variants/{variantId}/archive',
+      {
+        params: { path: { productId, variantId } },
+        body: { expectedVersion },
+        headers: sessionHeaders(sessionMaterial),
+      },
+    );
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+  }
+
+  return response.data;
+}
+
+/**
+ * Ajusta el inventario de una variante.
+ *
+ * Mismas reglas y misma idempotencia que el ajuste base, aplicadas a una variante. La clave la
+ * genera quien inicia la operación y se reutiliza en los reintentos de **esa misma** operación.
+ */
+export async function adjustVariantInventory(
+  sessionMaterial: string,
+  productId: string,
+  variantId: string,
+  idempotencyKey: string,
+  body: InventoryAdjustmentRequest,
+): Promise<VariantInventoryAdjustmentResult> {
+  let response;
+
+  try {
+    response = await backendClient().POST(
+      '/v1/admin/products/{productId}/variants/{variantId}/inventory-adjustments',
+      {
+        params: {
+          path: { productId, variantId },
+          header: { 'Idempotency-Key': idempotencyKey },
+        },
+        body,
         headers: sessionHeaders(sessionMaterial),
       },
     );

@@ -190,29 +190,45 @@ con zona explícita.
 `/panel` es el shell del panel: barra lateral, cabecera con breadcrumb, rol visible y cierre de
 sesión. Sobre él cuelga la primera sección operativa, **Productos**, con datos reales del backend.
 
-| Ruta                           | Qué hace                                                                                             |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `/panel`                       | Portada. Sin métricas: el backend no publica agregaciones todavía.                                   |
-| `/panel/productos`             | Listado server-rendered, paginado con `pageToken`.                                                   |
-| `/panel/productos/nuevo`       | Alta. El producto nace `draft`; el estado no se elige.                                               |
-| `/panel/productos/[productId]` | Detalle, edición con `expectedVersion`, publicar, archivar, ajustar inventario y gestionar imágenes. |
+| Ruta                           | Qué hace                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `/panel`                       | Portada. Sin métricas: el backend no publica agregaciones todavía.                               |
+| `/panel/productos`             | Listado server-rendered, paginado con `pageToken`.                                               |
+| `/panel/productos/nuevo`       | Alta con contenido, imágenes y variantes. El producto nace `draft`; el estado no se elige.       |
+| `/panel/productos/[productId]` | Detalle, edición con `expectedVersion`, clasificación, variantes, imágenes, publicar y archivar. |
 
 Mutaciones a través del BFF, nunca desde el navegador al backend:
 
-| Método  | Ruta                                                       |
-| ------- | ---------------------------------------------------------- |
-| `POST`  | `/api/admin/products`                                      |
-| `PATCH` | `/api/admin/products/[productId]`                          |
-| `POST`  | `/api/admin/products/[productId]/publish`                  |
-| `POST`  | `/api/admin/products/[productId]/archive`                  |
-| `POST`  | `/api/admin/products/[productId]/inventory-adjustments`    |
-| `POST`  | `/api/admin/products/[productId]/images` (multipart)       |
-| `PATCH` | `/api/admin/products/[productId]/images/[imageId]`         |
-| `POST`  | `/api/admin/products/[productId]/images/[imageId]/archive` |
+| Método  | Ruta                                                                         |
+| ------- | ---------------------------------------------------------------------------- |
+| `POST`  | `/api/admin/products`                                                        |
+| `PATCH` | `/api/admin/products/[productId]`                                            |
+| `POST`  | `/api/admin/products/[productId]/publish`                                    |
+| `POST`  | `/api/admin/products/[productId]/archive`                                    |
+| `POST`  | `/api/admin/products/[productId]/inventory-adjustments`                      |
+| `POST`  | `/api/admin/products/[productId]/images` (multipart)                         |
+| `PATCH` | `/api/admin/products/[productId]/images/[imageId]`                           |
+| `POST`  | `/api/admin/products/[productId]/images/[imageId]/archive`                   |
+| `POST`  | `/api/admin/products/[productId]/variants`                                   |
+| `PATCH` | `/api/admin/products/[productId]/variants/[variantId]`                       |
+| `POST`  | `/api/admin/products/[productId]/variants/[variantId]/archive`               |
+| `POST`  | `/api/admin/products/[productId]/variants/[variantId]/inventory-adjustments` |
 
-Permisos visibles: `super_admin` y `master_admin` publican y archivan; `moderator` consulta, crea,
-edita y ajusta inventario, y no ve esas dos acciones. Es usabilidad: el backend rechaza igualmente
-cualquier petición que el rol no permita.
+No hay Route Handler de lectura para las variantes: la colección completa —activas y archivadas—
+viaja dentro del producto en cada lectura y en la respuesta de cada mutación.
+
+Permisos visibles: `super_admin` y `master_admin` publican y archivan —el producto, sus imágenes y
+sus variantes—; `moderator` consulta, crea, edita y ajusta inventario, y no ve esas dos acciones.
+Las variantes reutilizan esos mismos permisos: crear usa `products.create`, editar
+`products.update`, el inventario `inventory.adjust` y archivar `products.archive`. Es usabilidad: el
+backend rechaza igualmente cualquier petición que el rol no permita.
+
+Un producto sin variantes se sigue vendiendo por su SKU, precio e inventario base. Con la primera
+variante activa, el precio y el inventario pasan a gestionarse por variante: el ajuste base se
+deshabilita con el motivo escrito, y los valores anteriores se conservan tal cual.
+
+Las decisiones del catálogo enriquecido y de las variantes están en
+[`docs/decisions/0004-enriched-catalogue-and-variants.md`](./docs/decisions/0004-enriched-catalogue-and-variants.md).
 
 El detalle anterior del shell —lee la cookie en el servidor y verifica la sesión contra el backend—
 sigue igual. No muestra UID ni correo, y no contiene datos comerciales.

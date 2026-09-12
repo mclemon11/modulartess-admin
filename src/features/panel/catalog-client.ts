@@ -12,7 +12,9 @@ import type {
   AdminProduct,
   InventoryAdjustmentResult,
   ProductImageResult,
+  ProductVariantResult,
   UploadProductImageResult,
+  VariantInventoryAdjustmentResult,
 } from '@/lib/api/catalog';
 
 export type MutationResult<T> =
@@ -171,6 +173,57 @@ export function archiveProductImage(
     `/api/admin/products/${encodeURIComponent(productId)}/images/${encodeURIComponent(imageId)}/archive`,
     'POST',
     { expectedVersion },
+    200,
+  );
+}
+
+/** Ruta de una variante dentro de su producto. Los identificadores se codifican siempre. */
+function variantPath(productId: string, variantId: string): string {
+  return `/api/admin/products/${encodeURIComponent(productId)}/variants/${encodeURIComponent(variantId)}`;
+}
+
+export function createVariant(
+  productId: string,
+  body: unknown,
+): Promise<MutationResult<ProductVariantResult>> {
+  return send<ProductVariantResult>(
+    `/api/admin/products/${encodeURIComponent(productId)}/variants`,
+    'POST',
+    body,
+    201,
+  );
+}
+
+export function updateVariant(
+  productId: string,
+  variantId: string,
+  body: unknown,
+): Promise<MutationResult<ProductVariantResult>> {
+  return send<ProductVariantResult>(variantPath(productId, variantId), 'PATCH', body, 200);
+}
+
+export function archiveVariant(
+  productId: string,
+  variantId: string,
+  expectedVersion: number,
+): Promise<MutationResult<ProductVariantResult>> {
+  return send<ProductVariantResult>(
+    `${variantPath(productId, variantId)}/archive`,
+    'POST',
+    { expectedVersion },
+    200,
+  );
+}
+
+export function adjustVariantInventory(
+  productId: string,
+  variantId: string,
+  body: unknown,
+): Promise<MutationResult<VariantInventoryAdjustmentResult>> {
+  return send<VariantInventoryAdjustmentResult>(
+    `${variantPath(productId, variantId)}/inventory-adjustments`,
+    'POST',
+    body,
     200,
   );
 }
