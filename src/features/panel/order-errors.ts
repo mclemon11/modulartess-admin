@@ -13,6 +13,8 @@
  *     no arregla eso, así que no se ofrece.
  */
 
+import type { BackendFailureCode } from '@/lib/api/errors';
+
 export const ORDER_MESSAGES: Readonly<Record<string, string>> = {
   invalid_request: 'Revisa los datos: el backend los rechazó por no cumplir el contrato.',
   session_required: 'Tu sesión administrativa caducó. Vuelve a iniciar sesión.',
@@ -37,4 +39,45 @@ export function describeOrderFailure(code: string): string {
 /** ¿Este fallo se resuelve recargando? Solo el conflicto de versión. */
 export function offersReload(code: string): boolean {
   return code === 'version_conflict';
+}
+
+/**
+ * Traduce un fallo del cliente server-only al mensaje que se pinta en una pantalla de pedidos.
+ *
+ * Existe para no reutilizar el del catálogo: con aquel, un `404` de un pedido acababa diciendo «Ese
+ * producto ya no existe», que es lo que se vio en el despliegue. Los dos mapas viven separados a
+ * propósito, porque las dos superficies hablan de cosas distintas.
+ *
+ * `scope` distingue qué significa un `404`:
+ *
+ *   - en `detail`, el pedido no existe;
+ *   - en `list`, no puede significar eso —un listado no es un pedido—, así que se lee como que ese
+ *     despliegue no tiene la superficie de pedidos.
+ */
+export function describeOrderBackendFailure(
+  code: BackendFailureCode,
+  scope: 'list' | 'detail',
+): string {
+  switch (code) {
+    case 'backend_unauthorized':
+      return ORDER_MESSAGES.session_required ?? GENERIC_ORDER_MESSAGE;
+    case 'backend_forbidden':
+      return ORDER_MESSAGES.admin_role_required ?? GENERIC_ORDER_MESSAGE;
+    case 'backend_not_found':
+      return scope === 'detail'
+        ? (ORDER_MESSAGES.not_found ?? GENERIC_ORDER_MESSAGE)
+        : (ORDER_MESSAGES.admin_surface_disabled ?? GENERIC_ORDER_MESSAGE);
+    case 'backend_surface_disabled':
+      return ORDER_MESSAGES.admin_surface_disabled ?? GENERIC_ORDER_MESSAGE;
+    case 'backend_conflict':
+      return ORDER_MESSAGES.version_conflict ?? GENERIC_ORDER_MESSAGE;
+    case 'backend_invalid_request':
+      return ORDER_MESSAGES.invalid_request ?? GENERIC_ORDER_MESSAGE;
+    case 'backend_rate_limited':
+      return ORDER_MESSAGES.too_many_requests ?? GENERIC_ORDER_MESSAGE;
+    case 'backend_unavailable':
+      return ORDER_MESSAGES.service_unavailable ?? GENERIC_ORDER_MESSAGE;
+    default:
+      return GENERIC_ORDER_MESSAGE;
+  }
 }

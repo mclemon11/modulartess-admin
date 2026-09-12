@@ -14,8 +14,8 @@ import styles from './panel-shell.module.css';
  * proyecto. Servirlo tal cual no cuesta nada: pesa lo mismo en origen.
  */
 
-/** Ruta pública del logotipo. El nombre del archivo lleva un espacio, así que viaja codificado. */
-export const LOGO_SRC = '/assets/logo%20modulartess.svg';
+/** Ruta pública del logotipo. Sin espacios: ni hay que codificarla ni se puede escribir mal. */
+export const LOGO_SRC = '/assets/modulartess-logo.svg';
 
 /** Proporción del archivo original (874 × 369), para no deformarlo en ningún tamaño. */
 const RATIO = 874 / 369;

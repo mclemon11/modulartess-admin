@@ -79,6 +79,12 @@ describe('Dockerfile', () => {
     expect(DOCKERFILE).not.toMatch(/COPY --from=builder[^\n]*\/app\/src/);
   });
 
+  it('copia `public` al runner', () => {
+    // La salida `standalone` no la incluye. Sin esta línea la imagen arranca y devuelve 404 en el
+    // logotipo y en todo lo demás que viva ahí, que es el fallo que se vio en el despliegue.
+    expect(DOCKERFILE).toMatch(/COPY --from=builder[^\n]*\/app\/public\s+\.\/public/);
+  });
+
   it('recibe las cuatro variables públicas como build args', () => {
     for (const name of PUBLIC_VARS) {
       expect(DOCKERFILE, name).toContain(`ARG ${name}`);
@@ -122,6 +128,8 @@ describe('.gcloudignore', () => {
       'next.config.ts',
       'tsconfig.json',
       'src',
+      // `public` tiene que llegar a la máquina de build: de ahí sale la copia del runner.
+      'public',
     ]) {
       expect(GCLOUDIGNORE, keep).not.toContain(keep);
     }

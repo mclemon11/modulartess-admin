@@ -126,6 +126,11 @@ Preparado y comprobado con shims. Nada de esto se ha ejecutado contra la nube.
 | `roles/run.invoker` | Concedido  | Solo sobre `modulartess-backend-staging`, sin condición. |
 | Servicio del panel  | Desplegado | `modulartess-admin-staging`.                             |
 
+La imagen copia al runner **tres** artefactos, no dos: `.next/standalone`, `.next/static` y
+`public`. La salida `standalone` no incluye `public`, así que sin esa copia el servicio arranca
+igual y devuelve `404` en todo lo que vive ahí —el logotipo de la marca, entre otras cosas—, que es
+justo lo que se vio en el primer despliegue. `deploy/deploy.test.ts` lo exige.
+
 ## Previsto, todavía no implementado
 
 Elementos que forman parte del diseño acordado, pero que aún no existen en el repositorio.
@@ -133,7 +138,10 @@ Elementos que forman parte del diseño acordado, pero que aún no existen en el 
 | Área                            | Estado        | Detalle                                                         |
 | ------------------------------- | ------------- | --------------------------------------------------------------- |
 | Métricas del dashboard          | Pendiente     | El backend no publica agregaciones; no se inventan.             |
-| Pedidos, clientes y usuarios    | Pendiente     | El shell ya está preparado para añadirlos sin rehacerlo.        |
+| Clientes y usuarios admin.      | Pendiente     | El shell ya está preparado para añadirlos sin rehacerlo.        |
+| Pago y reembolsos               | Pendiente     | Sin pasarela ni operación de reembolso en el contrato.          |
+| Envíos                          | Pendiente     | Pantalla anunciada; el despacho no está publicado.              |
+| Addi y Odoo                     | Pendiente     | Integraciones fuera del contrato actual.                        |
 | Búsqueda y filtros del catálogo | Pendiente     | Solo hay `pageToken` y `pageSize`: filtrar una página mentiría. |
 | Contadores por estado           | Pendiente     | No hay agregaciones; las cifras de las referencias no existen.  |
 | Catálogo de categorías          | Pendiente     | No hay endpoint que las liste: se escriben nombre y slug.       |
@@ -309,7 +317,7 @@ edición de cliente, dirección, líneas o precios. Tampoco hay reembolso ni pag
 
 El panel tiene un solo sistema visual, compartido por todas las pantallas:
 
-- **Marca**: el logotipo real (`public/assets/logo modulartess.svg`) se sirve con `next/image` en el
+- **Marca**: el logotipo real (`public/assets/modulartess-logo.svg`) se sirve con `next/image` en el
   inicio de sesión, en la barra lateral y en la cabecera móvil. No queda ningún marcador dibujado
   con CSS.
 - **Inicio de sesión**: dos columnas en escritorio —marca, «Bienvenido de nuevo» y una composición
@@ -342,6 +350,22 @@ El panel tiene un solo sistema visual, compartido por todas las pantallas:
 
 Las diferencias con las referencias visuales están enumeradas arriba, sección por sección: todo lo
 que falta es lo que el contrato no publica, y nada de eso se aparenta con adornos.
+
+### Alta de producto: composición
+
+Una sola pantalla, `/panel/productos/nuevo`, con la columna de trabajo a la izquierda y una vista
+previa de 21rem a la derecha que se apila debajo en cuanto la ventana baja de 64rem. Arriba, una
+barra compacta con «Guardar borrador» y «Publicar producto». A partir de 88rem —el ancho en el que
+la columna principal deja sitio de verdad— Información e Imágenes comparten la primera fila;
+Precio e Inventario son tarjetas compactas, y Características y Variantes ocupan el ancho completo.
+
+La zona de carga de imágenes no enseña el control nativo del navegador: es un área de borde
+discontinuo con icono, el texto «Arrastra y suelta las imágenes de tu producto aquí» y un botón
+«Agregar imágenes». El `input[type=file]` sigue ahí, dentro de su etiqueta y oculto solo
+visualmente, así que se enfoca con el tabulador; soltar archivos entra por la misma función que
+elegirlos, con la misma cola, los mismos límites y las mismas validaciones. La edición de un
+producto ya creado usa la misma zona, adaptada a su flujo: elegir archivo, describirlo y subirlo en
+el acto.
 
 ### Preparación para publicar
 

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import catalog from '@/features/panel/catalog.module.css';
-import { describeBackendFailure } from '@/features/panel/catalog-errors';
+import { describeOrderBackendFailure } from '@/features/panel/order-errors';
 import { formatDateTime } from '@/features/panel/format';
 import { formatCop } from '@/features/panel/money';
 import { OrderStatusBadge } from '@/features/panel/order-status-badge';
@@ -61,7 +61,7 @@ export default async function OrdersPage({ searchParams }: PageProps) {
     );
   } catch (error) {
     const message = isBackendFailure(error)
-      ? describeBackendFailure(error.code)
+      ? describeOrderBackendFailure(error.code, 'list')
       : 'No pudimos cargar los pedidos.';
 
     return (

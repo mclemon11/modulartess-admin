@@ -19,7 +19,7 @@ import {
   type MutationResult,
 } from './catalog-client';
 import { describeCatalogFailure } from './catalog-errors';
-import { SectionHeading } from './section-icon';
+import { Icon, SectionHeading } from './section-icon';
 
 /**
  * Gestor de imágenes del producto.
@@ -66,6 +66,8 @@ export function ProductImages({
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /** Nombre del archivo elegido. Solo para mostrarlo: lo que se sube sale del `FormData`. */
+  const [selectedName, setSelectedName] = useState<string | null>(null);
 
   const active = product.images
     .filter((image) => image.status === 'active')
@@ -152,6 +154,7 @@ export function ProductImages({
     if (result.ok) {
       uploadKey.current = null;
       form.reset();
+      setSelectedName(null);
     }
 
     settle(result, (data) =>
@@ -207,21 +210,38 @@ export function ProductImages({
         {canEdit ? (
           <form onSubmit={handleUpload} ref={formRef}>
             <div className={styles.dropzone}>
-              <div className={styles.field}>
-                <label className={styles.label} htmlFor={fileId}>
-                  Archivo de imagen
-                </label>
+              <span aria-hidden="true" className={styles.dropzoneIcon}>
+                <Icon name="imagenes" />
+              </span>
+              <p className={styles.dropzoneTitle}>Añade una imagen a este producto</p>
+
+              {/*
+               * El control nativo no se ve —«Choose File / No file chosen» no dice nada y no se
+               * puede dar estilo—, pero es el mismo `input`: conserva su `name`, entra en el mismo
+               * `FormData` y se enfoca con el tabulador dentro de su etiqueta.
+               */}
+              <label
+                className={busy || atLimit ? styles.uploadButtonDisabled : styles.uploadButton}
+              >
+                {selectedName === null ? 'Elegir imagen' : 'Cambiar imagen'}
                 <input
                   accept={IMAGE_CONTENT_TYPES.join(',')}
-                  className={styles.input}
+                  className="sr-only"
                   disabled={busy || atLimit}
                   id={fileId}
                   name="file"
+                  onChange={(event) => setSelectedName(event.target.files?.[0]?.name ?? null)}
                   required
                   type="file"
                 />
-              </div>
-              <div className={styles.field}>
+              </label>
+
+              {/* Sin el control nativo hay que decir qué archivo está elegido. */}
+              <p aria-live="polite" className={styles.dropzoneHint}>
+                {selectedName ?? 'Ningún archivo seleccionado todavía.'}
+              </p>
+
+              <div className={styles.uploadField}>
                 <label className={styles.label} htmlFor={altId}>
                   Texto alternativo *
                 </label>
@@ -238,18 +258,19 @@ export function ProductImages({
                   Obligatorio. Describe la imagen para quien no puede verla.
                 </span>
               </div>
+
               <button className={styles.button} disabled={busy || atLimit} type="submit">
                 {busy ? 'Subiendo…' : 'Agregar imagen'}
               </button>
+
               <p className={styles.dropzoneHint}>
-                JPG, PNG o WebP. Máximo 10 MB por imagen y {IMAGE_MAX_ACTIVE} imágenes activas.
-                {atLimit ? ' Has llegado al límite: archiva alguna para subir otra.' : ''}
+                JPG, PNG o WebP · hasta {IMAGE_MAX_ACTIVE} imágenes activas · 10 MB por imagen
+                {atLimit ? ' · has llegado al límite: archiva alguna para subir otra.' : ''}
               </p>
             </div>
-            <p className={styles.error}>
-              Las imágenes quedan en una URL pública desde el momento en que se suben, incluso con
-              el producto en borrador y después de archivarlas. No subas nada que deba permanecer
-              privado.
+            <p className={styles.inlineNote}>
+              Al guardar, las imágenes quedan en una URL pública —también en borrador y después de
+              archivarlas—. No subas nada que deba permanecer privado.
             </p>
           </form>
         ) : null}

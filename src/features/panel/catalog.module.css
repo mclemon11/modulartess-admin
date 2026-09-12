@@ -669,7 +669,8 @@
   background-color: var(--color-panel-subtle);
 }
 
-.iconButton:focus-visible {
+.iconButton:focus-visible,
+.iconButton:focus-within {
   box-shadow: 0 0 0 3px var(--color-brand-ring);
   outline: none;
 }
@@ -679,16 +680,100 @@
   opacity: 0.45;
 }
 
+/*
+ * Zona de carga.
+ *
+ * El control nativo queda oculto —su «Choose Files / No file chosen» no dice nada y no se puede
+ * dar estilo— pero sigue siendo el mismo `input`, dentro de su `label`: se enfoca con el tabulador
+ * y se activa con teclado. Arrastrar y soltar entra por la misma función que elegir archivos.
+ */
 .dropzone {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-sm);
-  padding: clamp(1rem, 4vw, 1.75rem);
+  gap: 0.5rem;
+  padding: clamp(1.25rem, 4vw, 2rem);
   border: 1.5px dashed var(--color-brand-border);
   border-radius: var(--radius-card);
   background-color: var(--color-brand-soft);
   text-align: center;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+/* Mientras se arrastra encima, la zona se marca: hay que saber dónde se va a soltar. */
+.dropzoneActive {
+  composes: dropzone;
+  border-color: var(--color-brand);
+  border-style: solid;
+  background-color: var(--color-brand-border);
+}
+
+.dropzoneIcon {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border-radius: 50%;
+  background-color: var(--color-panel-surface);
+  color: var(--color-brand-strong);
+}
+
+.dropzoneTitle {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-wrap: pretty;
+}
+
+/* El label es el botón: el input real vive dentro, oculto con `sr-only`. */
+.uploadButton {
+  composes: button;
+  margin-top: 0.25rem;
+}
+
+.uploadButton:focus-within {
+  box-shadow: 0 0 0 3px var(--color-brand-ring);
+}
+
+.uploadButtonDisabled {
+  composes: uploadButton;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/*
+ * Aviso de una consecuencia real, en tono informativo.
+ *
+ * Era una caja roja a tamaño completo: el rojo es para lo que ha fallado, y esto es algo que hay
+ * que saber antes de subir, no una alarma.
+ */
+/*
+ * Campo dentro de la zona de carga.
+ *
+ * La zona centra su contenido; una etiqueta y su campo se leen mal centrados, así que este bloque
+ * recupera la alineación a la izquierda y el ancho completo.
+ */
+.uploadField {
+  composes: field;
+  width: 100%;
+  max-width: 28rem;
+  margin: var(--space-sm) 0 0;
+  text-align: left;
+}
+
+.inlineNote {
+  display: flex;
+  gap: 0.5rem;
+  margin: var(--space-md) 0 0;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-panel-subtle);
+  color: var(--color-panel-muted);
+  font-size: 0.8125rem;
+  text-wrap: pretty;
 }
 
 .dropzoneHint {
@@ -699,10 +784,16 @@
 
 /* ------------------------------------------------- alta de producto */
 
+/*
+ * Alta de producto: área de trabajo amplia y una vista previa estrecha al lado.
+ *
+ * La columna lateral es de ancho fijo (21rem) y no una fracción: si crece con la pantalla acaba
+ * compitiendo con el formulario, que es donde se trabaja de verdad.
+ */
 .formGrid {
   display: grid;
   gap: var(--space-lg);
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 21rem;
   align-items: start;
 }
 
@@ -721,15 +812,23 @@
 /*
  * Columna principal del alta.
  *
- * A partir de 75rem se reparte en dos, como la referencia: Información e Imágenes comparten la fila
+ * A partir de 88rem se reparte en dos, como la referencia: Información e Imágenes comparten la fila
  * de arriba, y el contenido enriquecido, el precio, el inventario y las variantes ocupan el ancho
  * completo. Por debajo vuelve a ser una sola columna sin tocar el orden del formulario.
  */
-@media (min-width: 75rem) {
+/*
+ * El corte no es «cabe en la ventana», es «cabe en esta columna».
+ *
+ * La columna principal es la ventana menos la barra lateral (14.75rem), el margen de la página
+ * (4rem), la vista previa (21rem) y el hueco (2rem): a 1440 px quedan ~772 px. Con mínimos de 20 y
+ * 30rem —800 px— la fila se salía y aparecía barra horizontal, así que el par es 18 + 25rem, que
+ * deja aire y mantiene Imágenes claramente más ancha que Información.
+ */
+@media (min-width: 88rem) {
   .formStack {
     display: grid;
     gap: var(--space-lg);
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-columns: minmax(18rem, 0.85fr) minmax(25rem, 1.3fr);
     align-content: start;
   }
 
@@ -756,7 +855,7 @@
 .queueList {
   display: grid;
   gap: var(--space-md);
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
   margin: var(--space-md) 0 0;
   padding: 0;
   list-style: none;
@@ -808,23 +907,29 @@
 .preview {
   position: sticky;
   top: calc(var(--header-height) + 1rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
 .previewImage {
   display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
-  border-radius: 0.75rem;
+  max-height: 13rem;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-control);
   object-fit: cover;
   background-color: var(--color-panel-subtle);
 }
 
+/* Sin imagen elegida: hueco limpio y de alto acotado, no un bloque enorme. */
 .previewEmpty {
   composes: previewImage;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1.5px dashed var(--color-panel-border-strong);
+  background-color: var(--color-panel-subtle);
   color: var(--color-panel-muted);
   font-size: 0.8125rem;
 }
@@ -1076,6 +1181,13 @@
   }
 }
 
+/* Fila de tarjetas compactas: precio e inventario, lado a lado mientras quepan. */
+.compactRow {
+  display: grid;
+  gap: var(--space-lg);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+}
+
 .actionBarText {
   flex: 1 1 14rem;
   min-width: 0;
@@ -1088,6 +1200,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm);
+  margin-left: auto;
 }
 
 .actionBar .hint {

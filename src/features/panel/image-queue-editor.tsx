@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { useId, useState } from 'react';
 
 import {
   IMAGE_ALT_MAX_LENGTH,
@@ -10,13 +10,13 @@ import {
 
 import styles from './catalog.module.css';
 import type { QueuedImage } from './image-queue';
-import { SectionHeading } from './section-icon';
+import { Icon, SectionHeading } from './section-icon';
 
 /**
  * Editor de la cola local de imágenes.
  *
  * Todavía no hay nada en el bucket: son archivos elegidos en el navegador con su `object URL` de
- * vista previa. Nada se sube hasta que se pulsa «Crear producto».
+ * vista previa. Nada se sube hasta que se guarda.
  *
  * El orden se cambia con botones, no arrastrando: funcionan con teclado y lector de pantalla y no
  * añaden dependencias.
@@ -49,8 +49,30 @@ export function ImageQueueEditor({
   readonly onReplace: (entryId: string, file: File) => void;
 }) {
   const addId = useId();
+  const [dragging, setDragging] = useState(false);
   const atLimit = queue.length >= IMAGE_MAX_ACTIVE;
   const addDisabled = disabled || atLimit || !canAdd;
+
+  /**
+   * Soltar archivos usa exactamente la misma puerta que elegirlos.
+   *
+   * `onAdd` recibe el mismo `FileList`, así que la cola, los límites y las validaciones son los de
+   * siempre: arrastrar es otra forma de abrir el selector, no otro camino.
+   */
+  function handleDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragging(false);
+
+    if (addDisabled) {
+      return;
+    }
+
+    const { files } = event.dataTransfer;
+
+    if (files.length > 0) {
+      onAdd(files);
+    }
+  }
 
   return (
     <section className={styles.card}>
@@ -60,46 +82,63 @@ export function ImageQueueEditor({
           icon="imagenes"
           title="Imágenes del producto"
         />
-        <p className={styles.hint}>
-          Se suben cuando pulses «Crear producto», una detrás de otra. Hasta {IMAGE_MAX_ACTIVE}{' '}
-          imágenes, JPG, PNG o WebP, máximo 10 MB cada una.
-        </p>
+        <div
+          className={dragging ? styles.dropzoneActive : styles.dropzone}
+          onDragLeave={() => setDragging(false)}
+          onDragOver={(event) => {
+            event.preventDefault();
 
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor={addId}>
+            if (!addDisabled) {
+              setDragging(true);
+            }
+          }}
+          onDrop={handleDrop}
+        >
+          <span aria-hidden="true" className={styles.dropzoneIcon}>
+            <Icon name="imagenes" />
+          </span>
+          <p className={styles.dropzoneTitle}>Arrastra y suelta las imágenes de tu producto aquí</p>
+          {/*
+           * El control nativo no se ve —«Choose Files / No file chosen» no dice nada— pero sigue
+           * siendo el mismo input, enfocable y conectado a su etiqueta: el label es el botón.
+           */}
+          <label className={addDisabled ? styles.uploadButtonDisabled : styles.uploadButton}>
             Agregar imágenes
+            <input
+              accept={IMAGE_CONTENT_TYPES.join(',')}
+              className="sr-only"
+              disabled={addDisabled}
+              id={addId}
+              multiple
+              onChange={(event) => {
+                const { files } = event.target;
+
+                if (files !== null && files.length > 0) {
+                  onAdd(files);
+                }
+
+                // Permite volver a elegir el mismo archivo tras quitarlo.
+                event.target.value = '';
+              }}
+              type="file"
+            />
           </label>
-          <input
-            accept={IMAGE_CONTENT_TYPES.join(',')}
-            className={styles.input}
-            disabled={addDisabled}
-            id={addId}
-            multiple
-            onChange={(event) => {
-              const { files } = event.target;
-
-              if (files !== null && files.length > 0) {
-                onAdd(files);
-              }
-
-              // Permite volver a elegir el mismo archivo tras quitarlo.
-              event.target.value = '';
-            }}
-            type="file"
-          />
+          <p className={styles.dropzoneHint}>
+            JPG, PNG o WebP · hasta {IMAGE_MAX_ACTIVE} imágenes · 10 MB por imagen
+          </p>
           {atLimit ? (
-            <span className={styles.hint}>Has llegado al límite de {IMAGE_MAX_ACTIVE}.</span>
+            <p className={styles.dropzoneHint}>Has llegado al límite de {IMAGE_MAX_ACTIVE}.</p>
           ) : null}
           {canAdd ? null : (
-            <span className={styles.hint}>
+            <p className={styles.dropzoneHint}>
               El producto ya está creado: las imágenes nuevas se añaden desde su detalle.
-            </span>
+            </p>
           )}
         </div>
 
-        <p className={styles.error}>
-          Las imágenes quedan en una URL pública desde que se suben, incluso con el producto en
-          borrador y después de archivarlas. No subas nada que deba permanecer privado.
+        <p className={styles.inlineNote}>
+          Al guardar, las imágenes quedan en una URL pública —también en borrador y después de
+          archivarlas—. No subas nada que deba permanecer privado.
         </p>
 
         {queue.length === 0 ? (
@@ -190,8 +229,10 @@ export function ImageQueueEditor({
                             Cambiar archivo
                             <input
                               accept={IMAGE_CONTENT_TYPES.join(',')}
+                              // `sr-only` en vez de `hidden`: un input oculto con `hidden` no se
+                              // puede enfocar, y entonces «Cambiar archivo» solo funciona con ratón.
+                              className="sr-only"
                               disabled={disabled}
-                              hidden
                               onChange={(event) => {
                                 const file = event.target.files?.[0];
 

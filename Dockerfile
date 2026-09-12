@@ -73,10 +73,15 @@ ENV NODE_ENV=production \
 USER node
 
 # Solo los artefactos que el runtime necesita. `standalone` ya incluye el `server.js` y las
-# dependencias de producción que el grafo alcanza de verdad; `static` va aparte porque Next.js lo
-# deja fuera de esa carpeta.
+# dependencias de producción que el grafo alcanza de verdad; `static` y `public` van aparte porque
+# Next.js los deja fuera de esa carpeta.
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+
+# `public` también va aparte. La salida `standalone` no la incluye, así que sin esta copia el
+# servidor arranca igual pero devuelve 404 en todo lo que vive ahí: el logotipo de la marca, entre
+# otras cosas. Es exactamente lo que pasó en el primer despliegue.
+COPY --from=builder --chown=node:node /app/public ./public
 
 EXPOSE 8080
 

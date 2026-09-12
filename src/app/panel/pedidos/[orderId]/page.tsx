@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import catalog from '@/features/panel/catalog.module.css';
-import { describeBackendFailure } from '@/features/panel/catalog-errors';
+import { describeOrderBackendFailure } from '@/features/panel/order-errors';
 import { OrderDetailView } from '@/features/panel/order-detail-view';
 import { ErrorState } from '@/features/panel/panel-states';
 import { PanelHeader } from '@/features/panel/panel-header';
@@ -42,7 +42,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
     order = await getOrder(session.session.sessionMaterial, orderId);
   } catch (error) {
     const message = isBackendFailure(error)
-      ? describeBackendFailure(error.code)
+      ? describeOrderBackendFailure(error.code, 'detail')
       : 'No pudimos cargar el pedido.';
 
     return (

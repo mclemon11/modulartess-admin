@@ -38,7 +38,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
   return (
     <AuthShell
-      footnote="El acceso es cerrado: las cuentas se crean fuera del panel. Este repositorio no ofrece registro, recuperación de contraseña ni proveedores externos."
+      footnote="El acceso es cerrado: las cuentas administrativas se crean fuera del panel."
       subtitle={
         notice ??
         'Inicia sesión para administrar el catálogo, los pedidos y el inventario de la tienda.'

@@ -95,8 +95,8 @@ const EMPTY_FIELDS: Fields = {
  * El contrato obliga a repartir el alta en varias llamadas: `POST /v1/admin/products` solo admite
  * los campos base, la clasificación y los ejes van en un `PATCH`, y ni una imagen ni una variante
  * se pueden crear sin `productId` y sin la `expectedVersion` vigente. Todo eso ocurre **dentro** de
- * este envío, no antes: los datos, los archivos y las variantes viven en memoria hasta que se pulsa
- * «Crear producto». Crear el producto al elegir el primer archivo dejaría un borrador huérfano cada
+ * este envío, no antes: los datos, los archivos y las variantes viven en memoria hasta que se
+ * guarda. Crear el producto al elegir el primer archivo dejaría un borrador huérfano cada
  * vez que alguien abandona la pantalla.
  *
  * El orden y la reanudación los decide `runCreateFlow`; aquí solo se recogen datos y se pinta el
@@ -278,7 +278,7 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
       Object.keys(variantValidation.byDraft).length > 0
     ) {
       found.variants =
-        'Revisa la clasificación y las variantes: hay datos que el backend no acepta.';
+        'Revisa la clasificación y las variantes: hay datos que no se pueden guardar así.';
     }
 
     return found;
@@ -381,11 +381,6 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
       {/* Acciones principales arriba, como en la referencia: el formulario es largo y guardar no
           debería exigir recorrerlo entero. Fluye con el contenido, no lo tapa. */}
       <div className={styles.actionBar}>
-        <div className={styles.actionBarText}>
-          {canPublish
-            ? '«Publicar producto» guarda exactamente lo mismo y, solo después, publica si el backend dice que está listo.'
-            : 'Tu rol no incluye publicar: el producto queda en borrador.'}
-        </div>
         <div className={styles.actionBarButtons}>
           {created === null ? null : (
             <Link className={styles.buttonSecondary} href={`/panel/productos/${created.id}`}>
@@ -570,13 +565,13 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
           </p>
         )}
 
-        <div className={styles.row}>
+        <div className={styles.compactRow}>
           <section className={styles.card} id={SECTION_IDS.precio}>
             <div className={styles.cardPad}>
               <SectionHeading icon="precio" title="Precio" />
               <CopField
                 disabled={busy || created !== null}
-                hint="Pesos enteros. El símbolo y los puntos de miles son de la pantalla; al backend va el número."
+                hint="Pesos enteros, sin centavos."
                 label="Precio"
                 onChange={(value) => setFields((current) => ({ ...current, priceCop: value }))}
                 required
@@ -697,14 +692,13 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
             />
           </div>
         </section>
-        <section className={styles.card} style={{ marginTop: 'var(--space-lg)' }}>
+        <section className={styles.card}>
           <div className={styles.cardPad}>
             <SectionHeading icon="estado" title="Preparación para publicar" />
             {created === null ? (
               <p className={styles.hint}>
-                El producto nace como <strong>borrador</strong>. Quien decide si está listo para
-                publicarse es el backend, al guardarlo: hasta entonces esta pantalla no puede
-                adelantarlo sin inventárselo.
+                El producto nace como <strong>borrador</strong>. Al guardar, el backend indica qué
+                falta para poder publicarlo.
               </p>
             ) : (
               <>
