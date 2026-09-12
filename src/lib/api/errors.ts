@@ -22,6 +22,14 @@ export const BACKEND_FAILURE_CODES = [
   'backend_invalid_request',
   /** 409 del backend: `expectedVersion` obsoleto o recurso duplicado. */
   'backend_conflict',
+  /**
+   * 409 `order_cancellation_requires_refund`.
+   *
+   * Se separa del conflicto genérico porque el panel tiene algo concreto que decir: no es que la
+   * versión esté obsoleta, es que cancelar un pedido pagado exigiría devolver el dinero y el flujo
+   * de reembolso todavía no existe. Ofrecer «recargar» ante esto sería un consejo inútil.
+   */
+  'backend_refund_required',
   /** 429 del backend: el intercambio está limitado por tasa. */
   'backend_rate_limited',
   /** 503, red, DNS o expiración del temporizador. */

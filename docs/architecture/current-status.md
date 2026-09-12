@@ -16,6 +16,10 @@ Fase 4 — catálogo. **Productos** está terminado de extremo a extremo y dise�
 móvil: listado, alta con contenido enriquecido, imágenes y variantes, detalle con edición por
 secciones, inventario, variantes y publicación gobernada por `publicationReadiness`.
 
+Fase 5 — pedidos. **Pedidos** está implementado en su alcance mínimo y real: listado, ficha,
+transiciones operativas y cancelación, todo contra las cuatro operaciones que publica el contrato.
+El pago no existe todavía, así que ningún pedido llega a `paid` por ahora.
+
 ## Estado real del entorno
 
 Esto es lo que ya existe fuera de este repositorio, y no debe describirse como pendiente:
@@ -248,6 +252,58 @@ campos, los archivos y las variantes se conservan en pantalla.
 La lógica vive en `src/features/panel/create-product-flow.ts`, aislada de React para poder
 comprobarla con dobles.
 
+### Pedidos (fase 5)
+
+Dos rutas —`/panel/pedidos` y `/panel/pedidos/[orderId]`—, ambas **renderizadas en el servidor** con
+la sesión de la persona, y una entrada nueva en la navegación principal. Inventario sigue integrado
+en Productos y **no** hay directorio de clientes: el cliente es un dato del pedido, no una entidad.
+
+Listado, con los campos de `AdminOrderSummaryDto` y ninguno más: `publicId`, `customerName`,
+`itemCount`, `totalCop`, `status`, `createdAt` y `updatedAt`. Tabla amplia en escritorio, tarjetas
+apiladas en móvil, badges de los seis estados e importes como `$ 1.450.000`, sin «COP». Paginación
+**solo con `pageToken`**, porque el cursor es opaco: se avanza, no se salta a una página concreta.
+Estados de carga, vacío —«Todavía no hay pedidos»—, error controlado y backend no disponible.
+
+Ficha, con la **instantánea** que trae el pedido: líneas con imagen, nombre, SKU, atributos,
+cantidad, precio unitario y total; cliente con teléfono y correo; dirección con ciudad, departamento
+e indicaciones; subtotal, envío y total; y el historial append-only en orden cronológico, más el
+recorrido de estados dibujado desde ese mismo historial. **No se vuelve a leer el catálogo** para
+reconstruir una línea: si el producto cambió después de la compra, el pedido tiene que seguir
+diciendo qué se vendió y por cuánto.
+
+Acciones resueltas por `orderActions`, una función **pura** sin jerarquía numérica, con su propia
+batería de pruebas:
+
+| Estado            | Acción        | `super_admin` | `master_admin` | `moderator` |
+| ----------------- | ------------- | ------------- | -------------- | ----------- |
+| `paid`            | → `preparing` | sí            | sí             | sí          |
+| `preparing`       | → `shipped`   | sí            | sí             | sí          |
+| `shipped`         | → `delivered` | sí            | sí             | sí          |
+| `pending_payment` | Cancelar      | sí            | sí             | **no**      |
+
+Son **botones concretos** según el siguiente estado, no un selector: un desplegable con los seis
+valores dejaría elegir transiciones que el backend rechaza. `pending_payment → paid` no se ofrece a
+nadie: es del webhook de pagos. `delivered` y `cancelled` son finales.
+
+Toda mutación envía `expectedVersion` y **sustituye** el estado local con la respuesta autoritativa.
+Ante `order_version_conflict` no se reintenta solo: se muestra «El pedido cambió» y se ofrece
+recargar. Ante `order_cancellation_requires_refund` se explica que el reembolso todavía no existe, y
+**no** se ofrece recargar, porque recargar no lo arregla. Para distinguir esos dos `409` el BFF ganó
+un código propio, `refund_required`.
+
+Cuatro Route Handlers bajo `/api/admin/orders`, todos `server-only`: listado, ficha, cambio de
+estado y cancelación. Reutilizan la frontera que ya existía —sesión en cookie `__Host-`, validación
+de `Origin` en las mutaciones, IAM, tiempo de espera, `no-store` y traducción a códigos estables—.
+El navegador no conoce la URL del backend, ni la audiencia, ni el identity token, ni la cookie
+interna, y **nada del pedido se guarda** en `localStorage` ni en `sessionStorage`.
+
+Lo que las referencias de diseño muestran y **no** está, porque el contrato no lo publica: buscador,
+filtros y chips por estado con sus conteos, tarjetas de métricas, rango de fechas, exportación,
+«Pedidos que requieren atención», «Últimos pedidos», método y estado de pago, descuento, canal de
+venta, miniatura del producto en el listado, selección múltiple, paginación numérica, «Contactar
+cliente», «Imprimir», «Ver perfil», «Ver en mapa», notas internas, observaciones del cliente y
+edición de cliente, dirección, líneas o precios. Tampoco hay reembolso ni pago manual.
+
 ### Preparación para publicar
 
 `AdminProductDto.publicationReadiness` llega calculado por el backend —imágenes y variantes
@@ -291,6 +347,19 @@ cualquier operación comercial fuera del catálogo: pedidos, clientes y pagos.
   Authentication.
 - `../decisions/0003-admin-session-bff.md` — sesión administrativa a través de la frontera BFF.
 - `../decisions/0004-enriched-catalogue-and-variants.md` — catálogo enriquecido y variantes.
+
+## Pendiente del backend para Pedidos
+
+Nada de esto se compensa en el panel; cuando exista en el contrato, se implementará aquí:
+
+- **Pago**: webhook de Wompi y el paso `pending_payment → paid`. Hasta entonces ningún pedido avanza
+  más allá de pendiente de pago, y la única acción ejecutable de verdad es cancelar.
+- **Descuento de inventario al pagar**, que va en la misma transacción del webhook.
+- **Reembolsos**, y con ellos la cancelación de un pedido ya pagado.
+- **Envíos**: cotización, transportadora y guía. `shippingCop` llega siempre en cero.
+- **Facturación, Addi y Odoo.**
+- Búsqueda, filtros y contadores agregados de pedidos.
+- Clientes como entidad con historial propio.
 
 ## Siguiente fase propuesta
 

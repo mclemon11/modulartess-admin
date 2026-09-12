@@ -8,6 +8,9 @@ const EXPECTED: Readonly<Record<string, readonly string[]>> = {
   master_admin: [...PERMISSIONS],
   moderator: [
     'dashboard.read',
+    // Mueve el trabajo del día del pedido, pero no lo cancela: cancelar es irreversible.
+    'orders.read',
+    'orders.update_status',
     'products.read',
     'products.create',
     'products.update',
@@ -35,6 +38,20 @@ describe('matriz de permisos', () => {
   it('moderator no ve acciones de publicación ni archivado', () => {
     expect(can('moderator', 'products.publish')).toBe(false);
     expect(can('moderator', 'products.archive')).toBe(false);
+  });
+
+  /* Cancelar un pedido es irreversible: solo lo tienen los dos roles que ya archivan catálogo. */
+  it('solo super_admin y master_admin pueden cancelar pedidos', () => {
+    expect(can('super_admin', 'orders.cancel')).toBe(true);
+    expect(can('master_admin', 'orders.cancel')).toBe(true);
+    expect(can('moderator', 'orders.cancel')).toBe(false);
+  });
+
+  it('los tres roles consultan pedidos y mueven su estado', () => {
+    for (const role of ADMIN_ROLES) {
+      expect(can(role, 'orders.read'), role).toBe(true);
+      expect(can(role, 'orders.update_status'), role).toBe(true);
+    }
   });
 
   it('moderator sí puede consultar, crear, editar y ajustar inventario', () => {

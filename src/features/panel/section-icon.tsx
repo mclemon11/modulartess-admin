@@ -21,7 +21,8 @@ export type IconName =
   | 'estado'
   | 'vistaPrevia'
   | 'panel'
-  | 'productos';
+  | 'productos'
+  | 'pedidos';
 
 const PATHS: Readonly<Record<IconName, readonly string[]>> = {
   basica: ['M6 3h8l4 4v14H6z', 'M14 3v4h4', 'M9 12h6', 'M9 16h6'],
@@ -34,6 +35,8 @@ const PATHS: Readonly<Record<IconName, readonly string[]>> = {
   vistaPrevia: ['M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z', 'M12 9a3 3 0 100 6 3 3 0 000-6z'],
   panel: ['M3 11l9-8 9 8', 'M6 10v10h12V10'],
   productos: ['M3 7l9-4 9 4v10l-9 4-9-4z', 'M12 11v10', 'M3 7l9 4 9-4'],
+  // Carrito de compra, como en las referencias de Pedidos.
+  pedidos: ['M3 4h2l2.4 11.2a2 2 0 002 1.6h7.7a2 2 0 002-1.6L21 8H6', 'M9 21h.01', 'M18 21h.01'],
 };
 
 export function Icon({

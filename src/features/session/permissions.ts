@@ -17,6 +17,9 @@ export type AdminRole = (typeof ADMIN_ROLES)[number];
 /** Permisos de las superficies que ya existen o están a punto de existir. */
 export const PERMISSIONS = [
   'dashboard.read',
+  'orders.read',
+  'orders.update_status',
+  'orders.cancel',
   'products.read',
   'products.create',
   'products.update',
@@ -30,6 +33,10 @@ export type Permission = (typeof PERMISSIONS)[number];
 
 const MODERATOR: readonly Permission[] = [
   'dashboard.read',
+  // Mueve el trabajo del día —prepara, despacha, entrega— pero no cancela: cancelar es
+  // irreversible, y `moderator` no hace nada irreversible.
+  'orders.read',
+  'orders.update_status',
   'products.read',
   'products.create',
   'products.update',
@@ -43,6 +50,9 @@ const MODERATOR: readonly Permission[] = [
  */
 const MASTER_ADMIN: readonly Permission[] = [
   'dashboard.read',
+  'orders.read',
+  'orders.update_status',
+  'orders.cancel',
   'products.read',
   'products.create',
   'products.update',

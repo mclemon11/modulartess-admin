@@ -52,9 +52,11 @@ function read(path: string): string {
 const SERVER_ONLY_MODULES = [
   'src/lib/api/backend-client.ts',
   'src/lib/api/catalog.ts',
+  'src/lib/api/orders.ts',
   'src/lib/api/identity-token.ts',
   'src/features/panel/session-context.ts',
   'src/features/session/mutation-route.ts',
+  'src/features/session/query-route.ts',
   'src/app/api/admin/auth/session/route.ts',
   'src/app/api/admin/products/route.ts',
   'src/app/api/admin/products/[productId]/route.ts',
@@ -68,6 +70,10 @@ const SERVER_ONLY_MODULES = [
   'src/app/api/admin/products/[productId]/variants/[variantId]/route.ts',
   'src/app/api/admin/products/[productId]/variants/[variantId]/archive/route.ts',
   'src/app/api/admin/products/[productId]/variants/[variantId]/inventory-adjustments/route.ts',
+  'src/app/api/admin/orders/route.ts',
+  'src/app/api/admin/orders/[orderId]/route.ts',
+  'src/app/api/admin/orders/[orderId]/status/route.ts',
+  'src/app/api/admin/orders/[orderId]/cancel/route.ts',
 ];
 
 describe('módulos server-only', () => {
@@ -107,6 +113,7 @@ describe('los Client Components no pueden alcanzar el backend', () => {
     '@/lib/api/backend-client',
     '@/features/panel/session-context',
     '@/features/session/mutation-route',
+    '@/features/session/query-route',
     'google-auth-library',
     'openapi-fetch',
     'server-only',
@@ -134,7 +141,7 @@ describe('dependencias restringidas', () => {
     expect(importers).toEqual(['src/lib/api/backend-client.ts']);
   });
 
-  it('los Client Components solo hablan con el BFF, nunca con el catálogo server-only', () => {
+  it('los Client Components solo hablan con el BFF, nunca con los módulos server-only', () => {
     const clientFiles = PRODUCTION_FILES.filter((path) => read(path).startsWith("'use client'"));
 
     expect(clientFiles.length).toBeGreaterThan(0);
@@ -144,9 +151,13 @@ describe('dependencias restringidas', () => {
 
       // Importar el TIPO del producto sí es correcto: `import type` se borra al compilar. Lo que
       // no puede haber es una importación de valores, que arrastraría el módulo server-only.
-      const runtimeImport = /import\s+\{[^}]*\}\s+from '@\/lib\/api\/catalog'/.test(source);
+      for (const serverModule of ['catalog', 'orders']) {
+        const runtimeImport = new RegExp(
+          `import\\s+\\{[^}]*\\}\\s+from '@/lib/api/${serverModule}'`,
+        ).test(source);
 
-      expect(runtimeImport, `${path} importa valores de @/lib/api/catalog`).toBe(false);
+        expect(runtimeImport, `${path} importa valores de @/lib/api/${serverModule}`).toBe(false);
+      }
     }
   });
 

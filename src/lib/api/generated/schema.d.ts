@@ -45,6 +45,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List orders for the panel
+         * @description Ordered by createdAt descending. Rows carry no address, email or phone: those are on the detail. Requires orders.read.
+         */
+        get: operations["AdminOrdersController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/orders/{orderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one order for the panel
+         * @description Customer, shipping address, lines with their snapshot, totals and the append-only timeline. Requires orders.read.
+         */
+        get: operations["AdminOrdersController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/orders/{orderId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an order
+         * @description In this phase only a pending_payment order can be cancelled. A paid order answers 409 order_cancellation_requires_refund: cancelling it would leave someone charged and without an order, and the refund flow does not exist yet. There is no DELETE and no archiving: a cancelled order stays. Requires expectedVersion and orders.cancel, which moderator does not have.
+         */
+        post: operations["AdminOrdersController_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/orders/{orderId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move the order through the operational statuses
+         * @description Only paid→preparing, preparing→shipped and shipped→delivered. No skips and no going back. pending_payment→paid is NOT available here: it belongs to the future payments webhook. Lines, prices, totals and customer are never modified by a transition. Requires expectedVersion and orders.update_status, which all three roles have.
+         */
+        post: operations["AdminOrdersController_changeStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/products": {
         parameters: {
             query?: never;
@@ -362,6 +442,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an order before payment
+         * @description Prices, names, SKUs, variant attributes and images are read from the published catalogue: the request says what and how much, never at what price, and any amount sent is rejected as an unknown field. Only published products, and only active variants when one is selected. The order is created as pending_payment: this endpoint does not charge, does not reserve stock and calls no external service. shippingCop is always 0 in this phase. Repeating the same Idempotency-Key with the same body returns the same order; reusing it with a different body is a conflict.
+         */
+        post: operations["PublicOrdersController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/products": {
         parameters: {
             query?: never;
@@ -406,6 +506,64 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdminOrderDto: {
+            /** Format: date-time */
+            createdAt: string;
+            customer: components["schemas"]["OrderCustomerDto"];
+            id: string;
+            items: components["schemas"]["OrderLineDto"][];
+            publicId: string;
+            shippingAddress: components["schemas"]["OrderShippingAddressDto"];
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
+             */
+            shippingCop: number;
+            /** @enum {string} */
+            status: "pending_payment" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
+             */
+            subtotalCop: number;
+            /** @description Append-only status history. */
+            timeline: components["schemas"]["OrderTimelineEntryDto"][];
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
+             */
+            totalCop: number;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Mutations require it as expectedVersion. */
+            version: number;
+        };
+        AdminOrderPageDto: {
+            items: components["schemas"]["AdminOrderSummaryDto"][];
+            /** @description Opaque cursor for the next page, or null when there are no more. Page size defaults to 20 and tops out at 50. */
+            nextPageToken: string | null;
+        };
+        AdminOrderSummaryDto: {
+            /** Format: date-time */
+            createdAt: string;
+            /** @example Ana Pérez */
+            customerName: string;
+            id: string;
+            /** @description Number of lines. */
+            itemCount: number;
+            /** @example MZ-7KQ2R9DA */
+            publicId: string;
+            /** @enum {string} */
+            status: "pending_payment" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
+             */
+            totalCop: number;
+            /** Format: date-time */
+            updatedAt: string;
+            version: number;
+        };
         AdminPrincipalDto: {
             /**
              * @description Administrative role carried by the signed modulartess_admin_role claim. Capabilities per role are declared explicitly in ADR 0007; there is no numeric hierarchy.
@@ -575,6 +733,9 @@ export interface components {
             /** @description Firebase ID token obtained by the admin panel client SDK and forwarded by its server-side BFF. The browser never calls this endpoint directly. */
             idToken: string;
         };
+        CancelOrderRequestDto: {
+            expectedVersion: number;
+        };
         CatalogFacetOptionDto: {
             /** @example 2 */
             count: number;
@@ -700,6 +861,20 @@ export interface components {
             /** @example var_001 */
             variantId: string;
         };
+        CreateOrderItemDto: {
+            /** @description Identifier of a published product. */
+            productId: string;
+            /** @example 1 */
+            quantity: number;
+            /** @description Required when the product has active variants, and rejected when it has none: without it there is no price or SKU to record. */
+            variantId?: string;
+        };
+        CreateOrderRequestDto: {
+            customer: components["schemas"]["OrderCustomerDto"];
+            /** @description At least one line. Prices, names, SKUs and images come from the published catalogue; any amount sent here is rejected as an unknown field. */
+            items: components["schemas"]["CreateOrderItemDto"][];
+            shippingAddress: components["schemas"]["OrderShippingAddressDto"];
+        };
         CreateProductRequestDto: {
             description?: string;
             /** @default 0 */
@@ -808,6 +983,93 @@ export interface components {
             product: components["schemas"]["AdminProductDto"];
             /** @description True when the idempotency key had already been applied and nothing changed. */
             replayed: boolean;
+        };
+        OrderCreatedDto: {
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Internal identifier. */
+            id: string;
+            items: components["schemas"]["OrderLineDto"][];
+            /**
+             * @description Human-readable identifier. This is what the shopper is told.
+             * @example MZ-7KQ2R9DA
+             */
+            publicId: string;
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000". Always 0 in this phase: shipping quotes are not implemented.
+             * @example 0
+             */
+            shippingCop: number;
+            /**
+             * @description Always pending_payment. Creating an order neither charges nor reserves stock; payment arrives with the payments phase.
+             * @example pending_payment
+             * @enum {string}
+             */
+            status: "pending_payment" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
+             */
+            subtotalCop: number;
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
+             */
+            totalCop: number;
+            version: number;
+        };
+        OrderCustomerDto: {
+            /**
+             * Format: email
+             * @example ana@example.com
+             */
+            email: string;
+            /** @example Ana Pérez */
+            fullName: string;
+            /** @example +57 300 000 0000 */
+            phone: string;
+        };
+        OrderLineDto: {
+            attributes: components["schemas"]["ProductVariantAttributeDto"][];
+            /** @example Tocador Aura */
+            name: string;
+            /** Format: uri */
+            primaryImageUrl: string | null;
+            productId: string;
+            /** @example 2 */
+            quantity: number;
+            /** @example TOCADOR-AURA-80-ROBLE */
+            sku: string;
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
+             */
+            totalCop: number;
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000". Taken from the published catalogue, never from the request.
+             * @example 1450000
+             */
+            unitPriceCop: number;
+            /** @description Null when the product sells through its base option, without variants. */
+            variantId: string | null;
+        };
+        OrderShippingAddressDto: {
+            /** @example Calle 10 #43-20, apto 501 */
+            addressLine: string;
+            /** @example Medellín */
+            city: string;
+            /** @example Antioquia */
+            department: string;
+            /** @description Delivery notes, or null when none were given. */
+            instructions: string | null;
+        };
+        OrderTimelineEntryDto: {
+            /** Format: date-time */
+            at: string;
+            /** @enum {string} */
+            status: "pending_payment" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
         };
         OrderTimelineItemDto: {
             /** @example Pago confirmado */
@@ -1026,6 +1288,16 @@ export interface components {
              */
             priceCop: number;
             sku: string;
+        };
+        UpdateOrderStatusRequestDto: {
+            /** @description Version the caller last read. */
+            expectedVersion: number;
+            /**
+             * @description Only paid→preparing, preparing→shipped and shipped→delivered are allowed. No skips, no going back, and pending_payment→paid is reserved for the future payments webhook.
+             * @example preparing
+             * @enum {string}
+             */
+            status: "pending_payment" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
         };
         UpdateProductImageRequestDto: {
             altText?: string;
@@ -1272,6 +1544,284 @@ export interface operations {
                 headers: {
                     /** @description Always no-store on this surface, including error responses. */
                     "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_list: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor. */
+                pageToken?: string;
+                /** @description Default 20, maximum 50. */
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrderPageDto"];
+                };
+            };
+            /** @description order_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated internal identifier, not the human-readable publicId. */
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrderDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated internal identifier, not the human-readable publicId. */
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelOrderRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrderDto"];
+                };
+            };
+            /** @description order_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_version_conflict, order_transition_invalid or order_cancellation_requires_refund */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_changeStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated internal identifier, not the human-readable publicId. */
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOrderStatusRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrderDto"];
+                };
+            };
+            /** @description order_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_version_conflict or order_transition_invalid */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_unavailable */
+            503: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -2612,6 +3162,59 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PublicOrdersController_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 8-128 characters. Makes a retried submission safe: one key, one order. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrderRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderCreatedDto"];
+                };
+            };
+            /** @description order_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_idempotency_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

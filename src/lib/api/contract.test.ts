@@ -201,10 +201,15 @@ describe('copia versionada del contrato', () => {
 
     // Crear una variante NO la lleva: lo que evita duplicados ahí es el SKU reservado y la
     // combinación única.
+    //
+    // `POST /v1/orders` sí la lleva, y es de la tienda, no del panel: un reintento de red que
+    // creara dos pedidos dejaría a alguien esperando dos entregas. El panel no crea pedidos, así
+    // que no la envía nunca; aparece aquí porque la copia del contrato es completa.
     expect(withKey.sort()).toEqual([
       'POST /v1/admin/products/{productId}/images',
       'POST /v1/admin/products/{productId}/inventory-adjustments',
       'POST /v1/admin/products/{productId}/variants/{variantId}/inventory-adjustments',
+      'POST /v1/orders',
     ]);
   });
 
@@ -256,6 +261,131 @@ describe('tipos generados', () => {
     // Toda ruta del contrato debe aparecer en los tipos generados.
     for (const path of Object.keys(contract.paths)) {
       expect(generated).toContain(`"${path}"`);
+    }
+  });
+});
+
+/**
+ * Superficie administrativa de pedidos.
+ *
+ * El panel da por ciertas exactamente estas cuatro operaciones y estos campos. Si el backend cambia
+ * el contrato y se actualiza la copia, esto falla aquí en lugar de fallar en producción.
+ */
+describe('pedidos administrativos', () => {
+  it('publica exactamente las cuatro operaciones que el panel usa', () => {
+    const operations: string[] = [];
+
+    for (const [path, node] of Object.entries(contract.paths)) {
+      if (!path.startsWith('/v1/admin/orders')) {
+        continue;
+      }
+
+      for (const method of Object.keys(node)) {
+        operations.push(`${method.toUpperCase()} ${path}`);
+      }
+    }
+
+    expect(operations.sort()).toEqual([
+      'GET /v1/admin/orders',
+      'GET /v1/admin/orders/{orderId}',
+      'POST /v1/admin/orders/{orderId}/cancel',
+      'POST /v1/admin/orders/{orderId}/status',
+    ]);
+  });
+
+  /* No hay DELETE: un pedido se cancela y queda. El panel no puede inventarlo. */
+  it('no publica ningún DELETE de pedidos', () => {
+    for (const [path, node] of Object.entries(contract.paths)) {
+      if (path.startsWith('/v1/admin/orders')) {
+        expect(node, path).not.toHaveProperty('delete');
+      }
+    }
+  });
+
+  it('publica los seis estados del pedido, en el orden del recorrido', () => {
+    expect(contract.components.schemas.AdminOrderDto.properties.status.enum).toEqual([
+      'pending_payment',
+      'paid',
+      'preparing',
+      'shipped',
+      'delivered',
+      'cancelled',
+    ]);
+  });
+
+  /*
+   * La fila del listado trae esto y nada más: sin líneas, sin imágenes, sin dirección y sin correo.
+   * Es lo que impide que la tabla prometa columnas que no existen.
+   */
+  it('publica en el resumen solo los campos que pinta la tabla', () => {
+    expect(Object.keys(contract.components.schemas.AdminOrderSummaryDto.properties).sort()).toEqual(
+      [
+        'createdAt',
+        'customerName',
+        'id',
+        'itemCount',
+        'publicId',
+        'status',
+        'totalCop',
+        'updatedAt',
+        'version',
+      ],
+    );
+  });
+
+  it('el listado solo admite pageToken y pageSize: no hay buscador ni filtros', () => {
+    const parameters = contract.paths['/v1/admin/orders'].get.parameters ?? [];
+    const names = parameters.map((parameter: { name: string }) => parameter.name).sort();
+
+    expect(names).toEqual(['pageSize', 'pageToken']);
+  });
+
+  it('la ficha trae la instantánea de cada línea, con su imagen y sus atributos', () => {
+    expect(Object.keys(contract.components.schemas.OrderLineDto.properties).sort()).toEqual([
+      'attributes',
+      'name',
+      'primaryImageUrl',
+      'productId',
+      'quantity',
+      'sku',
+      'totalCop',
+      'unitPriceCop',
+      'variantId',
+    ]);
+  });
+
+  /* Sin `expectedVersion` no hay control de concurrencia: las dos mutaciones lo exigen. */
+  it.each(['UpdateOrderStatusRequestDto', 'CancelOrderRequestDto'])(
+    '%s exige expectedVersion',
+    (schema) => {
+      const schemas = contract.components.schemas as unknown as Record<
+        string,
+        { properties: Record<string, unknown>; required?: readonly string[] }
+      >;
+      const node = schemas[schema];
+
+      expect(node?.properties).toHaveProperty('expectedVersion');
+      expect(node?.required).toContain('expectedVersion');
+    },
+  );
+
+  /* El importe es un entero de pesos: el símbolo y los separadores los pone el panel. */
+  it('publica los importes como enteros, no como texto formateado', () => {
+    // El JSON importado tiene un tipo literal enorme; se lee por una vista genérica para poder
+    // recorrer pares esquema/campo sin que cada acceso necesite su propio estrechamiento.
+    const schemas = contract.components.schemas as unknown as Record<
+      string,
+      { properties: Record<string, { type?: string }> }
+    >;
+
+    for (const [schema, field] of [
+      ['AdminOrderSummaryDto', 'totalCop'],
+      ['AdminOrderDto', 'subtotalCop'],
+      ['AdminOrderDto', 'shippingCop'],
+      ['AdminOrderDto', 'totalCop'],
+      ['OrderLineDto', 'unitPriceCop'],
+    ] as const) {
+      expect(schemas[schema]?.properties[field]?.type, `${schema}.${field}`).toBe('number');
     }
   });
 });

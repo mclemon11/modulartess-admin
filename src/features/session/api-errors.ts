@@ -20,6 +20,7 @@ export const SESSION_ERROR_CODES = [
   'admin_surface_disabled',
   'not_found',
   'version_conflict',
+  'refund_required',
   'too_many_requests',
   'service_unavailable',
   'internal_error',
@@ -38,6 +39,8 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
   not_found: 'No encontramos ese recurso.',
   version_conflict:
     'Alguien modificó estos datos mientras los editabas. Recarga para ver la versión actual.',
+  refund_required:
+    'Este pedido ya está pagado y cancelarlo exigiría devolver el dinero. El flujo de reembolso todavía no está disponible.',
   session_required: 'No hay una sesión administrativa activa. Vuelve a iniciar sesión.',
   admin_role_required: 'Esta cuenta no tiene permisos administrativos.',
   admin_surface_disabled: 'La superficie administrativa no está disponible en este despliegue.',
@@ -51,6 +54,7 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   invalid_request: 400,
   not_found: 404,
   version_conflict: 409,
+  refund_required: 409,
   session_required: 401,
   admin_role_required: 403,
   admin_surface_disabled: 503,
@@ -80,6 +84,8 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'not_found';
     case 'backend_conflict':
       return 'version_conflict';
+    case 'backend_refund_required':
+      return 'refund_required';
     case 'backend_invalid_request':
       return 'invalid_request';
     case 'backend_rate_limited':
