@@ -314,8 +314,8 @@ describe('pedidos administrativos', () => {
   });
 
   /*
-   * La fila del listado trae esto y nada más: sin líneas, sin imágenes, sin dirección y sin correo.
-   * Es lo que impide que la tabla prometa columnas que no existen.
+   * La fila del listado trae esto y nada más: sin líneas completas, sin dirección y sin correo. Es
+   * lo que impide que la tabla prometa columnas que no existen.
    */
   it('publica en el resumen solo los campos que pinta la tabla', () => {
     expect(Object.keys(contract.components.schemas.AdminOrderSummaryDto.properties).sort()).toEqual(
@@ -324,6 +324,7 @@ describe('pedidos administrativos', () => {
         'customerName',
         'id',
         'itemCount',
+        'previewLine',
         'publicId',
         'status',
         'totalCop',
@@ -331,6 +332,30 @@ describe('pedidos administrativos', () => {
         'version',
       ],
     );
+  });
+
+  /*
+   * `previewLine` es lo que permite enseñar foto y nombre en la lista sin pedir cada pedido. Va en
+   * el resumen y es obligatorio, así que la tabla nunca se queda sin qué pintar.
+   */
+  it('el resumen trae la primera línea con su foto, nombre, SKU y cantidad', () => {
+    const summary = contract.components.schemas.AdminOrderSummaryDto;
+
+    expect(summary.required).toContain('previewLine');
+    expect(summary.properties.previewLine.allOf[0]).toEqual({
+      $ref: '#/components/schemas/AdminOrderPreviewLineDto',
+    });
+
+    const preview = contract.components.schemas.AdminOrderPreviewLineDto;
+
+    expect(Object.keys(preview.properties).sort()).toEqual([
+      'name',
+      'primaryImageUrl',
+      'quantity',
+      'sku',
+    ]);
+    // La foto puede faltar: la lista lo dice con «Sin imagen» en vez de inventar un marcador.
+    expect(preview.properties.primaryImageUrl.nullable).toBe(true);
   });
 
   it('el listado solo admite pageToken y pageSize: no hay buscador ni filtros', () => {

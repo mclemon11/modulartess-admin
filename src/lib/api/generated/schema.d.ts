@@ -543,14 +543,32 @@ export interface components {
             /** @description Opaque cursor for the next page, or null when there are no more. Page size defaults to 20 and tops out at 50. */
             nextPageToken: string | null;
         };
+        AdminOrderPreviewLineDto: {
+            /**
+             * @description Name as it was when the order was placed, never re-read from the catalogue.
+             * @example Tocador Aura
+             */
+            name: string;
+            /**
+             * Format: uri
+             * @description Primary image of the product at the time of purchase, or null when it had none. A later catalogue change never rewrites it.
+             */
+            primaryImageUrl: string | null;
+            /** @example 2 */
+            quantity: number;
+            /** @example TOCADOR-AURA-80-ROBLE */
+            sku: string;
+        };
         AdminOrderSummaryDto: {
             /** Format: date-time */
             createdAt: string;
             /** @example Ana Pérez */
             customerName: string;
             id: string;
-            /** @description Number of lines. */
+            /** @description Total number of lines in the order. The panel subtracts one from it to say "and N more products"; the backend does not compose that text. */
             itemCount: number;
+            /** @description First line of the order, from its snapshot. Lets the list show the product photo and name without fetching each order. Always present: a valid order always has at least one line. */
+            previewLine: components["schemas"]["AdminOrderPreviewLineDto"];
             /** @example MZ-7KQ2R9DA */
             publicId: string;
             /** @enum {string} */

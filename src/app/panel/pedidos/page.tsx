@@ -4,6 +4,7 @@ import catalog from '@/features/panel/catalog.module.css';
 import { describeOrderBackendFailure } from '@/features/panel/order-errors';
 import { formatDateTime } from '@/features/panel/format';
 import { formatCop } from '@/features/panel/money';
+import { extraLabel, unitLabel } from '@/features/panel/order-preview';
 import { OrderStatusBadge } from '@/features/panel/order-status-badge';
 import styles from '@/features/panel/orders.module.css';
 import { EmptyState, ErrorState } from '@/features/panel/panel-states';
@@ -113,7 +114,7 @@ export default async function OrdersPage({ searchParams }: PageProps) {
                   <tr>
                     <th scope="col">Pedido</th>
                     <th scope="col">Cliente</th>
-                    <th scope="col">Artículos</th>
+                    <th scope="col">Productos</th>
                     <th scope="col">Fecha</th>
                     <th scope="col">Total</th>
                     <th scope="col">Estado</th>
@@ -161,8 +162,52 @@ export default async function OrdersPage({ searchParams }: PageProps) {
   );
 }
 
-function itemLabel(count: number): string {
-  return `${count} artículo${count === 1 ? '' : 's'}`;
+/**
+ * Miniatura del primer producto del pedido.
+ *
+ * Sale de la **instantánea** del pedido (`previewLine.primaryImageUrl`), no del catálogo: si el
+ * producto cambió de foto después de la compra, el pedido sigue enseñando lo que se vendió. Cuando
+ * la línea no tenía imagen, el hueco lo dice en vez de disimularlo con un marcador.
+ */
+function PreviewThumb({
+  line,
+  variant = 'row',
+}: {
+  readonly line: AdminOrderSummary['previewLine'];
+  readonly variant?: 'row' | 'card';
+}) {
+  const imageClass = variant === 'card' ? styles.previewThumbCard : styles.previewThumb;
+  const emptyClass = variant === 'card' ? styles.previewThumbCardEmpty : styles.previewThumbEmpty;
+
+  if (line.primaryImageUrl === null) {
+    return (
+      <span aria-label="Sin imagen" className={emptyClass} role="img">
+        Sin imagen
+      </span>
+    );
+  }
+
+  // Imagen pública del bucket: se sirve tal cual, como en el resto del panel.
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img alt="" className={imageClass} loading="lazy" src={line.primaryImageUrl} />;
+}
+
+/** Primer producto del pedido en la tabla: miniatura, nombre y cuántas unidades. */
+function OrderPreview({ order }: { readonly order: AdminOrderSummary }) {
+  const extra = extraLabel(order.itemCount);
+
+  return (
+    <span className={styles.previewCell}>
+      <PreviewThumb line={order.previewLine} />
+      <span className={styles.previewText}>
+        <span className={styles.previewName}>{order.previewLine.name}</span>
+        <span className={styles.previewMeta}>
+          {unitLabel(order.previewLine.quantity)}
+          {extra === null ? '' : ` · ${extra}`}
+        </span>
+      </span>
+    </span>
+  );
 }
 
 function OrderRow({ order }: { readonly order: AdminOrderSummary }) {
@@ -174,7 +219,9 @@ function OrderRow({ order }: { readonly order: AdminOrderSummary }) {
         </Link>
       </td>
       <td>{order.customerName}</td>
-      <td className={catalog.numeric}>{order.itemCount}</td>
+      <td>
+        <OrderPreview order={order} />
+      </td>
       <td className={catalog.timestamp}>{formatDateTime(order.createdAt)}</td>
       <td className={catalog.numeric}>{formatCop(order.totalCop)}</td>
       <td>
@@ -194,22 +241,27 @@ function OrderRow({ order }: { readonly order: AdminOrderSummary }) {
 function OrderCard({ order }: { readonly order: AdminOrderSummary }) {
   return (
     <article className={`${catalog.card} ${styles.orderCard}`}>
-      <div className={styles.orderCardHead}>
-        <h2 className={styles.orderCardId}>
-          <Link href={`/panel/pedidos/${order.id}`}>{order.publicId}</Link>
-        </h2>
-        <OrderStatusBadge status={order.status} />
-      </div>
-      <p className={styles.orderCardCustomer}>{order.customerName}</p>
-      <p className={styles.orderCardMeta}>
-        <span>{itemLabel(order.itemCount)}</span>
-        <span>{formatDateTime(order.createdAt)}</span>
-      </p>
-      <div className={styles.orderCardFooter}>
-        <p className={styles.orderCardTotal}>{formatCop(order.totalCop)}</p>
-        <Link className={catalog.rowAction} href={`/panel/pedidos/${order.id}`}>
-          Ver pedido <span aria-hidden="true">→</span>
-        </Link>
+      <PreviewThumb line={order.previewLine} variant="card" />
+      <div className={styles.orderCardBody}>
+        <div className={styles.orderCardHead}>
+          <h2 className={styles.orderCardId}>
+            <Link href={`/panel/pedidos/${order.id}`}>{order.publicId}</Link>
+          </h2>
+          <OrderStatusBadge status={order.status} />
+        </div>
+        <p className={styles.orderCardCustomer}>{order.customerName}</p>
+        <p className={styles.orderCardProduct}>{order.previewLine.name}</p>
+        <p className={styles.orderCardMeta}>
+          <span>{unitLabel(order.previewLine.quantity)}</span>
+          {extraLabel(order.itemCount) === null ? null : <span>{extraLabel(order.itemCount)}</span>}
+          <span>{formatDateTime(order.createdAt)}</span>
+        </p>
+        <div className={styles.orderCardFooter}>
+          <p className={styles.orderCardTotal}>{formatCop(order.totalCop)}</p>
+          <Link className={catalog.rowAction} href={`/panel/pedidos/${order.id}`}>
+            Ver pedido <span aria-hidden="true">→</span>
+          </Link>
+        </div>
       </div>
     </article>
   );

@@ -268,10 +268,19 @@ la sesión de la persona, y una entrada nueva en la navegación principal. Inven
 en Productos y **no** hay directorio de clientes: el cliente es un dato del pedido, no una entidad.
 
 Listado, con los campos de `AdminOrderSummaryDto` y ninguno más: `publicId`, `customerName`,
-`itemCount`, `totalCop`, `status`, `createdAt` y `updatedAt`. Tabla amplia en escritorio, tarjetas
-apiladas en móvil, badges de los seis estados e importes como `$ 1.450.000`, sin «COP». Paginación
-**solo con `pageToken`**, porque el cursor es opaco: se avanza, no se salta a una página concreta.
-Estados de carga, vacío —«Todavía no hay pedidos»—, error controlado y backend no disponible.
+`previewLine`, `itemCount`, `totalCop`, `status`, `createdAt` y `updatedAt`. Tabla amplia en
+escritorio, tarjetas apiladas en móvil, badges de los seis estados e importes como `$ 1.450.000`,
+sin «COP». Paginación **solo con `pageToken`**, porque el cursor es opaco: se avanza, no se salta a
+una página concreta. Estados de carga, vacío —«Todavía no hay pedidos»—, error controlado y backend
+no disponible.
+
+La columna **Productos** enseña la primera línea del pedido con la foto, el nombre y las unidades
+que trae `previewLine`, y añade «y N productos más» cuando `itemCount` es mayor que uno —esa resta
+la hace el panel, porque el contrato dice que el backend no compone ese texto—. Cuando la línea no
+tenía imagen se dice «Sin imagen» en lugar de disimularlo. Todo sale del **resumen**: la lista no
+pide cada pedido por separado ni vuelve a leer el catálogo, y la foto es la de la instantánea, así
+que un cambio posterior en el producto no reescribe lo que se vendió. En móvil esa miniatura abre la
+tarjeta, con el nombre del producto bajo el del cliente.
 
 Ficha, con la **instantánea** que trae el pedido: líneas con imagen, nombre, SKU, atributos,
 cantidad, precio unitario y total; cliente con teléfono y correo; dirección con ciudad, departamento

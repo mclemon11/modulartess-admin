@@ -105,6 +105,37 @@
         ],
         "type": "object"
       },
+      "AdminOrderPreviewLineDto": {
+        "properties": {
+          "name": {
+            "description": "Name as it was when the order was placed, never re-read from the catalogue.",
+            "example": "Tocador Aura",
+            "type": "string"
+          },
+          "primaryImageUrl": {
+            "description": "Primary image of the product at the time of purchase, or null when it had none. A later catalogue change never rewrites it.",
+            "format": "uri",
+            "nullable": true,
+            "type": "string"
+          },
+          "quantity": {
+            "example": 2,
+            "minimum": 1,
+            "type": "number"
+          },
+          "sku": {
+            "example": "TOCADOR-AURA-80-ROBLE",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "sku",
+          "primaryImageUrl",
+          "quantity"
+        ],
+        "type": "object"
+      },
       "AdminOrderSummaryDto": {
         "properties": {
           "createdAt": {
@@ -119,9 +150,17 @@
             "type": "string"
           },
           "itemCount": {
-            "description": "Number of lines.",
+            "description": "Total number of lines in the order. The panel subtracts one from it to say \"and N more products\"; the backend does not compose that text.",
             "minimum": 1,
             "type": "number"
+          },
+          "previewLine": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminOrderPreviewLineDto"
+              }
+            ],
+            "description": "First line of the order, from its snapshot. Lets the list show the product photo and name without fetching each order. Always present: a valid order always has at least one line."
           },
           "publicId": {
             "example": "MZ-7KQ2R9DA",
@@ -159,6 +198,7 @@
           "version",
           "customerName",
           "itemCount",
+          "previewLine",
           "totalCop",
           "createdAt",
           "updatedAt"
