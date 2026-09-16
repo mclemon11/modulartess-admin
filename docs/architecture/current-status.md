@@ -378,10 +378,10 @@ el acto.
 
 ### Preparación para publicar
 
-`AdminProductDto.publicationReadiness` llega calculado por el backend —imágenes y variantes
-incluidas— con `ready` y la lista cerrada de `missing`. El panel:
+`AdminProductDto.publicationReadiness` llega calculado por el backend —contenido, precio, variantes
+e inventario incluidos— con `ready` y la lista cerrada de `missing`. El panel:
 
-- traduce **los diecisiete códigos** del contrato a texto en español, con un mapa exhaustivo por
+- traduce **los quince códigos** del contrato a texto en español, con un mapa exhaustivo por
   tipo: si el backend añade uno, el proyecto deja de compilar;
 - enlaza cada requisito con la sección de la misma pantalla donde se resuelve;
 - habilita «Publicar producto» solo cuando `ready` es `true` y el rol tiene `products.publish`;
@@ -390,6 +390,21 @@ incluidas— con `ready` y la lista cerrada de `missing`. El panel:
 
 No se recalcula ninguna regla de publicación en el panel: `publish` consume esa misma evaluación, y
 una segunda implementación acabaría diciendo «listo» sobre algo que el backend rechaza.
+
+**Las imágenes no son un requisito de publicación.** El contrato retiró `primary_image` y `gallery`
+de `missing`, así que un producto **sin ninguna imagen** puede publicarse y la lista de pendientes
+nunca dice «falta la imagen principal» ni «falta la galería». La sección Imágenes sigue existiendo
+en el alta y en la ficha —conserva su ancla `seccion-imagenes`—, pero ya no recibe requisitos.
+
+Subir imágenes es **opcional en todo momento**, no un paso previo aplazado: se pueden crear y
+publicar productos con cero imágenes y añadirlas después, o no añadirlas nunca. Una vez creado el
+producto siguen disponibles, con la misma `expectedVersion` y los mismos permisos de siempre, subir
+(`POST .../images`), editar el texto alternativo, reordenar por `position`, elegir la principal con
+`isPrimary` y archivar (`POST .../images/{imageId}/archive`).
+
+Donde no hay imagen se dice **«Sin imagen»** —en el listado, en la miniatura de la ficha y en la
+vista previa del alta—, en lugar de disimularlo con un marcador decorativo. Ese hueco es del panel:
+el placeholder gráfico de la Web no se guarda en Firestore ni se envía al backend.
 
 ### Guardar borrador y publicar
 

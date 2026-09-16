@@ -36,7 +36,8 @@ function draft(draftId: string): VariantDraft {
  * Producto con la versión, las imágenes y la preparación que el backend devolvería tras cada paso.
  *
  * `publicationReadiness` viene del backend en **cada** respuesta: el flujo la lee de ahí y nunca la
- * calcula.
+ * calcula. Las imágenes no intervienen: el contrato ya no publica `primary_image` ni `gallery`, así
+ * que `ready` no depende de cuántas haya.
  */
 function product(
   version: number,
@@ -49,7 +50,7 @@ function product(
     images: images.map((image) => ({ ...image, status: 'active' })),
     publicationReadiness: {
       ready,
-      missing: ready ? [] : ['description', 'gallery'],
+      missing: ready ? [] : ['description', 'materials'],
     },
   } as unknown as AdminProduct;
 }
@@ -597,6 +598,23 @@ describe('intención de publicar', () => {
     expect(vi.mocked(deps.publishProduct).mock.calls[0]?.[0]).toMatchObject({
       productId: 'prd_1',
       expectedVersion: 4,
+    });
+    expect(progress.published).toBe(true);
+    expect(progress.failure).toBeNull();
+  });
+
+  it('publica sin ninguna imagen: las imágenes no son un requisito', async () => {
+    const deps = backendDouble({}, true);
+
+    const progress = await runCreateFlow(input({ intent: 'publish' }), deps);
+
+    expect(deps.uploadImage).not.toHaveBeenCalled();
+    expect(deps.setPrimary).not.toHaveBeenCalled();
+    expect(deps.publishProduct).toHaveBeenCalledTimes(1);
+    // Publica con la versión de la creación: no hubo ningún paso intermedio.
+    expect(vi.mocked(deps.publishProduct).mock.calls[0]?.[0]).toMatchObject({
+      productId: 'prd_1',
+      expectedVersion: 1,
     });
     expect(progress.published).toBe(true);
     expect(progress.failure).toBeNull();

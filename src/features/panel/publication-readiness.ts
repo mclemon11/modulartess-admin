@@ -1,10 +1,14 @@
 /**
  * Preparación para publicar, tal y como la evalúa el backend.
  *
- * `AdminProductDto.publicationReadiness` llega calculado desde el registro autoritativo —imágenes
- * y variantes incluidas— y la propia operación de publicar consume **esa misma** evaluación. Por
+ * `AdminProductDto.publicationReadiness` llega calculado desde el registro autoritativo —variantes
+ * e inventario incluidos— y la propia operación de publicar consume **esa misma** evaluación. Por
  * eso el panel no vuelve a derivar ninguna regla: solo traduce los códigos que recibe. Recalcularlas
  * aquí garantizaría que un día el botón diga «listo» y el backend responda `400`.
+ *
+ * Las imágenes **no** son un requisito: el contrato ya no publica `primary_image` ni `gallery`, así
+ * que un producto sin ninguna imagen se puede publicar. Subirlas, editarlas, reordenarlas, elegir la
+ * principal y archivarlas sigue siendo posible en cualquier momento, solo que nunca bloquea.
  *
  * La traducción es **exhaustiva por construcción**: el mapa está tipado como
  * `Record<PublicationRequirement, …>`, así que si el contrato añade un código el proyecto deja de
@@ -19,7 +23,12 @@ import type { PublicationReadiness } from '@/lib/api/catalog';
 /** Cada código que publica el contrato. Sale del tipo generado, no de una copia a mano. */
 export type PublicationRequirement = PublicationReadiness['missing'][number];
 
-/** Secciones de la pantalla a las que lleva cada requisito pendiente. */
+/**
+ * Secciones de la pantalla a las que lleva cada requisito pendiente.
+ *
+ * `imagenes` sigue aquí porque es el ancla de la sección de imágenes de la ficha y del alta, aunque
+ * hoy ningún requisito lleve a ella.
+ */
 export type ProductSection =
   'basica' | 'imagenes' | 'precio' | 'inventario' | 'contenido' | 'variantes';
 
@@ -110,16 +119,6 @@ const REQUIREMENTS: Readonly<Record<PublicationRequirement, RequirementCopy>> = 
     title: 'Faltan los cuidados',
     hint: 'Se muestran en la ficha, dentro de las especificaciones.',
     section: 'contenido',
-  },
-  primary_image: {
-    title: 'Falta la imagen principal',
-    hint: 'Marca una de las imágenes activas como principal.',
-    section: 'imagenes',
-  },
-  gallery: {
-    title: 'Falta la galería',
-    hint: 'Sube las imágenes que acompañan a la principal.',
-    section: 'imagenes',
   },
   sellable_option: {
     title: 'No hay nada que vender',

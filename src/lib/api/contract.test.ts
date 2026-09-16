@@ -226,7 +226,10 @@ describe('copia versionada del contrato', () => {
     const readiness = contract.components.schemas.PublicationReadinessDto;
 
     expect(readiness.required).toEqual(['ready', 'missing']);
-    expect(readiness.properties.missing.items.enum).toHaveLength(17);
+    expect(readiness.properties.missing.items.enum).toHaveLength(15);
+    // Las imágenes dejaron de bloquear la publicación: el contrato ya no emite estos dos códigos.
+    expect(readiness.properties.missing.items.enum).not.toContain('primary_image');
+    expect(readiness.properties.missing.items.enum).not.toContain('gallery');
   });
 
   it('el precio viaja como entero, sin símbolo ni separadores', () => {

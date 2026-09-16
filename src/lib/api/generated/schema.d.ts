@@ -1181,10 +1181,10 @@ export interface components {
              * @description Closed, stable set of requirement codes still unmet. Empty when ready. The panel renders these; it must not re-derive them.
              * @example [
              *       "description",
-             *       "gallery"
+             *       "materials"
              *     ]
              */
-            missing: ("name" | "sku" | "slug" | "short_description" | "description" | "category" | "product_type" | "features" | "materials" | "measurements" | "warranty" | "care" | "primary_image" | "gallery" | "sellable_option" | "positive_price" | "unique_variant_combinations")[];
+            missing: ("name" | "sku" | "slug" | "short_description" | "description" | "category" | "product_type" | "features" | "materials" | "measurements" | "warranty" | "care" | "sellable_option" | "positive_price" | "unique_variant_combinations")[];
             /** @description True when publish would succeed. False means missing lists why. */
             ready: boolean;
         };

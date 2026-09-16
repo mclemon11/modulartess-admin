@@ -1764,7 +1764,7 @@
             "description": "Closed, stable set of requirement codes still unmet. Empty when ready. The panel renders these; it must not re-derive them.",
             "example": [
               "description",
-              "gallery"
+              "materials"
             ],
             "items": {
               "enum": [
@@ -1780,8 +1780,6 @@
                 "measurements",
                 "warranty",
                 "care",
-                "primary_image",
-                "gallery",
                 "sellable_option",
                 "positive_price",
                 "unique_variant_combinations"

@@ -22,19 +22,17 @@ const ENUM = contract.components.schemas.PublicationReadinessDto.properties.miss
   .enum as readonly PublicationRequirement[];
 
 describe('traducción de los requisitos de publicación', () => {
-  it('el contrato publica los diecisiete códigos que el panel conoce', () => {
+  it('el contrato publica los quince códigos que el panel conoce', () => {
     expect([...ENUM].sort()).toEqual(
       [
         'care',
         'category',
         'description',
         'features',
-        'gallery',
         'materials',
         'measurements',
         'name',
         'positive_price',
-        'primary_image',
         'product_type',
         'sellable_option',
         'short_description',
@@ -44,6 +42,12 @@ describe('traducción de los requisitos de publicación', () => {
         'warranty',
       ].sort(),
     );
+  });
+
+  it('las imágenes ya no son un requisito de publicación', () => {
+    // El backend dejó de emitir `primary_image` y `gallery`: un producto sin imágenes se publica.
+    expect(ENUM).not.toContain('primary_image');
+    expect(ENUM).not.toContain('gallery');
   });
 
   it.each(ENUM)('«%s» tiene texto en español y sección de destino', (requirement) => {
@@ -74,7 +78,7 @@ describe('resumen', () => {
   it('dice si está listo o cuántos requisitos faltan', () => {
     expect(describeReadiness({ ready: true, missing: [] })).toBe('Listo para publicar');
     expect(describeReadiness({ ready: false, missing: ['name'] })).toBe('Falta 1 requisito');
-    expect(describeReadiness({ ready: false, missing: ['name', 'sku', 'gallery'] })).toBe(
+    expect(describeReadiness({ ready: false, missing: ['name', 'sku', 'materials'] })).toBe(
       'Faltan 3 requisitos',
     );
   });
@@ -82,11 +86,18 @@ describe('resumen', () => {
   it('agrupa lo pendiente por la sección donde se resuelve', () => {
     const groups = groupBySection({
       ready: false,
-      missing: ['gallery', 'name', 'positive_price', 'primary_image'],
+      missing: ['materials', 'name', 'positive_price', 'sku'],
     });
 
-    expect(groups.map((group) => group.section)).toEqual(['basica', 'imagenes', 'precio']);
-    expect(groups[1]?.items.map((item) => item.section)).toEqual(['imagenes', 'imagenes']);
+    expect(groups.map((group) => group.section)).toEqual(['basica', 'precio', 'contenido']);
+    expect(groups[0]?.items.map((item) => item.title)).toEqual(['Falta el nombre', 'Falta el SKU']);
+  });
+
+  it('nunca agrupa nada en la sección de imágenes', () => {
+    // Las imágenes son opcionales: ningún código del contrato lleva ya a esa sección.
+    const groups = groupBySection({ ready: false, missing: [...ENUM] });
+
+    expect(groups.map((group) => group.section)).not.toContain('imagenes');
   });
 
   it('sin requisitos pendientes no hay grupos', () => {
