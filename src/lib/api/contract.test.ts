@@ -4,6 +4,17 @@ import { describe, expect, it } from 'vitest';
 
 import contract from '../../../openapi/backend-v1.json';
 
+import {
+  ATTRIBUTE_MAX_AXES,
+  ATTRIBUTE_VALUE_MAX_LENGTH,
+  DESCRIPTION_MAX_LENGTH,
+  FEATURE_MAX_LENGTH,
+  FEATURES_MAX_ITEMS,
+  SHORT_DESCRIPTION_MAX_LENGTH,
+  SPECIFICATION_MAX_LENGTH,
+  TAXONOMY_SLUG_MAX_LENGTH,
+} from './variant-limits';
+
 /**
  * El contrato OpenAPI es la única fuente de verdad. Estas pruebas fijan lo que el panel da por
  * cierto: si el backend cambia el contrato, fallan aquí en lugar de fallar en producción.
@@ -156,19 +167,60 @@ describe('copia versionada del contrato', () => {
     }
   });
 
+  /*
+   * Los números que el panel replica se comparan contra el contrato, no contra una copia escrita a
+   * mano en la propia prueba. Así, cuando el backend mueve un tope y se actualiza la copia, lo que
+   * falla es la constante desactualizada del panel y no una expectativa que alguien tendría que
+   * acordarse de cambiar a la vez.
+   */
   it('fija los límites de las variantes que replica el panel', () => {
     const product = contract.components.schemas.AdminProductDto.properties;
 
     // El máximo de variantes activas solo está en la descripción; de ahí sale VARIANT_MAX_ACTIVE.
     expect(product.variants.description).toContain('At most 72 active ones');
-    expect(product.attributes.maxItems).toBe(6);
+    expect(product.attributes.maxItems).toBe(ATTRIBUTE_MAX_AXES);
     expect(contract.components.schemas.ProductVariantAttributeDto.properties.value.maxLength).toBe(
-      60,
+      ATTRIBUTE_VALUE_MAX_LENGTH,
     );
-    expect(contract.components.schemas.ProductTaxonomyDto.properties.slug.maxLength).toBe(60);
-    expect(contract.components.schemas.UpdateProductRequestDto.properties.features.maxItems).toBe(
-      20,
+    expect(contract.components.schemas.ProductTaxonomyDto.properties.slug.maxLength).toBe(
+      TAXONOMY_SLUG_MAX_LENGTH,
     );
+  });
+
+  it('fija los topes del contenido editorial que replica el formulario', () => {
+    const update = contract.components.schemas.UpdateProductRequestDto.properties;
+    const create = contract.components.schemas.CreateProductRequestDto.properties;
+
+    // Descripción corta: 180 en el alta y en la edición, el mismo número en los dos sitios.
+    expect(create.shortDescription.maxLength).toBe(SHORT_DESCRIPTION_MAX_LENGTH);
+    expect(update.shortDescription.maxLength).toBe(SHORT_DESCRIPTION_MAX_LENGTH);
+
+    // Descripción detallada: 3000, y opcional en los dos.
+    expect(create.description.maxLength).toBe(DESCRIPTION_MAX_LENGTH);
+    expect(update.description.maxLength).toBe(DESCRIPTION_MAX_LENGTH);
+    expect(contract.components.schemas.CreateProductRequestDto.required).not.toContain(
+      'description',
+    );
+
+    // Características: cinco como mucho, de sesenta caracteres como mucho cada una.
+    expect(update.features.maxItems).toBe(FEATURES_MAX_ITEMS);
+    expect(update.features.items.maxLength).toBe(FEATURE_MAX_LENGTH);
+
+    // Los cuatro detalles adicionales comparten tope.
+    for (const key of ['materials', 'measurements', 'warranty', 'care'] as const) {
+      expect(update[key].maxLength, key).toBe(SPECIFICATION_MAX_LENGTH);
+    }
+  });
+
+  it('el alta admite la descripción corta y la detallada, pero no las exige', () => {
+    // De aquí sale que el `POST` pueda llevarlas ya: no hace falta esperar al `PATCH` para el
+    // texto que la ficha enseña junto al precio.
+    expect(contract.components.schemas.CreateProductRequestDto.required).toEqual([
+      'sku',
+      'slug',
+      'name',
+      'priceCop',
+    ]);
   });
 
   it('el alta de variante exige expectedVersion, SKU, atributos y precio', () => {
@@ -226,10 +278,32 @@ describe('copia versionada del contrato', () => {
     const readiness = contract.components.schemas.PublicationReadinessDto;
 
     expect(readiness.required).toEqual(['ready', 'missing']);
-    expect(readiness.properties.missing.items.enum).toHaveLength(15);
-    // Las imágenes dejaron de bloquear la publicación: el contrato ya no emite estos dos códigos.
-    expect(readiness.properties.missing.items.enum).not.toContain('primary_image');
-    expect(readiness.properties.missing.items.enum).not.toContain('gallery');
+    expect(readiness.properties.missing.items.enum).toHaveLength(9);
+
+    /*
+     * Lo que el contrato dejó de exigir.
+     *
+     * `primary_image` y `gallery` se fueron con las imágenes opcionales; `description`, `features`,
+     * `materials`, `measurements`, `warranty` y `care` se fueron con el contenido editorial. De lo
+     * editorial solo queda `short_description`. El panel tiene que dejar de pedirlos, no seguir
+     * pintándolos como pendientes.
+     */
+    const codes: readonly string[] = readiness.properties.missing.items.enum;
+
+    for (const retired of [
+      'primary_image',
+      'gallery',
+      'description',
+      'features',
+      'materials',
+      'measurements',
+      'warranty',
+      'care',
+    ]) {
+      expect(codes, retired).not.toContain(retired);
+    }
+
+    expect(codes).toContain('short_description');
   });
 
   it('el precio viaja como entero, sin símbolo ni separadores', () => {

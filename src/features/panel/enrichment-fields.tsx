@@ -2,16 +2,24 @@
 
 import { useId } from 'react';
 
-import { FEATURES_MAX_ITEMS, SPECIFICATION_MAX_LENGTH } from '@/lib/api/variant-limits';
+import { SPECIFICATION_MAX_LENGTH } from '@/lib/api/variant-limits';
 
 import styles from './catalog.module.css';
-import { featureList, withTaxonomyName, type EnrichmentFields } from './enrichment';
+import { CountedTextarea } from './counted-field';
+import {
+  withTaxonomyName,
+  type EnrichmentFields,
+  type EnrichmentProblems,
+  type SpecificationKey,
+} from './enrichment';
+import { FeaturesEditor } from './features-editor';
 
 /**
  * Clasificación del producto: categoría, tipo y destacado.
  *
- * Va en «Información básica» porque es ahí donde los requisitos de publicación `category` y
- * `product_type` mandan a quien sigue el checklist.
+ * Tiene su propia sección porque los requisitos de publicación `category` y `product_type` mandan
+ * aquí a quien sigue el checklist, y porque no es contenido que se lea en la ficha: es cómo se
+ * ordena el catálogo.
  *
  * Todavía **no existe un catálogo independiente de categorías**: el contrato no publica ningún
  * endpoint del que sacar una lista, así que aquí no hay desplegable. Se escriben el nombre y el
@@ -20,11 +28,13 @@ import { featureList, withTaxonomyName, type EnrichmentFields } from './enrichme
  */
 export function ClassificationFields({
   fields,
+  problems,
   disabled,
   mode,
   onChange,
 }: {
   readonly fields: EnrichmentFields;
+  readonly problems: readonly string[];
   readonly disabled: boolean;
   /** En el alta, un campo vacío simplemente no se envía; en la edición, vaciarlo lo borra. */
   readonly mode: 'create' | 'edit';
@@ -58,6 +68,7 @@ export function ClassificationFields({
             Slug de la categoría
           </label>
           <input
+            aria-describedby={`${id}-category-slug-hint`}
             className={styles.input}
             disabled={disabled}
             id={`${id}-category-slug`}
@@ -66,7 +77,7 @@ export function ClassificationFields({
             type="text"
             value={fields.categorySlug}
           />
-          <span className={styles.hint}>
+          <span className={styles.hint} id={`${id}-category-slug-hint`}>
             Se propone desde el nombre y se puede corregir. El backend valida la forma.
           </span>
         </div>
@@ -117,6 +128,16 @@ export function ClassificationFields({
         </label>
       </div>
 
+      {problems.length === 0 ? null : (
+        <ul className={styles.problemList}>
+          {problems.map((problem) => (
+            <li className={styles.fieldError} key={problem} role="alert">
+              {problem}
+            </li>
+          ))}
+        </ul>
+      )}
+
       <p className={styles.hint}>
         {mode === 'create'
           ? 'Lo que dejes vacío no se envía: el producto se crea sin ese dato.'
@@ -127,72 +148,103 @@ export function ClassificationFields({
 }
 
 /**
- * Contenido enriquecido: características y especificaciones.
+ * Contenido visible: las características destacadas de la ficha.
  *
- * Son los cuatro textos que publica `ProductSpecificationsDto` más la lista de características.
- * El backend los exige para publicar, y el checklist de publicación enlaza a esta sección.
+ * La descripción corta y la detallada viven en sus propias secciones del formulario porque una es
+ * requisito de publicación y la otra no; aquí queda lo que la ficha pinta como franja de
+ * beneficios.
  */
-export function ContentFields({
+export function VisibleContentFields({
   fields,
+  problems,
+  disabled,
+  onChange,
+}: {
+  readonly fields: EnrichmentFields;
+  readonly problems: EnrichmentProblems;
+  readonly disabled: boolean;
+  readonly onChange: (fields: EnrichmentFields) => void;
+}) {
+  return (
+    <FeaturesEditor
+      disabled={disabled}
+      features={fields.features}
+      onChange={(features) => onChange({ ...fields, features })}
+      problems={problems.features}
+    />
+  );
+}
+
+/**
+ * Ayudas de los cuatro detalles adicionales.
+ *
+ * Cada una dice qué se espera de verdad en ese campo, no qué campo es. Son la frontera que evita
+ * que la garantía acabe dentro de la descripción o que las medidas acaben siendo características.
+ */
+const SPECIFICATIONS: readonly {
+  readonly key: SpecificationKey;
+  readonly label: string;
+  readonly hint: string;
+}[] = [
+  {
+    key: 'materials',
+    label: 'Materiales',
+    hint: 'Composición, herrajes y acabados comprobados.',
+  },
+  {
+    key: 'measurements',
+    label: 'Medidas',
+    hint: 'Ancho, alto y profundidad con unidad.',
+  },
+  {
+    key: 'warranty',
+    label: 'Garantía',
+    hint: 'Duración y alcance real.',
+  },
+  {
+    key: 'care',
+    label: 'Cuidados',
+    hint: 'Limpieza y mantenimiento.',
+  },
+];
+
+/**
+ * Detalles adicionales: materiales, medidas, garantía y cuidados.
+ *
+ * Los cuatro son **opcionales** para el contrato desde que el backend los retiró de
+ * `publicationReadiness.missing`, así que aquí se dice «Opcional» y no se marca como error dejar
+ * uno vacío. Un campo vacío viaja vacío: el `placeholder` de la pantalla es una ayuda del
+ * navegador, nunca un valor guardado.
+ */
+export function AdditionalDetailsFields({
+  fields,
+  problems,
   disabled,
   mode,
   onChange,
 }: {
   readonly fields: EnrichmentFields;
+  readonly problems: EnrichmentProblems;
   readonly disabled: boolean;
   /** En el alta, un campo vacío simplemente no se envía; en la edición, vaciarlo lo borra. */
   readonly mode: 'create' | 'edit';
   readonly onChange: (fields: EnrichmentFields) => void;
 }) {
-  const id = useId();
-  const features = featureList(fields.features);
-
-  function set(key: keyof EnrichmentFields, value: string | boolean) {
-    onChange({ ...fields, [key]: value });
-  }
-
   return (
     <>
-      <div className={styles.field}>
-        <label className={styles.label} htmlFor={`${id}-features`}>
-          Características
-        </label>
-        <textarea
-          className={styles.textarea}
+      {SPECIFICATIONS.map(({ key, label, hint }) => (
+        <CountedTextarea
           disabled={disabled}
-          id={`${id}-features`}
-          onChange={(event) => set('features', event.target.value)}
-          value={fields.features}
+          error={problems.specifications[key]}
+          hint={hint}
+          key={key}
+          label={label}
+          max={SPECIFICATION_MAX_LENGTH}
+          onChange={(value) => onChange({ ...fields, [key]: value })}
+          requirement="opcional"
+          rows={3}
+          value={fields[key]}
         />
-        <span
-          className={features.length > FEATURES_MAX_ITEMS ? styles.fieldError : styles.hint}
-          role={features.length > FEATURES_MAX_ITEMS ? 'alert' : undefined}
-        >
-          Una por línea. {features.length} de {FEATURES_MAX_ITEMS} como máximo.
-        </span>
-      </div>
-
-      {(
-        [
-          ['materials', 'Materiales'],
-          ['measurements', 'Medidas'],
-          ['warranty', 'Garantía'],
-          ['care', 'Cuidados'],
-        ] as const
-      ).map(([key, label]) => (
-        <div className={styles.field} key={key}>
-          <label className={styles.label} htmlFor={`${id}-${key}`}>
-            {label}
-          </label>
-          <textarea
-            className={styles.textarea}
-            disabled={disabled}
-            id={`${id}-${key}`}
-            maxLength={SPECIFICATION_MAX_LENGTH}
-            onChange={(event) => set(key, event.target.value)}
-            value={fields[key]}
-          />
-        </div>
       ))}
 
       <p className={styles.hint}>

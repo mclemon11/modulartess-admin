@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-09-12.
+Última actualización: 2026-09-16.
 
 ## Fase
 
@@ -14,7 +14,9 @@ repositorio: `Dockerfile`, `.dockerignore`, `deploy/cloudbuild.yaml`, `deploy/st
 
 Fase 4 — catálogo. **Productos** está terminado de extremo a extremo y diseñado para escritorio y
 móvil: listado, alta con contenido enriquecido, imágenes y variantes, detalle con edición por
-secciones, inventario, variantes y publicación gobernada por `publicationReadiness`.
+secciones, inventario, variantes y publicación gobernada por `publicationReadiness`. El editor
+editorial se rehízo sobre el contrato nuevo: topes visibles, campos opcionales declarados como
+tales y características como filas ordenables.
 
 Fase 5 — pedidos. **Pedidos** está implementado en su alcance mínimo y real: listado, ficha,
 transiciones operativas y cancelación, todo contra las cuatro operaciones que publica el contrato.
@@ -94,7 +96,8 @@ Implementado en el repositorio y comprobado con dobles locales.
 | Precio en pesos           | Listo      | Se escribe y se lee `$ 1.450.000`; viaja el entero `1450000`.         |
 | Portada y navegación      | Listo      | Cinco secciones, portada con tarjetas, marca real y bloque de sesión. |
 | Envíos y Wallet           | Anunciadas | Pantallas «Próximamente»: su contrato no existe todavía.              |
-| Catálogo enriquecido      | Listo      | Categoría, tipo, destacado, características y especificaciones.       |
+| Catálogo enriquecido      | Listo      | Clasificación, contenido visible y detalles adicionales, separados.   |
+| Editor editorial          | Listo      | Topes de 180, 3000, 5 × 60; contadores, «Opcional» y orden real.      |
 | Variantes                 | Listo      | Ejes, combinaciones, precio, inventario y archivado por variante.     |
 | Imágenes de producto      | Listo      | Subir, editar texto alternativo, orden, principal y archivar.         |
 | Alta completa             | Listo      | Un envío: crea el borrador, enriquece, sube y crea variantes.         |
@@ -381,7 +384,7 @@ el acto.
 `AdminProductDto.publicationReadiness` llega calculado por el backend —contenido, precio, variantes
 e inventario incluidos— con `ready` y la lista cerrada de `missing`. El panel:
 
-- traduce **los quince códigos** del contrato a texto en español, con un mapa exhaustivo por
+- traduce **los nueve códigos** del contrato a texto en español, con un mapa exhaustivo por
   tipo: si el backend añade uno, el proyecto deja de compilar;
 - enlaza cada requisito con la sección de la misma pantalla donde se resuelve;
 - habilita «Publicar producto» solo cuando `ready` es `true` y el rol tiene `products.publish`;
@@ -391,10 +394,30 @@ e inventario incluidos— con `ready` y la lista cerrada de `missing`. El panel:
 No se recalcula ninguna regla de publicación en el panel: `publish` consume esa misma evaluación, y
 una segunda implementación acabaría diciendo «listo» sobre algo que el backend rechaza.
 
-**Las imágenes no son un requisito de publicación.** El contrato retiró `primary_image` y `gallery`
-de `missing`, así que un producto **sin ninguna imagen** puede publicarse y la lista de pendientes
-nunca dice «falta la imagen principal» ni «falta la galería». La sección Imágenes sigue existiendo
-en el alta y en la ficha —conserva su ancla `seccion-imagenes`—, pero ya no recibe requisitos.
+**Casi nada del contenido editorial es un requisito de publicación.** El contrato retiró primero
+`primary_image` y `gallery`, y después `description`, `features`, `materials`, `measurements`,
+`warranty` y `care`. De los quince códigos originales quedan **nueve**:
+
+| Código                        | Sección a la que lleva |
+| ----------------------------- | ---------------------- |
+| `name`                        | Información básica     |
+| `sku`                         | Información básica     |
+| `slug`                        | Información básica     |
+| `short_description`           | Información básica     |
+| `category`                    | Clasificación          |
+| `product_type`                | Clasificación          |
+| `positive_price`              | Precio                 |
+| `sellable_option`             | Variantes              |
+| `unique_variant_combinations` | Variantes              |
+
+De lo editorial solo `short_description` bloquea. Un producto **sin imágenes, sin descripción
+detallada, sin características y sin ninguno de los cuatro detalles adicionales** se publica. Las
+secciones siguen existiendo y conservan sus anclas —`seccion-imagenes`, `seccion-contenido`,
+`seccion-detalles`—, pero ya no reciben requisitos.
+
+Para que ese silencio no se lea como un olvido, el checklist cierra siempre con una línea que dice
+cuáles son opcionales, en los dos estados: pendiente y listo. Un campo opcional vacío se anuncia
+como «Opcional» junto a su etiqueta y **no** se pinta como error.
 
 Subir imágenes es **opcional en todo momento**, no un paso previo aplazado: se pueden crear y
 publicar productos con cero imágenes y añadirlas después, o no añadirlas nunca. Una vez creado el
@@ -405,6 +428,63 @@ producto siguen disponibles, con la misma `expectedVersion` y los mismos permiso
 Donde no hay imagen se dice **«Sin imagen»** —en el listado, en la miniatura de la ficha y en la
 vista previa del alta—, en lugar de disimularlo con un marcador decorativo. Ese hueco es del panel:
 el placeholder gráfico de la Web no se guarda en Firestore ni se envía al backend.
+
+### Editor editorial del producto
+
+El formulario de alta y el de edición comparten las mismas piezas y el mismo agrupado, de arriba
+abajo: **Información básica**, **Clasificación**, **Contenido visible**, **Detalles adicionales**,
+**Precio e inventario**, **Imágenes** y **Variantes**. En el alta, Información básica y
+Clasificación comparten la columna estrecha e Imágenes ocupa la ancha a partir de 88rem; por debajo
+todo se apila en ese mismo orden. Detalles adicionales es un `<details>` plegado por omisión —es lo
+único opcional de punta a punta—, y se abre solo y no se deja cerrar mientras haya un error dentro:
+plegar acorta la pantalla, no esconde problemas.
+
+Los topes son los que publica el contrato, y ninguno se escribe dos veces:
+
+| Campo                 | Tope   | Publicación                 |
+| --------------------- | ------ | --------------------------- |
+| Descripción corta     | 180    | **Necesaria para publicar** |
+| Descripción detallada | 3000   | Opcional                    |
+| Características       | 5 × 60 | Opcional                    |
+| Materiales            | 2000   | Opcional                    |
+| Medidas               | 2000   | Opcional                    |
+| Garantía              | 2000   | Opcional                    |
+| Cuidados              | 2000   | Opcional                    |
+
+Las constantes viven en `src/lib/api/variant-limits.ts` y `src/lib/api/contract.test.ts` las compara
+**contra la copia del contrato**, no contra números repetidos en la prueba: si el backend mueve un
+tope y se actualiza la copia, lo que falla es la constante desactualizada.
+
+- **Descripción corta**: `textarea` de dos líneas, no un `input`. Contador «N de 180» y la ayuda
+  «Resumen visible junto al precio…». Su etiqueta dice que es necesaria para publicar, pero el panel
+  **no** evalúa esa regla: vacía no bloquea el guardado, y quien dice que falta es el código
+  `short_description` del backend. Lo que sí bloquea es pasarse de 180.
+- **Descripción detallada**: se llama así —antes era «Descripción»—, marcada «Opcional», con
+  contador «N de 3000» y la ayuda que la separa de materiales, medidas, garantía y cuidados.
+- **Características destacadas**: cinco filas editables con **Subir**, **Bajar**, **Quitar** y
+  **Añadir característica**, contador «N de 5», contador «N de 60» por fila y error por fila.
+  También se marca la repetida, plegando acentos y mayúsculas como pide el contrato. Debajo, una
+  previsualización compacta de la franja de beneficios **en el orden guardado**. El contrato sigue
+  siendo `string[]`: las filas son presentación, no un modelo paralelo, y una fila vacía es una fila
+  sin escribir —no se envía y no es un error—.
+- **Detalles adicionales**: los cuatro textos con su ayuda propia —composición y herrajes; ancho,
+  alto y profundidad con unidad; duración y alcance real; limpieza y mantenimiento—, todos
+  «Opcional».
+
+Cada contador, cada ayuda y cada error entran en el `aria-describedby` de su campo, con `id`
+propios; los errores llevan `role="alert"` y `aria-invalid`. Los contadores **no** son regiones
+vivas: anunciarlos en cada pulsación taparía lo que se está escribiendo.
+`src/features/panel/editorial-fields.test.tsx` lo comprueba sobre el HTML que React produce de
+verdad, con `renderToStaticMarkup`, sin necesidad de un DOM.
+
+Un campo vacío **viaja vacío**. El `placeholder` es una ayuda visual del navegador y nunca se
+guarda ni se envía en su lugar. En la edición, la cadena vacía es justo lo que borra un campo, así
+que el cuerpo del `PATCH` la lleva; en el alta se omite lo vacío, porque no hay nada que borrar
+todavía.
+
+Las variantes no cambiaron de editor, solo ganaron una advertencia en las dos pantallas: un color,
+un acabado o una medida se gestionan como variante **solo** cuando cada combinación es un artículo
+vendible de verdad, con su SKU, su precio y su inventario. Texto libre no se convierte en variantes.
 
 ### Guardar borrador y publicar
 

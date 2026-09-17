@@ -111,7 +111,7 @@ function product(
 ): Pick<AdminProduct, 'status' | 'publicationReadiness'> {
   return {
     status,
-    publicationReadiness: { ready, missing: ready ? [] : ['description'] },
+    publicationReadiness: { ready, missing: ready ? [] : ['short_description'] },
   };
 }
 

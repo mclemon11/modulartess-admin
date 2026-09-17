@@ -258,6 +258,7 @@
             "type": "string"
           },
           "description": {
+            "description": "Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations.",
             "type": "string"
           },
           "featured": {
@@ -265,10 +266,10 @@
             "type": "boolean"
           },
           "features": {
+            "description": "Optional. At most 5 concrete benefits of at most 60 characters each, with no blanks and no duplicates once accent- and case-folded. Not a place for colour lists, measurements, warranty or policies: selectable colours, finishes and sizes are attributes and variants, with their own SKU, price and stock. Records written before these limits may still hold more; the caps apply to new mutations.",
             "items": {
               "type": "string"
             },
-            "maxItems": 20,
             "type": "array"
           },
           "id": {
@@ -320,6 +321,7 @@
             "type": "string"
           },
           "shortDescription": {
+            "description": "Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations.",
             "type": "string"
           },
           "sku": {
@@ -1019,6 +1021,8 @@
       "CreateProductRequestDto": {
         "properties": {
           "description": {
+            "description": "Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations.",
+            "maxLength": 3000,
             "type": "string"
           },
           "lowStockThreshold": {
@@ -1037,6 +1041,8 @@
             "type": "number"
           },
           "shortDescription": {
+            "description": "Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations.",
+            "maxLength": 180,
             "type": "string"
           },
           "sku": {
@@ -1763,8 +1769,8 @@
           "missing": {
             "description": "Closed, stable set of requirement codes still unmet. Empty when ready. The panel renders these; it must not re-derive them.",
             "example": [
-              "description",
-              "materials"
+              "short_description",
+              "category"
             ],
             "items": {
               "enum": [
@@ -1772,14 +1778,8 @@
                 "sku",
                 "slug",
                 "short_description",
-                "description",
                 "category",
                 "product_type",
-                "features",
-                "materials",
-                "measurements",
-                "warranty",
-                "care",
                 "sellable_option",
                 "positive_price",
                 "unique_variant_combinations"
@@ -1932,6 +1932,7 @@
             "type": "object"
           },
           "shortDescription": {
+            "description": "Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations.",
             "type": "string"
           },
           "slug": {
@@ -1981,12 +1982,14 @@
             "type": "object"
           },
           "description": {
+            "description": "Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations.",
             "type": "string"
           },
           "featured": {
             "type": "boolean"
           },
           "features": {
+            "description": "Optional. At most 5 concrete benefits of at most 60 characters each, with no blanks and no duplicates once accent- and case-folded. Not a place for colour lists, measurements, warranty or policies: selectable colours, finishes and sizes are attributes and variants, with their own SKU, price and stock. Records written before these limits may still hold more; the caps apply to new mutations.",
             "items": {
               "type": "string"
             },
@@ -2047,6 +2050,7 @@
             "type": "object"
           },
           "shortDescription": {
+            "description": "Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations.",
             "type": "string"
           },
           "sku": {
@@ -2260,6 +2264,8 @@
             "type": "object"
           },
           "description": {
+            "description": "Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations.",
+            "maxLength": 3000,
             "type": "string"
           },
           "expectedVersion": {
@@ -2271,10 +2277,12 @@
             "type": "boolean"
           },
           "features": {
+            "description": "Optional. At most 5 concrete benefits of at most 60 characters each, with no blanks and no duplicates once accent- and case-folded. Not a place for colour lists, measurements, warranty or policies: selectable colours, finishes and sizes are attributes and variants, with their own SKU, price and stock. Records written before these limits may still hold more; the caps apply to new mutations.",
             "items": {
+              "maxLength": 60,
               "type": "string"
             },
-            "maxItems": 20,
+            "maxItems": 5,
             "type": "array"
           },
           "lowStockThreshold": {
@@ -2305,6 +2313,8 @@
             "type": "object"
           },
           "shortDescription": {
+            "description": "Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations.",
+            "maxLength": 180,
             "type": "string"
           },
           "warranty": {

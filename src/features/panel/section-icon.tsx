@@ -13,6 +13,8 @@ import styles from './catalog.module.css';
 
 export type IconName =
   | 'basica'
+  | 'clasificacion'
+  | 'detalles'
   | 'imagenes'
   | 'precio'
   | 'inventario'
@@ -32,6 +34,10 @@ export type IconName =
 
 const PATHS: Readonly<Record<IconName, readonly string[]>> = {
   basica: ['M6 3h8l4 4v14H6z', 'M14 3v4h4', 'M9 12h6', 'M9 16h6'],
+  // Carpeta: cómo se ordena el catálogo, no lo que se lee en la ficha.
+  clasificacion: ['M3 6h5.5l2 2H21v11H3z', 'M3 6v13'],
+  // Portapapeles con líneas: materiales, medidas, garantía y cuidados.
+  detalles: ['M8 5H6v15h12V5h-2', 'M9 3h6v4H9z', 'M9 12h6', 'M9 16h4'],
   imagenes: ['M3 5h18v14H3z', 'M3 16l5-5 4 4 3-3 6 6'],
   precio: ['M20 12l-8 8-9-9V3h8z', 'M7.5 7.5h.01'],
   inventario: ['M3 7l9-4 9 4v10l-9 4-9-4z', 'M3 7l9 4 9-4', 'M12 11v10'],

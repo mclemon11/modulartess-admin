@@ -243,6 +243,13 @@ export function ProductVariants({
           title="Variantes"
         />
 
+        <p className={styles.notice}>
+          Un color, un acabado o una medida se gestionan como variante <strong>solo</strong> cuando
+          cada combinación es un artículo vendible de verdad, con su propio SKU, su precio y su
+          inventario. Si solo hay que describirlos, van en «Detalles adicionales»: convertir texto
+          libre en variantes crea artículos que nadie puede comprar.
+        </p>
+
         <div aria-live="assertive">
           {failure === null ? null : (
             <p className={styles.error} role="alert">

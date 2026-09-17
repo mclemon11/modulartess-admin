@@ -1717,3 +1717,96 @@
   content: '';
   transform: translateY(-50%);
 }
+
+/* ------------------------------------------------- contenido editorial */
+
+.textareaInvalid {
+  composes: textarea;
+  border-color: var(--color-danger);
+}
+
+/*
+ * Características destacadas: una fila por característica.
+ *
+ * Cada fila lleva su campo y sus acciones de orden, así que se apilan en móvil y se ponen en línea
+ * en cuanto hay sitio. La lista no se numera con CSS: el número va en la etiqueta de cada campo,
+ * que es lo que lee un lector de pantalla.
+ */
+.featureList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: var(--space-sm) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.featureItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-panel-subtle);
+}
+
+.featureItem > .field {
+  flex: 1 1 18rem;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+/* Previsualización compacta: cómo se leerá la franja de beneficios, en el orden guardado. */
+.featurePreview {
+  margin-top: var(--space-md);
+}
+
+.featureStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
+  margin: var(--space-xs) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.featureStrip li {
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--color-panel-border);
+  border-radius: 999px;
+  background-color: var(--color-panel-surface);
+  color: var(--color-panel-muted);
+  font-size: 0.8125rem;
+}
+
+/*
+ * Secciones plegables del formulario.
+ *
+ * El formulario es largo y plegar lo que no se está tocando lo hace legible. Solo se pliega lo
+ * opcional, y nunca por encima de un error: los detalles adicionales no tienen requisitos de
+ * publicación, así que cerrarlos no esconde nada que bloquee.
+ */
+.foldSection summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.foldSection summary::-webkit-details-marker {
+  display: none;
+}
+
+.foldSection summary:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.foldMarker {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-brand);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}

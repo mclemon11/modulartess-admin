@@ -1,38 +1,60 @@
 /**
  * Clasificación y contenido enriquecido del producto, entre el formulario y el `PATCH`.
  *
- * Módulo puro. Traduce lo que se escribe en pantalla —siempre texto— al cuerpo que publica
+ * Módulo puro. Traduce lo que se escribe en pantalla al cuerpo que publica
  * `UpdateProductRequestDto`, y al revés para rellenar el formulario con lo que devolvió el
  * backend.
  *
- * Dos matices del contrato que esta traducción respeta:
+ * Tres matices del contrato que esta traducción respeta:
  *
  *   - En la clasificación, **omitir no es lo mismo que enviar `null`**: omitir deja el campo como
  *     está y `null` lo borra. En el alta se omite lo vacío —no hay nada que borrar todavía—; en la
  *     edición, vaciar el campo sí significa borrarlo.
  *   - `POST /v1/admin/products` no admite ninguno de estos campos. Todos viajan en el `PATCH`
  *     posterior, que es también el que declara los ejes de variación.
+ *   - Un campo vacío viaja vacío. El `placeholder` de la pantalla es una ayuda visual del
+ *     navegador, no un valor: nunca se guarda ni se envía en su lugar.
  */
 
 import type { ProductAttributeDefinition, ProductTaxonomy } from '@/lib/api/catalog';
 import {
-  FEATURES_MAX_ITEMS,
   SPECIFICATION_MAX_LENGTH,
   TAXONOMY_SLUG_MAX_LENGTH,
   TAXONOMY_SLUG_PATTERN,
 } from '@/lib/api/variant-limits';
 
+import {
+  featureProblems,
+  hasFeatureProblems,
+  submittedFeatures,
+  type FeatureProblems,
+} from './product-content';
 import { toSlug } from './slug';
 
-/** Los mismos campos del formulario, todos como texto salvo el destacado. */
+/** Los cuatro textos de «Detalles adicionales», todos opcionales para el contrato. */
+export type SpecificationKey = 'materials' | 'measurements' | 'warranty' | 'care';
+
+export const SPECIFICATION_KEYS: readonly SpecificationKey[] = [
+  'materials',
+  'measurements',
+  'warranty',
+  'care',
+];
+
+/** Los mismos campos del formulario, todos como texto salvo el destacado y las características. */
 export type EnrichmentFields = {
   categoryName: string;
   categorySlug: string;
   productTypeName: string;
   productTypeSlug: string;
   featured: boolean;
-  /** Una característica por línea. */
-  features: string;
+  /**
+   * Una característica por fila, en el orden en el que se enviarán.
+   *
+   * Es `string[]`, igual que el contrato: las filas del editor son presentación, no un modelo
+   * paralelo. Una fila vacía es una fila que todavía no se ha escrito, y no viaja.
+   */
+  features: readonly string[];
   materials: string;
   measurements: string;
   warranty: string;
@@ -45,7 +67,7 @@ export const EMPTY_ENRICHMENT: EnrichmentFields = {
   productTypeName: '',
   productTypeSlug: '',
   featured: false,
-  features: '',
+  features: [],
   materials: '',
   measurements: '',
   warranty: '',
@@ -57,13 +79,6 @@ function taxonomy(name: string, slug: string): ProductTaxonomy | null {
   const trimmedSlug = slug.trim();
 
   return trimmedName === '' || trimmedSlug === '' ? null : { name: trimmedName, slug: trimmedSlug };
-}
-
-export function featureList(raw: string): readonly string[] {
-  return raw
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
 }
 
 /**
@@ -81,21 +96,16 @@ export function enrichmentBody(
   const body: Record<string, unknown> = {};
   const category = taxonomy(fields.categoryName, fields.categorySlug);
   const productType = taxonomy(fields.productTypeName, fields.productTypeSlug);
-  const features = featureList(fields.features);
+  const features = submittedFeatures(fields.features);
 
   if (category !== null || mode === 'edit') body.category = category;
   if (productType !== null || mode === 'edit') body.productType = productType;
   if (fields.featured || mode === 'edit') body.featured = fields.featured;
   if (features.length > 0 || mode === 'edit') body.features = features;
 
-  for (const [key, value] of [
-    ['materials', fields.materials],
-    ['measurements', fields.measurements],
-    ['warranty', fields.warranty],
-    ['care', fields.care],
-  ] as const) {
-    if (value.trim() !== '' || mode === 'edit') {
-      body[key] = value.trim();
+  for (const key of SPECIFICATION_KEYS) {
+    if (fields[key].trim() !== '' || mode === 'edit') {
+      body[key] = fields[key].trim();
     }
   }
 
@@ -125,7 +135,7 @@ export function enrichmentFromProduct(product: {
     productTypeName: product.productType?.name ?? '',
     productTypeSlug: product.productType?.slug ?? '',
     featured: product.featured,
-    features: product.features.join('\n'),
+    features: [...product.features],
     materials: product.specifications.materials,
     measurements: product.specifications.measurements,
     warranty: product.specifications.warranty,
@@ -156,15 +166,33 @@ export function withTaxonomyName(
   };
 }
 
+export type EnrichmentProblems = {
+  /** Problemas de la categoría y el tipo de producto, que se pintan juntos. */
+  readonly classification: readonly string[];
+  /** Problemas de las características, separados por fila. */
+  readonly features: FeatureProblems;
+  /** Problema de cada detalle adicional, junto a su propio campo. */
+  readonly specifications: Readonly<Partial<Record<SpecificationKey, string>>>;
+};
+
+const SPECIFICATION_LABELS: Readonly<Record<SpecificationKey, string>> = {
+  materials: 'Materiales',
+  measurements: 'Medidas',
+  warranty: 'Garantía',
+  care: 'Cuidados',
+};
+
 /**
  * Problemas de la clasificación y el contenido, antes de gastar una llamada.
  *
- * Replica lo que publica el contrato: el slug tiene forma de kebab-case y un máximo de
- * caracteres, la categoría necesita nombre **y** slug —media categoría no es una categoría— y las
- * características tienen un tope. El backend lo vuelve a validar.
+ * Replica lo que publica el contrato: el slug tiene forma de kebab-case y un máximo de caracteres,
+ * la categoría necesita nombre **y** slug —media categoría no es una categoría—, las
+ * características tienen su tope de filas y de longitud, y los detalles adicionales el suyo. Que
+ * un detalle adicional esté vacío **no** es un problema: el contrato los publica como opcionales.
+ * El backend lo vuelve a validar.
  */
-export function enrichmentProblems(fields: EnrichmentFields): readonly string[] {
-  const problems: string[] = [];
+export function enrichmentProblems(fields: EnrichmentFields): EnrichmentProblems {
+  const classification: string[] = [];
 
   for (const [label, name, slug] of [
     ['La categoría', fields.categoryName, fields.categorySlug],
@@ -174,33 +202,38 @@ export function enrichmentProblems(fields: EnrichmentFields): readonly string[] 
     const hasSlug = slug.trim() !== '';
 
     if (hasName !== hasSlug) {
-      problems.push(`${label} necesita nombre y slug, o ninguno de los dos.`);
+      classification.push(`${label} necesita nombre y slug, o ninguno de los dos.`);
       continue;
     }
 
     if (hasSlug && !TAXONOMY_SLUG_PATTERN.test(slug.trim())) {
-      problems.push(`${label} tiene un slug inválido: minúsculas, números y guiones.`);
+      classification.push(`${label} tiene un slug inválido: minúsculas, números y guiones.`);
     }
 
     if (slug.trim().length > TAXONOMY_SLUG_MAX_LENGTH) {
-      problems.push(`${label} tiene un slug de más de ${TAXONOMY_SLUG_MAX_LENGTH} caracteres.`);
+      classification.push(
+        `${label} tiene un slug de más de ${TAXONOMY_SLUG_MAX_LENGTH} caracteres.`,
+      );
     }
   }
 
-  if (featureList(fields.features).length > FEATURES_MAX_ITEMS) {
-    problems.push(`Como máximo ${FEATURES_MAX_ITEMS} características.`);
-  }
+  const specifications: Partial<Record<SpecificationKey, string>> = {};
 
-  for (const [label, value] of [
-    ['Materiales', fields.materials],
-    ['Medidas', fields.measurements],
-    ['Garantía', fields.warranty],
-    ['Cuidados', fields.care],
-  ] as const) {
-    if (value.trim().length > SPECIFICATION_MAX_LENGTH) {
-      problems.push(`${label} supera los ${SPECIFICATION_MAX_LENGTH} caracteres.`);
+  for (const key of SPECIFICATION_KEYS) {
+    if (fields[key].trim().length > SPECIFICATION_MAX_LENGTH) {
+      specifications[key] =
+        `${SPECIFICATION_LABELS[key]} supera los ${SPECIFICATION_MAX_LENGTH} caracteres.`;
     }
   }
 
-  return problems;
+  return { classification, features: featureProblems(fields.features), specifications };
+}
+
+/** `true` cuando algo del contenido enriquecido impide guardar. */
+export function hasEnrichmentProblems(problems: EnrichmentProblems): boolean {
+  return (
+    problems.classification.length > 0 ||
+    hasFeatureProblems(problems.features) ||
+    Object.keys(problems.specifications).length > 0
+  );
 }

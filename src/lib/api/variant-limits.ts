@@ -25,7 +25,16 @@ export const ATTRIBUTE_VALUE_MAX_LENGTH = 60;
 export const TAXONOMY_SLUG_MAX_LENGTH = 60;
 
 /** `UpdateProductRequestDto.features.maxItems`. */
-export const FEATURES_MAX_ITEMS = 20;
+export const FEATURES_MAX_ITEMS = 5;
+
+/** `UpdateProductRequestDto.features.items.maxLength`. */
+export const FEATURE_MAX_LENGTH = 60;
+
+/** `CreateProductRequestDto.shortDescription.maxLength`, igual en el `PATCH`. */
+export const SHORT_DESCRIPTION_MAX_LENGTH = 180;
+
+/** `CreateProductRequestDto.description.maxLength`, igual en el `PATCH`. */
+export const DESCRIPTION_MAX_LENGTH = 3000;
 
 /** `ProductSpecificationsDto.*.maxLength`, igual en los cuatro campos. */
 export const SPECIFICATION_MAX_LENGTH = 2000;

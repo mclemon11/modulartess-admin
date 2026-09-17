@@ -4,6 +4,7 @@ import styles from './catalog.module.css';
 import {
   describeReadiness,
   groupBySection,
+  OPTIONAL_CONTENT_NOTE,
   SECTION_IDS,
   SECTION_LABELS,
 } from './publication-readiness';
@@ -14,6 +15,9 @@ import {
  * Todo lo que se pinta viene de `publicationReadiness`: el panel no evalúa ninguna regla de
  * publicación, solo traduce los códigos. Cada requisito enlaza con la sección de **esta misma
  * pantalla** donde se resuelve, para no obligar a buscarlo.
+ *
+ * Lo que el contrato publica como opcional no aparece nunca en la lista, ni siquiera vacío. Para
+ * que ese silencio no se lea como un olvido, la nota final dice cuáles son y que no bloquean.
  *
  * Server Component: no tiene estado ni eventos. Lo usan el detalle y el alta.
  */
@@ -32,6 +36,7 @@ export function PublicationChecklist({
         <p className={styles.hint}>
           El backend no encuentra requisitos pendientes. Publicar sigue siendo una acción explícita.
         </p>
+        <p className={styles.hint}>{OPTIONAL_CONTENT_NOTE}</p>
       </div>
     );
   }
@@ -62,6 +67,7 @@ export function PublicationChecklist({
           </ul>
         </div>
       ))}
+      <p className={styles.hint}>{OPTIONAL_CONTENT_NOTE}</p>
     </div>
   );
 }

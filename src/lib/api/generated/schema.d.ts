@@ -601,9 +601,11 @@ export interface components {
             category: components["schemas"]["ProductTaxonomyDto"] | null;
             /** Format: date-time */
             createdAt: string;
+            /** @description Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations. */
             description: string;
             /** @description Highlighted in the storefront. */
             featured: boolean;
+            /** @description Optional. At most 5 concrete benefits of at most 60 characters each, with no blanks and no duplicates once accent- and case-folded. Not a place for colour lists, measurements, warranty or policies: selectable colours, finishes and sizes are attributes and variants, with their own SKU, price and stock. Records written before these limits may still hold more; the caps apply to new mutations. */
             features: string[];
             /** @example prd_0123456789abcdef0123456789abcdef */
             id: string;
@@ -624,6 +626,7 @@ export interface components {
             publicationReadiness: components["schemas"]["PublicationReadinessDto"];
             /** Format: date-time */
             publishedAt: string | null;
+            /** @description Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations. */
             shortDescription: string;
             /**
              * @description Immutable, uppercase.
@@ -894,6 +897,7 @@ export interface components {
             shippingAddress: components["schemas"]["OrderShippingAddressDto"];
         };
         CreateProductRequestDto: {
+            /** @description Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations. */
             description?: string;
             /** @default 0 */
             lowStockThreshold: number;
@@ -905,6 +909,7 @@ export interface components {
              * @example 1450000
              */
             priceCop: number;
+            /** @description Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations. */
             shortDescription?: string;
             /** @example TOCADOR-AURA-80 */
             sku: string;
@@ -1180,11 +1185,11 @@ export interface components {
             /**
              * @description Closed, stable set of requirement codes still unmet. Empty when ready. The panel renders these; it must not re-derive them.
              * @example [
-             *       "description",
-             *       "materials"
+             *       "short_description",
+             *       "category"
              *     ]
              */
-            missing: ("name" | "sku" | "slug" | "short_description" | "description" | "category" | "product_type" | "features" | "materials" | "measurements" | "warranty" | "care" | "sellable_option" | "positive_price" | "unique_variant_combinations")[];
+            missing: ("name" | "sku" | "slug" | "short_description" | "category" | "product_type" | "sellable_option" | "positive_price" | "unique_variant_combinations")[];
             /** @description True when publish would succeed. False means missing lists why. */
             ready: boolean;
         };
@@ -1231,6 +1236,7 @@ export interface components {
             priceToCop: number;
             primaryImage: components["schemas"]["PublicProductImageDto"] | null;
             productType: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations. */
             shortDescription: string;
             slug: string;
             /** Format: date-time */
@@ -1244,8 +1250,10 @@ export interface components {
             availability: "in_stock" | "out_of_stock";
             care: string;
             category: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations. */
             description: string;
             featured: boolean;
+            /** @description Optional. At most 5 concrete benefits of at most 60 characters each, with no blanks and no duplicates once accent- and case-folded. Not a place for colour lists, measurements, warranty or policies: selectable colours, finishes and sizes are attributes and variants, with their own SKU, price and stock. Records written before these limits may still hold more; the caps apply to new mutations. */
             features: string[];
             id: string;
             /** @description Active images, in order. */
@@ -1272,6 +1280,7 @@ export interface components {
             /** @description Primary active image, or null when the product has none. */
             primaryImage: components["schemas"]["PublicProductImageDto"] | null;
             productType: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations. */
             shortDescription: string;
             sku: string;
             slug: string;
@@ -1332,10 +1341,12 @@ export interface components {
             care?: string;
             /** @description null clears the category. Omitting the field leaves it unchanged. */
             category?: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations. */
             description?: string;
             /** @description Version the caller last read. */
             expectedVersion: number;
             featured?: boolean;
+            /** @description Optional. At most 5 concrete benefits of at most 60 characters each, with no blanks and no duplicates once accent- and case-folded. Not a place for colour lists, measurements, warranty or policies: selectable colours, finishes and sizes are attributes and variants, with their own SKU, price and stock. Records written before these limits may still hold more; the caps apply to new mutations. */
             features?: string[];
             lowStockThreshold?: number;
             materials?: string;
@@ -1343,6 +1354,7 @@ export interface components {
             name?: string;
             priceCop?: number;
             productType?: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations. */
             shortDescription?: string;
             warranty?: string;
         };

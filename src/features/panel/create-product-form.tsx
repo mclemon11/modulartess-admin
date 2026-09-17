@@ -6,7 +6,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { acquire, createOperationLock, release } from '@/features/auth/operation-lock';
-import { VARIANT_MAX_ACTIVE } from '@/lib/api/variant-limits';
+import {
+  DESCRIPTION_MAX_LENGTH,
+  SHORT_DESCRIPTION_MAX_LENGTH,
+  VARIANT_MAX_ACTIVE,
+} from '@/lib/api/variant-limits';
 
 import { AttributeAxesEditor } from './attribute-axes-editor';
 import { CopField } from './cop-field';
@@ -29,13 +33,20 @@ import {
   type CreateFlowProgress,
   type CreateIntent,
 } from './create-product-flow';
+import { CollapsibleSection } from './collapsible-section';
+import { CountedTextarea } from './counted-field';
 import {
   EMPTY_ENRICHMENT,
   enrichmentBody,
   enrichmentProblems,
+  hasEnrichmentProblems,
   type EnrichmentFields,
 } from './enrichment';
-import { ClassificationFields, ContentFields } from './enrichment-fields';
+import {
+  AdditionalDetailsFields,
+  ClassificationFields,
+  VisibleContentFields,
+} from './enrichment-fields';
 import { ImageQueueEditor } from './image-queue-editor';
 import {
   addToQueue,
@@ -49,6 +60,7 @@ import {
   type QueuedImage,
 } from './image-queue';
 import { describeCopProblem, formatCop, parseCop } from './money';
+import { descriptionProblem, shortDescriptionProblem } from './product-content';
 import { SKU_PATTERN, SLUG_PATTERN } from './product-input';
 import { PublicationChecklist } from './publication-checklist';
 import { describeReadiness, SECTION_IDS } from './publication-readiness';
@@ -65,7 +77,19 @@ import {
 } from './variant-draft';
 import { VariantDraftEditor } from './variant-draft-editor';
 
-type Errors = Partial<Record<'sku' | 'slug' | 'name' | 'priceCop' | 'images' | 'variants', string>>;
+type Errors = Partial<
+  Record<
+    | 'sku'
+    | 'slug'
+    | 'name'
+    | 'shortDescription'
+    | 'description'
+    | 'priceCop'
+    | 'images'
+    | 'variants',
+    string
+  >
+>;
 
 type Fields = {
   sku: string;
@@ -124,8 +148,6 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
     sku: useId(),
     slug: useId(),
     name: useId(),
-    shortDescription: useId(),
-    description: useId(),
     priceCop: useId(),
     stockQuantity: useId(),
     lowStockThreshold: useId(),
@@ -247,6 +269,14 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
     created?.variants ?? [],
   );
   const enrichmentIssues = enrichmentProblems(enrichment);
+  /**
+   * Los dos topes editoriales, comprobados antes de gastar la llamada.
+   *
+   * Solo miden longitud. Lo que la publicación exige lo dice `publicationReadiness`, y el panel no
+   * lo vuelve a derivar.
+   */
+  const shortDescriptionIssue = shortDescriptionProblem(fields.shortDescription);
+  const descriptionIssue = descriptionProblem(fields.description);
 
   function validate(): Errors {
     const found: Errors = {};
@@ -263,6 +293,16 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
       found.name = 'El nombre es obligatorio.';
     }
 
+    // Pasarse del tope sí bloquea. Dejarla vacía no: un borrador sin descripción corta es legítimo,
+    // y quien decide que sin ella no se publica es el backend, con el código `short_description`.
+    if (shortDescriptionIssue !== null) {
+      found.shortDescription = shortDescriptionIssue;
+    }
+
+    if (descriptionIssue !== null) {
+      found.description = descriptionIssue;
+    }
+
     if (!price.ok) {
       found.priceCop = describeCopProblem(price.problem);
     }
@@ -273,12 +313,12 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
 
     if (
       axisProblems.length > 0 ||
-      enrichmentIssues.length > 0 ||
+      hasEnrichmentProblems(enrichmentIssues) ||
       variantValidation.general.length > 0 ||
       Object.keys(variantValidation.byDraft).length > 0
     ) {
       found.variants =
-        'Revisa la clasificación y las variantes: hay datos que no se pueden guardar así.';
+        'Revisa la clasificación, el contenido y las variantes: hay datos que no se pueden guardar así.';
     }
 
     return found;
@@ -450,63 +490,75 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
           </div>
         )}
 
-        <section className={`${styles.card} ${styles.formPrimary}`} id={SECTION_IDS.basica}>
-          <div className={styles.cardPad}>
-            <SectionHeading
-              hint="Datos principales de tu producto."
-              icon="basica"
-              title="Información básica"
-            />
-            <div className={styles.row}>
+        {/* Información básica y Clasificación comparten la columna estrecha; Imágenes ocupa la
+            ancha a su lado en cuanto hay sitio. Por debajo de 88rem vuelven a apilarse en este
+            mismo orden. */}
+        <div className={`${styles.stack} ${styles.formPrimary}`}>
+          <section className={styles.card} id={SECTION_IDS.basica}>
+            <div className={styles.cardPad}>
+              <SectionHeading
+                hint="Datos principales de tu producto."
+                icon="basica"
+                title="Información básica"
+              />
+              <div className={styles.row}>
+                <Field
+                  error={errors.sku}
+                  hint="Inmutable una vez creado."
+                  id={ids.sku}
+                  input={field('sku')}
+                  label="SKU"
+                  required
+                />
+                <Field
+                  error={errors.slug}
+                  hint="Inmutable una vez creado."
+                  id={ids.slug}
+                  input={field('slug')}
+                  label="Slug"
+                  required
+                />
+              </div>
               <Field
-                error={errors.sku}
-                hint="Inmutable una vez creado."
-                id={ids.sku}
-                input={field('sku')}
-                label="SKU"
+                error={errors.name}
+                id={ids.name}
+                input={field('name')}
+                label="Nombre"
                 required
               />
-              <Field
-                error={errors.slug}
-                hint="Inmutable una vez creado."
-                id={ids.slug}
-                input={field('slug')}
-                label="Slug"
-                required
+              <CountedTextarea
+                disabled={busy || created !== null}
+                error={errors.shortDescription}
+                hint="Resumen visible junto al precio. Escribe 1 o 2 frases claras; evita repetir el nombre."
+                label="Descripción corta"
+                max={SHORT_DESCRIPTION_MAX_LENGTH}
+                onChange={(value) =>
+                  setFields((current) => ({ ...current, shortDescription: value }))
+                }
+                requirement="necesaria"
+                rows={2}
+                value={fields.shortDescription}
               />
             </div>
-            <Field
-              error={errors.name}
-              id={ids.name}
-              input={field('name')}
-              label="Nombre"
-              required
-            />
-            <Field
-              id={ids.shortDescription}
-              input={field('shortDescription')}
-              label="Descripción corta"
-            />
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor={ids.description}>
-                Descripción
-              </label>
-              <textarea
-                className={styles.textarea}
-                id={ids.description}
-                {...field('description')}
-              />
-            </div>
+          </section>
 
-            <h3 className={styles.subTitle}>Clasificación</h3>
-            <ClassificationFields
-              disabled={busy || progress.enriched}
-              fields={enrichment}
-              mode="create"
-              onChange={setEnrichment}
-            />
-          </div>
-        </section>
+          <section className={styles.card} id={SECTION_IDS.clasificacion}>
+            <div className={styles.cardPad}>
+              <SectionHeading
+                hint="Dónde vive el producto dentro del catálogo."
+                icon="clasificacion"
+                title="Clasificación"
+              />
+              <ClassificationFields
+                disabled={busy || progress.enriched}
+                fields={enrichment}
+                mode="create"
+                onChange={setEnrichment}
+                problems={enrichmentIssues.classification}
+              />
+            </div>
+          </section>
+        </div>
 
         <div className={styles.formImages} id={SECTION_IDS.imagenes}>
           <ImageQueueEditor
@@ -533,25 +585,27 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
         <section className={styles.card} id={SECTION_IDS.contenido}>
           <div className={styles.cardPad}>
             <SectionHeading
-              hint="Lo que la ficha muestra bajo la descripción."
+              hint="Lo que se lee en la ficha pública."
               icon="contenido"
-              title="Características y especificaciones"
+              title="Contenido visible"
             />
-            <ContentFields
+            <CountedTextarea
+              disabled={busy || created !== null}
+              error={errors.description}
+              hint="Se muestra dentro de Descripción en la ficha. Explica el uso y los beneficios sin repetir materiales, medidas, garantía o cuidados."
+              label="Descripción detallada"
+              max={DESCRIPTION_MAX_LENGTH}
+              onChange={(value) => setFields((current) => ({ ...current, description: value }))}
+              requirement="opcional"
+              rows={8}
+              value={fields.description}
+            />
+            <VisibleContentFields
               disabled={busy || progress.enriched}
               fields={enrichment}
-              mode="create"
               onChange={setEnrichment}
+              problems={enrichmentIssues}
             />
-            {enrichmentIssues.length === 0 ? null : (
-              <ul className={styles.problemList}>
-                {enrichmentIssues.map((problem) => (
-                  <li className={styles.fieldError} key={problem}>
-                    {problem}
-                  </li>
-                ))}
-              </ul>
-            )}
             {progress.enriched ? (
               <p className={styles.hint}>
                 Ya está guardado en el producto. Para cambiarlo, ábrelo y edítalo desde su detalle.
@@ -559,6 +613,23 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
             ) : null}
           </div>
         </section>
+
+        <CollapsibleSection
+          defaultOpen={false}
+          forceOpen={Object.keys(enrichmentIssues.specifications).length > 0}
+          hint="Materiales, medidas, garantía y cuidados. Todos opcionales."
+          icon="detalles"
+          id={SECTION_IDS.detalles}
+          title="Detalles adicionales"
+        >
+          <AdditionalDetailsFields
+            disabled={busy || progress.enriched}
+            fields={enrichment}
+            mode="create"
+            onChange={setEnrichment}
+            problems={enrichmentIssues}
+          />
+        </CollapsibleSection>
         {errors.images === undefined ? null : (
           <p className={styles.error} role="alert">
             {errors.images}
@@ -617,6 +688,12 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
               icon="variantes"
               title="Variantes"
             />
+            <p className={styles.notice}>
+              Un color, un acabado o una medida se gestionan como variante <strong>solo</strong>{' '}
+              cuando cada combinación es un artículo vendible de verdad, con su propio SKU, su
+              precio y su inventario. Si solo hay que describirlos, van en «Detalles adicionales»:
+              convertir texto libre en variantes crea artículos que nadie puede comprar.
+            </p>
             <AttributeAxesEditor
               axes={axes}
               disabled={busy || progress.enriched}

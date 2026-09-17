@@ -14,7 +14,10 @@ import {
   ATTRIBUTE_MAX_AXES,
   ATTRIBUTE_VALUE_MAX_LENGTH,
   ATTRIBUTE_VALUE_PATTERN,
+  DESCRIPTION_MAX_LENGTH,
+  FEATURE_MAX_LENGTH,
   FEATURES_MAX_ITEMS,
+  SHORT_DESCRIPTION_MAX_LENGTH,
   SPECIFICATION_MAX_LENGTH,
   TAXONOMY_SLUG_MAX_LENGTH,
   TAXONOMY_SLUG_PATTERN,
@@ -33,15 +36,21 @@ import type {
 
 export const SKU_PATTERN = /^[A-Z0-9][A-Z0-9-]{1,63}$/;
 export const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
-export const MAX_TEXT_LENGTH = 4096;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function optionalText(value: unknown): string | undefined | null {
+/**
+ * Texto opcional con el tope que publica el contrato.
+ *
+ * `undefined` cuando el campo no viene —se deja como está—, `null` cuando no es válido y el texto
+ * en cualquier otro caso, **incluida la cadena vacía**: vaciar un campo es la forma de borrarlo, y
+ * confundirla con «no enviado» impediría hacerlo.
+ */
+function boundedText(value: unknown, max: number): string | undefined | null {
   if (value === undefined) return undefined;
-  if (typeof value !== 'string' || value.length > MAX_TEXT_LENGTH) return null;
+  if (typeof value !== 'string' || value.trim().length > max) return null;
 
   return value;
 }
@@ -63,8 +72,8 @@ export function parseCreateProduct(raw: unknown): CreateProductRequest | null {
 
   if (price === null) return null;
 
-  const shortDescription = optionalText(raw.shortDescription);
-  const description = optionalText(raw.description);
+  const shortDescription = boundedText(raw.shortDescription, SHORT_DESCRIPTION_MAX_LENGTH);
+  const description = boundedText(raw.description, DESCRIPTION_MAX_LENGTH);
 
   if (shortDescription === null || description === null) return null;
 
@@ -205,8 +214,8 @@ export function parseUpdateProduct(raw: unknown): UpdateProductRequest | null {
     body.lowStockThreshold = threshold;
   }
 
-  const shortDescription = optionalText(raw.shortDescription);
-  const description = optionalText(raw.description);
+  const shortDescription = boundedText(raw.shortDescription, SHORT_DESCRIPTION_MAX_LENGTH);
+  const description = boundedText(raw.description, DESCRIPTION_MAX_LENGTH);
 
   if (shortDescription === null || description === null) return null;
   if (shortDescription !== undefined) body.shortDescription = shortDescription;
@@ -236,7 +245,8 @@ export function parseUpdateProduct(raw: unknown): UpdateProductRequest | null {
 
       const trimmed = feature.trim();
 
-      if (trimmed.length === 0 || trimmed.length > MAX_TEXT_LENGTH) return null;
+      // Sin blancos y con el tope por elemento que publica el contrato.
+      if (trimmed.length === 0 || trimmed.length > FEATURE_MAX_LENGTH) return null;
 
       features.push(trimmed);
     }

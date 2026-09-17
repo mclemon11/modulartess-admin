@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import { acquire, createOperationLock, release } from '@/features/auth/operation-lock';
 import type { AdminProduct } from '@/lib/api/catalog';
+import { DESCRIPTION_MAX_LENGTH, SHORT_DESCRIPTION_MAX_LENGTH } from '@/lib/api/variant-limits';
 
 import styles from './catalog.module.css';
 import {
@@ -16,10 +17,22 @@ import {
 } from './catalog-client';
 import { describeCatalogFailure } from './catalog-errors';
 import { CopField } from './cop-field';
-import { enrichmentBody, enrichmentFromProduct, enrichmentProblems } from './enrichment';
-import { ClassificationFields, ContentFields } from './enrichment-fields';
+import { CollapsibleSection } from './collapsible-section';
+import { CountedTextarea } from './counted-field';
+import {
+  enrichmentBody,
+  enrichmentFromProduct,
+  enrichmentProblems,
+  hasEnrichmentProblems,
+} from './enrichment';
+import {
+  AdditionalDetailsFields,
+  ClassificationFields,
+  VisibleContentFields,
+} from './enrichment-fields';
 import { formatDateTime } from './format';
 import { formatCop, parseCop } from './money';
+import { descriptionProblem, shortDescriptionProblem } from './product-content';
 import {
   canPublishNow,
   imagePermissions,
@@ -59,6 +72,14 @@ export function ProductDetailClient({
   const router = useRouter();
   const [product, setProduct] = useState(initial);
   const [enrichment, setEnrichment] = useState(() => enrichmentFromProduct(initial));
+  /**
+   * Los dos textos editoriales se controlan desde React, no desde `FormData`.
+   *
+   * Sin estado no habría contador vivo ni forma de bloquear el envío antes de gastar la llamada: un
+   * `defaultValue` solo se lee al enviar, y para entonces ya es tarde para avisar.
+   */
+  const [shortDescription, setShortDescription] = useState(initial.shortDescription);
+  const [description, setDescription] = useState(initial.description);
   const [price, setPrice] = useState(() => String(initial.priceCop));
   const [delta, setDelta] = useState('');
   const [reason, setReason] = useState('');
@@ -77,10 +98,23 @@ export function ProductDetailClient({
    */
   const inventoryKey = useRef<string | null>(null);
 
+  /**
+   * Problemas del contenido editorial, calculados en cada render.
+   *
+   * Se declaran antes de los manejadores porque el guardado los consulta para no gastar una llamada
+   * en un cuerpo que ya se sabe inválido, y la pantalla los pinta junto a su propio campo.
+   */
+  const enrichmentIssues = enrichmentProblems(enrichment);
+  const shortDescriptionIssue = shortDescriptionProblem(shortDescription) ?? undefined;
+  const descriptionIssue = descriptionProblem(description) ?? undefined;
+  /** Hay algo que el backend rechazaría. Guardar se deshabilita en vez de gastar la llamada. */
+  const blocked =
+    shortDescriptionIssue !== undefined ||
+    descriptionIssue !== undefined ||
+    hasEnrichmentProblems(enrichmentIssues);
+
   const ids = {
     name: useId(),
-    shortDescription: useId(),
-    description: useId(),
     lowStockThreshold: useId(),
     delta: useId(),
     reason: useId(),
@@ -123,6 +157,8 @@ export function ProductDetailClient({
   function applyProduct(next: AdminProduct) {
     setProduct(next);
     setEnrichment(enrichmentFromProduct(next));
+    setShortDescription(next.shortDescription);
+    setDescription(next.description);
     setPrice(String(next.priceCop));
     setConflict(false);
   }
@@ -144,6 +180,21 @@ export function ProductDetailClient({
       return;
     }
 
+    /*
+     * Lo que ya se sabe que el backend va a rechazar no se envía.
+     *
+     * La descripción corta vacía **sí** se envía: el contrato la exige para publicar, no para
+     * guardar, y vaciarla es una edición legítima que el checklist recoge después. Lo que bloquea
+     * es pasarse de los topes, que es lo que devolvería un `400`.
+     */
+    if (blocked) {
+      release(lock.current);
+      setBusy(false);
+      setFailure('Revisa el contenido marcado en rojo antes de guardar.');
+
+      return;
+    }
+
     const data = new FormData(event.currentTarget);
 
     // Los ejes no viajan aquí: se declaran en la sección de variantes, que es donde se ven sus
@@ -152,8 +203,8 @@ export function ProductDetailClient({
       ...enrichmentBody(enrichment, product.attributes, 'edit'),
       expectedVersion: product.version,
       name: String(data.get('name') ?? '').trim(),
-      shortDescription: String(data.get('shortDescription') ?? ''),
-      description: String(data.get('description') ?? ''),
+      shortDescription,
+      description,
       priceCop: parsedPrice.value,
       lowStockThreshold: Number(data.get('lowStockThreshold')),
     });
@@ -214,7 +265,6 @@ export function ProductDetailClient({
    * stock». Los valores base **no se borran ni se transforman**: dejan de ser lo que se vende.
    */
   const sellsByVariant = product.variants.some((variant) => variant.status === 'active');
-  const enrichmentIssues = enrichmentProblems(enrichment);
   const readiness = product.publicationReadiness;
   const deltaValue = Number(delta);
   const canApplyAdjust =
@@ -254,7 +304,7 @@ export function ProductDetailClient({
                 <section className={styles.card} id={SECTION_IDS.basica}>
                   <div className={styles.cardPad}>
                     <SectionHeading
-                      hint="Datos principales, clasificación e identificadores."
+                      hint="Nombre, descripción corta e identificadores."
                       icon="basica"
                       title="Información básica"
                     />
@@ -272,38 +322,16 @@ export function ProductDetailClient({
                         type="text"
                       />
                     </div>
-                    <div className={styles.field}>
-                      <label className={styles.label} htmlFor={ids.shortDescription}>
-                        Descripción corta
-                      </label>
-                      <input
-                        className={styles.input}
-                        defaultValue={product.shortDescription}
-                        disabled={busy}
-                        id={ids.shortDescription}
-                        name="shortDescription"
-                        type="text"
-                      />
-                    </div>
-                    <div className={styles.field}>
-                      <label className={styles.label} htmlFor={ids.description}>
-                        Descripción
-                      </label>
-                      <textarea
-                        className={styles.textarea}
-                        defaultValue={product.description}
-                        disabled={busy}
-                        id={ids.description}
-                        name="description"
-                      />
-                    </div>
-
-                    <h3 className={styles.subTitle}>Clasificación</h3>
-                    <ClassificationFields
+                    <CountedTextarea
                       disabled={busy}
-                      fields={enrichment}
-                      mode="edit"
-                      onChange={setEnrichment}
+                      error={shortDescriptionIssue}
+                      hint="Resumen visible junto al precio. Escribe 1 o 2 frases claras; evita repetir el nombre."
+                      label="Descripción corta"
+                      max={SHORT_DESCRIPTION_MAX_LENGTH}
+                      onChange={setShortDescription}
+                      requirement="necesaria"
+                      rows={2}
+                      value={shortDescription}
                     />
 
                     <h3 className={styles.subTitle}>Identificadores</h3>
@@ -319,26 +347,66 @@ export function ProductDetailClient({
                   </div>
                 </section>
 
-                <section className={styles.card} id={SECTION_IDS.contenido}>
+                <section className={styles.card} id={SECTION_IDS.clasificacion}>
                   <div className={styles.cardPad}>
-                    <SectionHeading icon="contenido" title="Características y especificaciones" />
-                    <ContentFields
+                    <SectionHeading
+                      hint="Dónde vive el producto dentro del catálogo."
+                      icon="clasificacion"
+                      title="Clasificación"
+                    />
+                    <ClassificationFields
                       disabled={busy}
                       fields={enrichment}
                       mode="edit"
                       onChange={setEnrichment}
+                      problems={enrichmentIssues.classification}
                     />
-                    {enrichmentIssues.length === 0 ? null : (
-                      <ul className={styles.problemList}>
-                        {enrichmentIssues.map((problem) => (
-                          <li className={styles.fieldError} key={problem} role="alert">
-                            {problem}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
                   </div>
                 </section>
+
+                <section className={styles.card} id={SECTION_IDS.contenido}>
+                  <div className={styles.cardPad}>
+                    <SectionHeading
+                      hint="Lo que se lee en la ficha pública."
+                      icon="contenido"
+                      title="Contenido visible"
+                    />
+                    <CountedTextarea
+                      disabled={busy}
+                      error={descriptionIssue}
+                      hint="Se muestra dentro de Descripción en la ficha. Explica el uso y los beneficios sin repetir materiales, medidas, garantía o cuidados."
+                      label="Descripción detallada"
+                      max={DESCRIPTION_MAX_LENGTH}
+                      onChange={setDescription}
+                      requirement="opcional"
+                      rows={8}
+                      value={description}
+                    />
+                    <VisibleContentFields
+                      disabled={busy}
+                      fields={enrichment}
+                      onChange={setEnrichment}
+                      problems={enrichmentIssues}
+                    />
+                  </div>
+                </section>
+
+                <CollapsibleSection
+                  defaultOpen={false}
+                  forceOpen={Object.keys(enrichmentIssues.specifications).length > 0}
+                  hint="Materiales, medidas, garantía y cuidados. Todos opcionales."
+                  icon="detalles"
+                  id={SECTION_IDS.detalles}
+                  title="Detalles adicionales"
+                >
+                  <AdditionalDetailsFields
+                    disabled={busy}
+                    fields={enrichment}
+                    mode="edit"
+                    onChange={setEnrichment}
+                    problems={enrichmentIssues}
+                  />
+                </CollapsibleSection>
 
                 <div className={styles.row}>
                   <section className={styles.card} id={SECTION_IDS.precio}>
@@ -400,19 +468,16 @@ export function ProductDetailClient({
                     Se envía con la versión {product.version}, la que estás viendo.
                   </div>
                   <div className={styles.actionBarButtons}>
-                    <button
-                      className={styles.button}
-                      disabled={busy || enrichmentIssues.length > 0}
-                      type="submit"
-                    >
+                    <button className={styles.button} disabled={busy || blocked} type="submit">
                       {busy ? 'Guardando…' : 'Guardar cambios'}
                     </button>
                   </div>
-                  {enrichmentIssues.length === 0 ? null : (
+                  {blocked ? (
                     <p className={styles.hint}>
-                      Corrige lo marcado en «Características y especificaciones» para poder guardar.
+                      Corrige lo marcado en rojo para poder guardar. Los campos opcionales pueden
+                      quedarse vacíos.
                     </p>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </form>
