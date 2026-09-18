@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-09-16.
+Última actualización: 2026-09-18.
 
 ## Fase
 
@@ -21,6 +21,11 @@ tales y características como filas ordenables.
 Fase 5 — pedidos. **Pedidos** está implementado en su alcance mínimo y real: listado, ficha,
 transiciones operativas y cancelación, todo contra las cuatro operaciones que publica el contrato.
 El pago no existe todavía, así que ningún pedido llega a `paid` por ahora.
+
+Fase 6 — entrada y primera revisión visual. `/` deja de ser una pantalla y pasa a ser la puerta:
+una redirección HTTP a `/panel`, sin duplicar la comprobación de sesión. Y el área ya terminada
+—portada, listado de productos y alta/edición— se revisó a seis anchos reales contra el despliegue
+de staging, con los defectos encontrados corregidos y ninguna funcionalidad añadida.
 
 ## Estado real del entorno
 
@@ -51,7 +56,7 @@ Esto es lo que ya existe fuera de este repositorio, y no debe describirse como p
 | TypeScript estricto | Listo  | `strict` más comprobaciones adicionales; `tsc --noEmit` limpio. |
 | Estilos             | Listo  | CSS Modules y tokens en `globals.css`. Sin framework de CSS.    |
 | Calidad             | Listo  | ESLint y Prettier con scripts de verificación.                  |
-| Página inicial      | Listo  | Server Component; «Panel administrativo en configuración».      |
+| Ruta raíz           | Listo  | `/` redirige con un `307` del servidor a `/panel`. Sin portada. |
 | Pruebas unitarias   | Listo  | Vitest sobre módulos puros; sin red ni credenciales.            |
 | Documentación       | Listo  | `AGENTS.md`, arquitectura y dos decisiones registradas.         |
 
@@ -325,6 +330,36 @@ venta, miniatura del producto en el listado, selección múltiple, paginación n
 cliente», «Imprimir», «Ver perfil», «Ver en mapa», notas internas, observaciones del cliente y
 edición de cliente, dirección, líneas o precios. Tampoco hay reembolso ni pago manual.
 
+### Entrada del panel: la ruta raíz
+
+`/` fue durante dos fases una portada técnica —«Panel administrativo en configuración»— que
+enumeraba como **pendientes** la sesión BFF, el contrato OpenAPI y el catálogo, los pedidos y el
+inventario. Las tres cosas llevaban fases implementadas: la pantalla se escribió en la fase 1 y
+nadie volvió a tocarla, así que quedó describiendo un repositorio que ya no existía.
+
+Ahora `/` no es una pantalla. Es una redirección declarada en `next.config.ts`, que Next resuelve
+**antes del sistema de archivos y antes de renderizar**: el navegador recibe un `307` con
+`location: /panel` y no llega a pintarse nada intermedio. Es temporal a propósito; un `308` se
+cachea de forma indefinida y dejaría `/` secuestrado si algún día tuviera contenido propio.
+
+La redirección **no** comprueba la sesión, y ahí termina su responsabilidad. Quien decide es
+`/panel`, cuyo layout ya resuelve la cookie con `resolvePanelSession` y elige entre las cuatro
+salidas que ya existían:
+
+| Situación de la cookie             | Qué ocurre                                                    |
+| ---------------------------------- | ------------------------------------------------------------- |
+| No hay cookie                      | `redirect('/iniciar-sesion')` desde `resolvePanelSession`.    |
+| Cookie válida                      | Se monta el shell y se pinta la portada del panel.            |
+| Cookie rechazada (`401`/`403`)     | `SessionCleanup`: la frontera cliente borra la cookie y sale. |
+| Backend caído o superficie apagada | `PanelUnavailable`: no expulsa a nadie por una caída.         |
+
+Duplicar esa lógica en la raíz habría creado una segunda frontera de sesión capaz de contradecir a
+la primera. `src/app/root-redirect.test.ts` fija el destino, el carácter temporal, la ausencia de
+condiciones `has`/`missing` y —leyendo el árbol de fuentes— que ni la página ni su copy vuelvan.
+
+Toda la superficie administrativa sigue siendo `noindex, nofollow`: lo declara el layout raíz en
+`metadata.robots` y lo repite el layout del panel.
+
 ### Estado visual del panel
 
 El panel tiene un solo sistema visual, compartido por todas las pantallas:
@@ -362,6 +397,40 @@ El panel tiene un solo sistema visual, compartido por todas las pantallas:
 
 Las diferencias con las referencias visuales están enumeradas arriba, sección por sección: todo lo
 que falta es lo que el contrato no publica, y nada de eso se aparenta con adornos.
+
+### Revisión visual a seis anchos (fase 6)
+
+Portada, listado de productos y alta/edición se revisaron contra el despliegue de staging a 1440,
+1280, 1024, 768, 390 y 360 px, midiendo el ancho de desplazamiento del documento y el tamaño real
+de cada control en lugar de juzgar a ojo. No se reescribió arquitectura ni se cambió ningún
+comportamiento: los cuatro arreglos salen de un defecto comprobado.
+
+- **Desplazamiento horizontal del listado.** `/panel/productos` desplazaba la **página** 54 px a
+  1440, 178 px a 1280 y 433 px a 1024. La tabla no tenía la culpa: ya scrolleaba dentro de su
+  tarjeta. El causante era el `.sr-only` de la columna «Acciones», absoluto y sin bloque contenedor
+  propio, que se posicionaba contra el bloque contenedor inicial y escapaba al `overflow-x` de
+  `.tableScroll`, estirando el documento hasta el ancho completo de la tabla. `.tableScroll` pasa a
+  ser `position: relative`, que es lo que lo convierte en ese bloque contenedor. La tabla sigue
+  desplazándose dentro de su superficie; la página ya no.
+- **`composes` no es transitivo.** `.buttonDanger` componía `.buttonSecondary`, que a su vez compone
+  `.button`, y el build emitía solo las dos primeras clases. El resultado era un botón con los
+  estilos nativos del navegador —22 px de alto, sin radio, sin tipografía y sin anillo de foco— en
+  «Archivar producto», la acción más delicada del detalle. Ahora la clase base se nombra de forma
+  explícita y el botón mide 44 px como los demás. `.uploadButtonDisabled` tenía la misma cadena de
+  dos saltos y el mismo arreglo.
+- **Objetivo táctil del cajón.** El botón de menú medía 36 px, y es el único camino hacia las
+  secciones por debajo de 60 rem —donde la navegación deja de estar a la vista—, así que siempre es
+  una acción táctil. Pasa a 44 px, que siguen cabiendo en la cabecera móvil de 52 px.
+- **Acción de fila y de tarjeta.** `.rowAction` —«Editar», «Ver producto»— se quedaba en 35 px
+  siendo _la_ acción de cada tarjeta en móvil. Se añade al bloque `@media (pointer: coarse)` que ya
+  existía, que es donde este proyecto sube los controles a 44 px sin agrandar el escritorio.
+
+Lo comprobado y correcto, que por eso no se tocó: la portada no desplaza a ningún ancho; el cajón
+abre, oscurece el fondo con su velo a pantalla completa y ofrece enlaces de 44 px; los formularios
+del alta y del detalle no tienen ningún campo sin etiqueta, ningún `aria-describedby` roto ni
+identificadores duplicados, y su jerarquía de encabezados es `h1` seguido de `h2` por sección; las
+secciones plegables siguen en su sitio; y `.input`, `.iconButton`, `.copInput` y `.checkbox` ya
+subían a 44 px bajo `pointer: coarse`, así que su tamaño con ratón no es un defecto.
 
 ### Alta de producto: composición
 

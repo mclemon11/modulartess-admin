@@ -25,8 +25,18 @@
   padding: clamp(1rem, 3vw, 1.5rem);
 }
 
-/* La tabla desborda dentro de su tarjeta; el body nunca se desplaza en horizontal. */
+/*
+ * La tabla desborda dentro de su tarjeta; el body nunca se desplaza en horizontal.
+ *
+ * `position: relative` no es decorativo y no coloca nada: convierte esta caja en el bloque
+ * contenedor de sus descendientes absolutos. Sin él, el `.sr-only` de la última columna
+ * —«Acciones»— se posicionaba contra el bloque contenedor inicial, así que `overflow-x` no lo
+ * recortaba y estiraba el ancho de desplazamiento del documento hasta el ancho real de la tabla:
+ * a 1024 px la página entera se desplazaba 433 px en horizontal. Con el contenedor puesto, lo que
+ * sobra se queda dentro de esta superficie, que es donde tiene que scrollear.
+ */
 .tableScroll {
+  position: relative;
   overflow-x: auto;
 }
 
@@ -246,8 +256,16 @@
   background-color: var(--color-panel-subtle);
 }
 
+/*
+ * `composes` **no** es transitivo en esta cadena de compilación: `composes: buttonSecondary` copia
+ * esa clase y solo esa, no lo que a su vez compone. El botón salía con `buttonDanger
+ * buttonSecondary` y sin `button`, así que se pintaba con los estilos nativos del navegador —22 px
+ * de alto, sin radio, sin tipografía y sin anillo de foco— justo donde más se nota, en «Archivar
+ * producto». La clase base se nombra aquí de forma explícita; el orden de las declaraciones en
+ * este archivo sigue decidiendo quién gana.
+ */
 .buttonDanger {
-  composes: buttonSecondary;
+  composes: button buttonSecondary;
   border-color: var(--color-danger-border);
   color: var(--color-danger);
 }
@@ -737,8 +755,9 @@
   box-shadow: 0 0 0 3px var(--color-brand-ring);
 }
 
+/* Misma cadena de dos saltos que en `.buttonDanger`, y por tanto el mismo arreglo. */
 .uploadButtonDisabled {
-  composes: uploadButton;
+  composes: button uploadButton;
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -1088,7 +1107,10 @@
   .iconButton,
   .input,
   .copInput,
-  .checkboxField {
+  .checkboxField,
+  /* Acción de cada fila y de cada tarjeta —«Editar», «Ver producto»—: en móvil es *la* acción de
+     la tarjeta, y se quedaba en 35 px. */
+  .rowAction {
     min-height: 44px;
   }
 

@@ -192,6 +192,7 @@ sesión. Sobre él cuelga la primera sección operativa, **Productos**, con dato
 
 | Ruta                           | Qué hace                                                                                         |
 | ------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `/`                            | No es una pantalla: `307` del servidor a `/panel`, que es quien resuelve la sesión.              |
 | `/panel`                       | Portada: sesión, rol y acceso a Productos. Sin métricas: el backend no publica agregaciones.     |
 | `/panel/productos`             | Listado server-rendered, paginado con `pageToken`.                                               |
 | `/panel/productos/nuevo`       | Alta con contenido, imágenes y variantes. El producto nace `draft`; el estado no se elige.       |

@@ -212,12 +212,20 @@
   gap: var(--space-sm);
 }
 
+/*
+ * Disparador del cajón.
+ *
+ * Solo existe por debajo de 60 rem, que es justo donde la navegación deja de estar a la vista: es
+ * siempre una acción táctil y el único camino hacia las secciones. Por eso mide 44 px sin
+ * depender de `pointer: coarse` —estaba en 36— y no hace falta esconderlo tras una consulta de
+ * medios: por encima de ese ancho no se pinta.
+ */
 .menuButton {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   border: 1px solid var(--color-panel-border-strong);
   border-radius: 0.5rem;
