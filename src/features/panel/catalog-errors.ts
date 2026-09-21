@@ -17,6 +17,15 @@ export const CATALOG_MESSAGES: Readonly<Record<string, string>> = {
   admin_surface_disabled: 'La superficie administrativa no está disponible en este despliegue.',
   too_many_requests: 'Demasiadas peticiones seguidas. Espera unos segundos.',
   service_unavailable: 'El servicio de catálogo no responde ahora mismo.',
+  /*
+   * El backend aceptó el cambio pero la imagen no volvió como principal.
+   *
+   * No es un error de red ni de permisos: es una respuesta que no dice lo que se pidió. Se trata
+   * como fallo —y no como éxito silencioso— porque «Portada actualizada» es una afirmación sobre
+   * lo que verá la tienda.
+   */
+  cover_not_applied:
+    'La imagen se subió, pero el backend no la devolvió como portada. Recarga el producto para ver cómo quedó antes de reintentarlo.',
 };
 
 export const GENERIC_CATALOG_MESSAGE =

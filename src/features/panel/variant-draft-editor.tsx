@@ -6,6 +6,7 @@ import { VARIANT_MAX_ACTIVE } from '@/lib/api/variant-limits';
 
 import styles from './catalog.module.css';
 import { CopField } from './cop-field';
+import { InventoryFields } from './inventory-fields';
 import type { AxisDraft, VariantDraft, VariantValidation } from './variant-draft';
 
 /**
@@ -202,26 +203,21 @@ export function VariantDraftEditor({
                     required
                     value={draft.priceCop}
                   />
-                  <div className={styles.field}>
-                    <label className={styles.label} htmlFor={`${fieldId}-${draft.draftId}-stock`}>
-                      Inventario inicial
-                    </label>
-                    <input
-                      className={styles.input}
-                      disabled={disabled}
-                      id={`${fieldId}-${draft.draftId}-stock`}
-                      min={0}
-                      onChange={(event) =>
-                        update(draft.draftId, (current) => ({
-                          ...current,
-                          stockQuantity: event.target.value,
-                        }))
-                      }
-                      type="number"
-                      value={draft.stockQuantity}
-                    />
-                  </div>
                 </div>
+                {/*
+                  Cada variante elige **su** modo. Dos variantes del mismo producto pueden llevarse
+                  de forma distinta —una con conteo, otra solo disponible— y el contrato lo admite,
+                  así que el formulario también.
+                */}
+                <InventoryFields
+                  disabled={disabled}
+                  draft={draft.inventory}
+                  legend="Inventario de esta variante"
+                  onChange={(inventory) =>
+                    update(draft.draftId, (current) => ({ ...current, inventory }))
+                  }
+                  showProblems={false}
+                />
                 <div className={styles.imageTileActions}>
                   <button
                     className={styles.iconButton}

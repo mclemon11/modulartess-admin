@@ -31,7 +31,7 @@ function draft(
     draftId,
     sku: `TOCADOR-${draftId.toUpperCase()}`,
     priceCop: '1490000',
-    stockQuantity: '3',
+    inventory: { mode: 'tracked', quantity: '3', lowStockThreshold: '0', status: 'in_stock' },
     attributes: attributes.map(([key, value]) => ({ key, value, label: value })),
     ...overrides,
   };
@@ -265,8 +265,20 @@ describe('validación de variantes', () => {
     ['precio con centavos', { priceCop: '1450000,50' }, 'Precio'],
     ['precio negativo', { priceCop: '-1450000' }, 'Precio'],
     ['precio vacío', { priceCop: '' }, 'Precio'],
-    ['inventario negativo', { stockQuantity: '-1' }, 'Inventario'],
-    ['inventario con decimales', { stockQuantity: '1.5' }, 'Inventario'],
+    [
+      'inventario negativo',
+      {
+        inventory: { mode: 'tracked', quantity: '-1', lowStockThreshold: '0', status: 'in_stock' },
+      } as Partial<VariantDraft>,
+      'Inventario',
+    ],
+    [
+      'inventario con decimales',
+      {
+        inventory: { mode: 'tracked', quantity: '1.5', lowStockThreshold: '0', status: 'in_stock' },
+      } as Partial<VariantDraft>,
+      'Inventario',
+    ],
     // El editor pasa el SKU a mayúsculas, así que lo que se rechaza es la forma: demasiado corto,
     // con espacios o con signos que el contrato no admite.
     ['sku de un solo carácter', { sku: 'X' }, 'SKU'],
@@ -346,7 +358,7 @@ describe('cuerpo del alta', () => {
 
   it('normaliza el SKU y convierte los números, con la versión del producto', () => {
     const body = variantRequestBody(
-      draft('uno', [['finish', 'roble']], { sku: ' tocador-uno ', stockQuantity: '' }),
+      draft('uno', [['finish', 'roble']], { sku: ' tocador-uno ' }),
       7,
     );
 
@@ -354,8 +366,45 @@ describe('cuerpo del alta', () => {
       expectedVersion: 7,
       sku: 'TOCADOR-UNO',
       priceCop: 1490000,
-      stockQuantity: 0,
+      inventory: { mode: 'tracked', quantity: 3, lowStockThreshold: 0 },
       attributes: [{ key: 'finish', value: 'roble', label: 'roble' }],
     });
+  });
+
+  /*
+   * La variante en «Solo disponibilidad» **no** manda cantidad.
+   *
+   * Es la garantía del contrato —«REJECTED with mode=availability»— y la que se rompería sola si
+   * alguien volviera a construir el cuerpo copiando el borrador en lugar de leyendo el modo.
+   */
+  it('una variante por disponibilidad manda status y nunca quantity ni umbral', () => {
+    const body = variantRequestBody(
+      draft('uno', [['finish', 'roble']], {
+        inventory: {
+          mode: 'availability',
+          quantity: '9',
+          lowStockThreshold: '2',
+          status: 'out_of_stock',
+        },
+      }),
+      4,
+    );
+
+    expect(body.inventory).toEqual({ mode: 'availability', status: 'out_of_stock' });
+    expect(body.inventory).not.toHaveProperty('quantity');
+    expect(body.inventory).not.toHaveProperty('lowStockThreshold');
+  });
+
+  it('rechaza una variante con conteo y sin cantidad escrita', () => {
+    const validation = validateVariantDrafts(
+      [
+        draft('uno', [['finish', 'roble']], {
+          inventory: { mode: 'tracked', quantity: '', lowStockThreshold: '0', status: 'in_stock' },
+        }),
+      ],
+      [{ key: 'finish' }],
+    );
+
+    expect(validation.byDraft.uno).toContain('Inventario');
   });
 });

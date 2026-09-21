@@ -30,7 +30,15 @@ export type IconName =
   | 'historial'
   | 'resumen'
   | 'envios'
-  | 'wallet';
+  | 'wallet'
+  | 'pago'
+  | 'notificaciones'
+  | 'simulador'
+  | 'configuracion'
+  | 'integraciones'
+  | 'incidencias'
+  | 'llave'
+  | 'actualizar';
 
 const PATHS: Readonly<Record<IconName, readonly string[]>> = {
   basica: ['M6 3h8l4 4v14H6z', 'M14 3v4h4', 'M9 12h6', 'M9 16h6'],
@@ -65,6 +73,27 @@ const PATHS: Readonly<Record<IconName, readonly string[]>> = {
   ],
   // Cartera.
   wallet: ['M3 7a2 2 0 012-2h12v14H5a2 2 0 01-2-2z', 'M17 9h4v6h-4a3 3 0 010-6z', 'M18.5 12h.01'],
+  // Tarjeta con banda: la ficha del pago, no un método de pago concreto.
+  pago: ['M3 6h18v12H3z', 'M3 10h18', 'M7 14h4'],
+  // Campana: el buzón de avisos del pedido.
+  notificaciones: ['M18 16H6l1-3V9a5 5 0 0110 0v4z', 'M10 19a2 2 0 004 0'],
+  // Dial de laboratorio: el simulador de staging, que no es una pasarela.
+  simulador: ['M4 6h16', 'M4 12h16', 'M4 18h16', 'M9 4v4', 'M15 10v4', 'M9 16v4'],
+  // Rueda dentada: la sección de configuración del panel.
+  configuracion: [
+    'M12 15a3 3 0 100-6 3 3 0 000 6z',
+    'M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1.08-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1.08 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z',
+  ],
+  // Dos piezas que encajan: una integración con un tercero.
+  integraciones: [
+    'M10 3H5a2 2 0 00-2 2v5h2.5a2.5 2.5 0 110 5H3v4a2 2 0 002 2h5v-2.5a2.5 2.5 0 115 0V21h4a2 2 0 002-2v-5h-2.5a2.5 2.5 0 110-5H21V5a2 2 0 00-2-2h-5',
+  ],
+  // Triángulo de aviso: algo que no cuadra y hay que mirar.
+  incidencias: ['M12 3l9.5 17H2.5z', 'M12 10v4', 'M12 17.5h.01'],
+  // Llave: las credenciales de la pasarela.
+  llave: ['M15 7a4 4 0 11-3.9 5H7v3H4v-3l3.1-3H11A4 4 0 0115 7z', 'M16.5 10.5h.01'],
+  // Flechas circulares: volver a pedir la pantalla al servidor.
+  actualizar: ['M20 11a8 8 0 10-.7 4.3', 'M20 5v6h-6'],
 };
 
 export function Icon({

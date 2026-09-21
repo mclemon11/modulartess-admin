@@ -53,6 +53,9 @@ const SERVER_ONLY_MODULES = [
   'src/lib/api/backend-client.ts',
   'src/lib/api/catalog.ts',
   'src/lib/api/orders.ts',
+  'src/lib/api/dashboard.ts',
+  'src/lib/api/integrations.ts',
+  'src/lib/api/payment-incidents.ts',
   'src/lib/api/identity-token.ts',
   'src/features/panel/session-context.ts',
   'src/features/session/mutation-route.ts',
@@ -63,6 +66,7 @@ const SERVER_ONLY_MODULES = [
   'src/app/api/admin/products/[productId]/publish/route.ts',
   'src/app/api/admin/products/[productId]/archive/route.ts',
   'src/app/api/admin/products/[productId]/inventory-adjustments/route.ts',
+  'src/app/api/admin/products/[productId]/inventory/route.ts',
   'src/app/api/admin/products/[productId]/images/route.ts',
   'src/app/api/admin/products/[productId]/images/[imageId]/route.ts',
   'src/app/api/admin/products/[productId]/images/[imageId]/archive/route.ts',
@@ -70,10 +74,15 @@ const SERVER_ONLY_MODULES = [
   'src/app/api/admin/products/[productId]/variants/[variantId]/route.ts',
   'src/app/api/admin/products/[productId]/variants/[variantId]/archive/route.ts',
   'src/app/api/admin/products/[productId]/variants/[variantId]/inventory-adjustments/route.ts',
+  'src/app/api/admin/products/[productId]/variants/[variantId]/inventory/route.ts',
   'src/app/api/admin/orders/route.ts',
   'src/app/api/admin/orders/[orderId]/route.ts',
   'src/app/api/admin/orders/[orderId]/status/route.ts',
   'src/app/api/admin/orders/[orderId]/cancel/route.ts',
+  'src/app/api/admin/orders/[orderId]/payment-simulation/route.ts',
+  'src/app/api/admin/integrations/wompi/route.ts',
+  'src/app/api/admin/integrations/wompi/test/route.ts',
+  'src/app/api/admin/payment-incidents/[incidentId]/resolve/route.ts',
 ];
 
 describe('módulos server-only', () => {
@@ -151,7 +160,13 @@ describe('dependencias restringidas', () => {
 
       // Importar el TIPO del producto sí es correcto: `import type` se borra al compilar. Lo que
       // no puede haber es una importación de valores, que arrastraría el módulo server-only.
-      for (const serverModule of ['catalog', 'orders']) {
+      for (const serverModule of [
+        'catalog',
+        'orders',
+        'dashboard',
+        'integrations',
+        'payment-incidents',
+      ]) {
         const runtimeImport = new RegExp(
           `import\\s+\\{[^}]*\\}\\s+from '@/lib/api/${serverModule}'`,
         ).test(source);

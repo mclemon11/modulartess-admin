@@ -6,19 +6,21 @@ import { useRef, useState } from 'react';
 import catalog from './catalog.module.css';
 import { isFinalOrderStatus, orderActions, type OrderAction } from './order-actions';
 import { describeOrderFailure, offersReload } from './order-errors';
-import { describeOrderStatus } from './order-status';
 import { cancelOrder, changeOrderStatus } from './orders-client';
 import styles from './orders.module.css';
 
 import type { AdminOrder } from '@/lib/api/orders';
 
 /**
- * Acciones del detalle del pedido.
+ * Acciones logísticas del detalle del pedido.
  *
- * Pinta **botones concretos** —«Marcar enviado»— y no un selector de estados: un desplegable con
- * los seis valores dejaría elegir transiciones que el backend rechaza, y el error llegaría después
- * de pulsar. Qué botones hay lo decide `orderActions`, que es una función pura y tiene su propia
- * prueba.
+ * Pinta **botones concretos** —«Marcar listo para envío»— y no un selector de estados: un
+ * desplegable con los siete valores dejaría elegir transiciones que el backend rechaza, y el error
+ * llegaría después de pulsar. Qué botones hay lo decide `orderActions`, que es una función pura y
+ * tiene su propia prueba; como mucho ofrece la **siguiente** transición válida.
+ *
+ * Aquí no se aprueba ningún pago. `pending_payment → paid` lo aplica el desenlace del pago, en la
+ * misma transacción que lo confirma.
  *
  * Toda mutación envía `expectedVersion`, y la respuesta autoritativa **sustituye** el estado local:
  * el pedido que se pinta después es el que devolvió el backend, no una versión adivinada sumando
@@ -42,7 +44,10 @@ export function OrderActionsBar({
    */
   const running = useRef(false);
 
-  const actions = orderActions(role, order.status);
+  const actions = orderActions(role, {
+    status: order.status,
+    paymentStatus: order.payment.status,
+  });
 
   async function run(action: OrderAction): Promise<void> {
     if (running.current) {
@@ -84,7 +89,7 @@ export function OrderActionsBar({
         ))}
       </div>
 
-      {actions.length === 0 ? <NoActions role={role} status={order.status} /> : null}
+      {actions.length === 0 ? <NoActions order={order} role={role} /> : null}
 
       {failure === null ? null : (
         <p className={catalog.error} role="alert">
@@ -111,23 +116,24 @@ export function OrderActionsBar({
 /**
  * Por qué no hay nada que hacer.
  *
- * Un estado final y un permiso que falta se parecen desde fuera —no hay botones— y significan
- * cosas muy distintas. Decirlo evita que alguien crea que la pantalla se rompió.
+ * Un estado final, un pago en curso y un permiso que falta se parecen desde fuera —no hay botones—
+ * y significan cosas muy distintas. Decirlo evita que alguien crea que la pantalla se rompió.
  */
-function NoActions({ status, role }: { readonly status: string; readonly role: string }) {
-  if (isFinalOrderStatus(status)) {
+function NoActions({ order, role }: { readonly order: AdminOrder; readonly role: string }) {
+  if (isFinalOrderStatus(order.status)) {
     return (
       <p className={catalog.hint}>
-        {describeOrderStatus(status)} es un estado final: el pedido no avanza más.
+        {order.statusLabel} es un estado final: el pedido no avanza más.
       </p>
     );
   }
 
-  if (status === 'pending_payment') {
+  if (order.status === 'pending_payment') {
     return (
       <p className={catalog.hint}>
-        Este pedido espera el pago. Confirmarlo es cosa del webhook de pagos, que todavía no existe,
-        así que el panel no puede marcarlo como pagado.
+        {order.payment.status === 'processing'
+          ? 'Hay un intento de pago en curso. Mientras esté abierto no se ofrece cancelar: podría aprobarse justo después de pulsar.'
+          : 'Este pedido espera el pago. Confirmarlo es cosa del desenlace del pago, no de las acciones logísticas.'}
         {role === 'moderator' ? ' Tu rol tampoco permite cancelarlo.' : ''}
       </p>
     );

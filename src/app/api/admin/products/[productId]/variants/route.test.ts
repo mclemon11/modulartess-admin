@@ -30,7 +30,7 @@ const VALID_BODY = {
   expectedVersion: 3,
   sku: 'TOCADOR-AURA-80-ROBLE',
   priceCop: 1490000,
-  stockQuantity: 4,
+  inventory: { mode: 'tracked', quantity: 4, lowStockThreshold: 0 },
   attributes: [
     { key: 'finish', value: 'roble-natural', label: 'Roble natural' },
     { key: 'size', value: '80', label: '80 cm' },
@@ -90,7 +90,16 @@ describe('frontera de la mutación', () => {
     ['versión cero', { ...VALID_BODY, expectedVersion: 0 }],
     ['precio cero', { ...VALID_BODY, priceCop: 0 }],
     ['precio con decimales', { ...VALID_BODY, priceCop: 1490000.5 }],
-    ['inventario negativo', { ...VALID_BODY, stockQuantity: -1 }],
+    [
+      'inventario negativo',
+      { ...VALID_BODY, inventory: { mode: 'tracked', quantity: -1, lowStockThreshold: 0 } },
+    ],
+    // El contrato rechaza los campos del modo contrario; el BFF no los deja ni salir.
+    [
+      'disponibilidad con cantidad',
+      { ...VALID_BODY, inventory: { mode: 'availability', quantity: 4 } },
+    ],
+    ['modo inexistente', { ...VALID_BODY, inventory: { mode: 'manual', quantity: 4 } }],
     ['sku en minúsculas', { ...VALID_BODY, sku: 'tocador-aura' }],
     ['sin atributos', { ...VALID_BODY, attributes: [] }],
     ['atributo sin etiqueta', { ...VALID_BODY, attributes: [{ key: 'finish', value: 'roble' }] }],

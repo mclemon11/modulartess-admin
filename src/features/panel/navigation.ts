@@ -10,15 +10,19 @@ export type NavigationItem = {
   readonly href: string;
   readonly label: string;
   /** Icono de `section-icon`, para que la barra lateral tenga la misma iconografía que las tarjetas. */
-  readonly icon: 'panel' | 'productos' | 'pedidos' | 'envios' | 'wallet';
+  readonly icon: 'panel' | 'productos' | 'pedidos' | 'envios' | 'wallet' | 'configuracion';
 };
 
 /**
- * Las cinco entradas del panel, en este orden.
+ * Las seis entradas del panel, en este orden.
  *
  * Envíos y Wallet todavía no tienen contrato: sus pantallas existen, lo dicen y no fingen datos.
  * Están en la navegación porque el enlace lleva a un sitio real que explica en qué punto está, no a
  * un 404.
+ *
+ * **Configuración va la última y se llama así.** Es donde vive Integraciones, y el nombre es el que
+ * entiende quien administra la tienda: una entrada llamada «dev_apis» o «integraciones técnicas»
+ * describiría la implementación en vez de la tarea, que es «configurar con qué pasarela cobro».
  */
 export const NAVIGATION: readonly NavigationItem[] = [
   { href: '/panel', label: 'Dashboard', icon: 'panel' },
@@ -26,6 +30,7 @@ export const NAVIGATION: readonly NavigationItem[] = [
   { href: '/panel/productos', label: 'Productos', icon: 'productos' },
   { href: '/panel/envios', label: 'Envíos', icon: 'envios' },
   { href: '/panel/wallet', label: 'Wallet', icon: 'wallet' },
+  { href: '/panel/configuracion', label: 'Configuración', icon: 'configuracion' },
 ];
 
 /**

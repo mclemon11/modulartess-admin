@@ -5,22 +5,40 @@ import { useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { acquire, createOperationLock, release } from '@/features/auth/operation-lock';
-import type { AdminProduct, AdminProductVariant } from '@/lib/api/catalog';
+import type { AdminProduct, AdminProductVariant, SetInventoryControl } from '@/lib/api/catalog';
 import { VARIANT_MAX_ACTIVE } from '@/lib/api/variant-limits';
 
 import { AttributeAxesEditor } from './attribute-axes-editor';
 import styles from './catalog.module.css';
 import { CopField } from './cop-field';
 import {
-  adjustVariantInventory,
   archiveVariant,
   createVariant,
   updateProduct,
+  setVariantInventory,
   updateVariant,
   type MutationResult,
 } from './catalog-client';
 import { describeCatalogFailure } from './catalog-errors';
+import {
+  InventoryEditor,
+  InventoryReadout,
+  type InventorySubmit,
+  type InventorySubmitResult,
+} from './inventory-card';
+import {
+  describeAvailability,
+  describeInventoryMode,
+  EMPTY_INVENTORY_DRAFT,
+} from './inventory-control';
 import { formatCop, groupCop, parseCop } from './money';
+import {
+  createKeyLedger,
+  inventoryFingerprint,
+  inventoryScope,
+  keyFor,
+  releaseKey,
+} from './operation-key';
 import type { VariantPermissions } from './product-permissions';
 import {
   axesFromProduct,
@@ -63,8 +81,14 @@ export function ProductVariants({
 }) {
   const router = useRouter();
   const lock = useRef(createOperationLock());
-  /** Clave de idempotencia del ajuste de inventario en curso, por variante. */
-  const inventoryKeys = useRef(new Map<string, string>());
+  /**
+   * Claves de idempotencia vivas, una por variante.
+   *
+   * Cada una va atada a la huella de su operación, así que editar la variante B no invalida el
+   * reintento pendiente de la A, y cambiar la cantidad de la A estrena clave en vez de reutilizar
+   * la del intento anterior con un cuerpo distinto.
+   */
+  const inventoryKeys = useRef(createKeyLedger());
 
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -205,33 +229,52 @@ export function ProductVariants({
     });
   }
 
-  async function handleAdjust(variant: AdminProductVariant, delta: number, reason: string) {
+  /**
+   * Establece el inventario de una variante.
+   *
+   * Es `PUT` y manda el estado final, con la versión del **producto**: el contrato versiona el
+   * producto entero, así que dos personas editando variantes distintas del mismo producto también
+   * chocan, y eso es lo correcto —la segunda estaría partiendo de una foto vieja—.
+   *
+   * Devuelve si el backend lo confirmó: es lo que decide si la fila cierra su formulario.
+   */
+  async function handleVariantInventory(
+    variant: AdminProductVariant,
+    inventory: SetInventoryControl,
+  ): Promise<InventorySubmitResult> {
     if (!begin()) {
-      return;
+      return { applied: false };
     }
 
-    // Una clave por operación, conservada entre reintentos de esa misma operación.
-    const key = inventoryKeys.current.get(variant.id) ?? crypto.randomUUID();
-
-    inventoryKeys.current.set(variant.id, key);
-
-    settle(
-      await adjustVariantInventory(product.id, variant.id, {
-        expectedVersion: product.version,
-        delta,
-        reason,
-        idempotencyKey: key,
-      }),
-      (result) => {
-        inventoryKeys.current.delete(variant.id);
-        onProduct(result.product);
-        setNotice(
-          result.replayed
-            ? 'El ajuste ya se había aplicado; el inventario no cambió.'
-            : 'Inventario de la variante ajustado.',
-        );
-      },
+    const target = {
+      productId: product.id,
+      variantId: variant.id,
+      expectedVersion: product.version,
+    };
+    const scope = inventoryScope(target);
+    const key = keyFor(inventoryKeys.current, scope, inventoryFingerprint(target, inventory), () =>
+      crypto.randomUUID(),
     );
+
+    const result = await setVariantInventory(product.id, variant.id, {
+      expectedVersion: product.version,
+      inventory,
+      idempotencyKey: key,
+    });
+
+    settle(result, (applied) => {
+      // Solo al completarse: un fallo conserva la clave y el reintento del mismo cuerpo es el
+      // mismo cambio.
+      releaseKey(inventoryKeys.current, scope);
+      onProduct(applied.product);
+      setNotice(
+        applied.replayed
+          ? 'Ese cambio ya se había aplicado; el inventario quedó como ya estaba.'
+          : 'Inventario de la variante actualizado.',
+      );
+    });
+
+    return { applied: result.ok };
   }
 
   return (
@@ -281,7 +324,7 @@ export function ProductVariants({
               <VariantRow
                 busy={busy}
                 key={`${variant.id}:${variant.version}`}
-                onAdjust={(delta, reason) => void handleAdjust(variant, delta, reason)}
+                onInventory={(inventory) => handleVariantInventory(variant, inventory)}
                 onArchive={() => void handleArchive(variant)}
                 onSave={(body, message) => void handleVariantSave(variant, body, message)}
                 permissions={permissions}
@@ -307,8 +350,10 @@ export function ProductVariants({
                     <strong>{variant.sku}</strong> · {variant.combinationKey}
                   </p>
                   <p className={styles.hint}>
-                    {formatCop(variant.priceCop)} · inventario {variant.stockQuantity} · su SKU
-                    sigue reservado.
+                    {/* Una variante archivada no se edita: se dice cómo quedó y nada más. */}
+                    {formatCop(variant.priceCop)} · {describeInventoryMode(variant.inventory.mode)}{' '}
+                    · {describeAvailability(variant.inventory.availability)} · su SKU sigue
+                    reservado.
                   </p>
                 </li>
               ))}
@@ -363,7 +408,7 @@ export function ProductVariants({
                     draftId: crypto.randomUUID(),
                     sku: '',
                     priceCop: groupCop(product.priceCop),
-                    stockQuantity: '0',
+                    inventory: EMPTY_INVENTORY_DRAFT,
                     // Los ejes que exige el backend son los que el producto declara, no los que
                     // haya en el editor de arriba sin guardar.
                     attributes: product.attributes.map((axis) => ({
@@ -430,22 +475,21 @@ function VariantRow({
   busy,
   onSave,
   onArchive,
-  onAdjust,
+  onInventory,
 }: {
   readonly variant: AdminProductVariant;
   readonly permissions: VariantPermissions;
   readonly busy: boolean;
   readonly onSave: (body: Record<string, unknown>, message: string) => void;
   readonly onArchive: () => void;
-  readonly onAdjust: (delta: number, reason: string) => void;
+  readonly onInventory: InventorySubmit;
 }) {
   const id = useId();
   // El precio se edita con el mismo campo y el mismo conversor que el del producto: se escribe
   // `1.450.000` y al backend viaja el entero.
   const [price, setPrice] = useState(() => groupCop(variant.priceCop));
   const [attributes, setAttributes] = useState(variant.attributes);
-  const [delta, setDelta] = useState('');
-  const [reason, setReason] = useState('');
+  const [editingInventory, setEditingInventory] = useState(false);
 
   const parsedPrice = parseCop(price);
   const priceValid = parsedPrice.ok && parsedPrice.value > 0;
@@ -455,12 +499,6 @@ function VariantRow({
       attribute.value !== variant.attributes[index]?.value ||
       attribute.label !== variant.attributes[index]?.label,
   );
-  const deltaValue = Number(delta);
-  const canAdjust =
-    delta.trim() !== '' &&
-    Number.isInteger(deltaValue) &&
-    deltaValue !== 0 &&
-    reason.trim().length > 0;
 
   return (
     <li className={styles.variantItem}>
@@ -513,11 +551,6 @@ function VariantRow({
           onChange={setPrice}
           value={price}
         />
-        <div className={styles.field}>
-          <span className={styles.label}>Inventario</span>
-          <p className={styles.variantStock}>{variant.stockQuantity}</p>
-          <span className={styles.hint}>Se mueve con un ajuste, no escribiéndolo.</span>
-        </div>
       </div>
 
       <div className={styles.imageTileActions}>
@@ -546,51 +579,37 @@ function VariantRow({
         ) : null}
       </div>
 
-      {permissions.canAdjustInventory ? (
-        <div className={styles.row}>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor={`${id}-delta`}>
-              Diferencia
-            </label>
-            <input
-              className={styles.input}
+      <div className={styles.variantInventory}>
+        <InventoryReadout inventory={variant.inventory} />
+
+        {permissions.canAdjustInventory ? (
+          editingInventory ? (
+            <InventoryEditor
               disabled={busy}
-              id={`${id}-delta`}
-              onChange={(event) => setDelta(event.target.value)}
-              step={1}
-              type="number"
-              value={delta}
+              inventory={variant.inventory}
+              onCancel={() => setEditingInventory(false)}
+              // Cerrar solo cuando el backend confirma. Cerrarlo junto a la llamada —lo que hacía
+              // antes— tiraba el borrador aunque la operación hubiera fallado.
+              onDone={() => setEditingInventory(false)}
+              onSubmit={onInventory}
+              submitLabel="Guardar inventario de la variante"
             />
-            <span className={styles.hint}>
-              Entero distinto de cero. Negativo para descontar. El stock nunca baja de cero.
-            </span>
-          </div>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor={`${id}-reason`}>
-              Motivo
-            </label>
-            <input
-              className={styles.input}
-              disabled={busy}
-              id={`${id}-reason`}
-              onChange={(event) => setReason(event.target.value)}
-              type="text"
-              value={reason}
-            />
-          </div>
-          <div className={styles.field}>
-            <span className={styles.label}>&nbsp;</span>
-            <button
-              className={styles.iconButton}
-              disabled={busy || !canAdjust}
-              onClick={() => onAdjust(deltaValue, reason.trim())}
-              type="button"
-            >
-              Aplicar ajuste
-            </button>
-          </div>
-        </div>
-      ) : null}
+          ) : (
+            <div className={styles.actions}>
+              <button
+                className={styles.iconButton}
+                disabled={busy}
+                onClick={() => setEditingInventory(true)}
+                type="button"
+              >
+                Actualizar inventario
+              </button>
+            </div>
+          )
+        ) : (
+          <p className={styles.hint}>Tu rol no incluye cambiar el inventario.</p>
+        )}
+      </div>
     </li>
   );
 }

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { acquire, createOperationLock, release } from '@/features/auth/operation-lock';
+import type { SetInventoryControl } from '@/lib/api/catalog';
 import {
   DESCRIPTION_MAX_LENGTH,
   SHORT_DESCRIPTION_MAX_LENGTH,
@@ -49,6 +50,14 @@ import {
 } from './enrichment-fields';
 import { ImageQueueEditor } from './image-queue-editor';
 import {
+  describeInventoryProblem,
+  EMPTY_INVENTORY_DRAFT,
+  inventoryBody,
+  inventoryProblems,
+  type InventoryDraft,
+} from './inventory-control';
+import { InventoryFields } from './inventory-fields';
+import {
   addToQueue,
   entriesMissingAltText,
   moveInQueue,
@@ -56,7 +65,9 @@ import {
   replaceFile,
   resolvePrimary,
   setAltText,
+  setCoverIntent,
   type QueueChange,
+  type ImageIntent,
   type QueuedImage,
 } from './image-queue';
 import { describeCopProblem, formatCop, parseCop } from './money';
@@ -98,8 +109,6 @@ type Fields = {
   shortDescription: string;
   description: string;
   priceCop: string;
-  stockQuantity: string;
-  lowStockThreshold: string;
 };
 
 const EMPTY_FIELDS: Fields = {
@@ -109,8 +118,6 @@ const EMPTY_FIELDS: Fields = {
   shortDescription: '',
   description: '',
   priceCop: '',
-  stockQuantity: '0',
-  lowStockThreshold: '0',
 };
 
 /**
@@ -135,6 +142,14 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
   const [enrichment, setEnrichment] = useState<EnrichmentFields>(EMPTY_ENRICHMENT);
   const [axes, setAxes] = useState<readonly AxisDraft[]>([]);
   const [variants, setVariants] = useState<readonly VariantDraft[]>([]);
+  /**
+   * Inventario del producto base.
+   *
+   * Vive fuera de `fields` porque no es un campo de texto más: es un modo con sus propios campos,
+   * y meterlo en el mismo objeto plano habría reintroducido exactamente lo que el contrato acaba
+   * de separar.
+   */
+  const [inventory, setInventory] = useState<InventoryDraft>(EMPTY_INVENTORY_DRAFT);
   const [queue, setQueue] = useState<readonly QueuedImage[]>([]);
   const [chosenPrimary, setChosenPrimary] = useState<string | null>(null);
   const [errors, setErrors] = useState<Errors>({});
@@ -149,8 +164,6 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
     slug: useId(),
     name: useId(),
     priceCop: useId(),
-    stockQuantity: useId(),
-    lowStockThreshold: useId(),
   };
 
   /**
@@ -211,7 +224,14 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
     return url;
   }
 
-  function handleAdd(files: FileList) {
+  /**
+   * Encola los archivos elegidos, **con la intención del bloque desde el que se eligieron**.
+   *
+   * La intención viaja con cada entrada en lugar de deducirse de su posición. El bloque Portada
+   * manda una sola imagen con `cover`; el de Galería, varias con `gallery`, y ninguna de ellas
+   * puede acabar de portada sin que alguien lo pida.
+   */
+  function handleAdd(files: FileList, intent: ImageIntent) {
     let next = queue;
     let lastChange: QueueChange = { queue, revoked: [], rejected: null };
 
@@ -221,6 +241,7 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
         previewUrl: track(file),
         entryId: crypto.randomUUID(),
         idempotencyKey: crypto.randomUUID(),
+        intent,
       });
       next = lastChange.queue;
 
@@ -311,6 +332,17 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
       found.images = 'Cada imagen necesita su texto alternativo.';
     }
 
+    /*
+     * Con imágenes en cola hace falta decir **cuál** es la portada.
+     *
+     * Antes se elegía por descarte —la primera de la lista— y eso convertía una imagen puesta en
+     * la galería en la portada del producto sin que nadie lo pidiera. Si no hay candidata, se
+     * bloquea el envío en lugar de decidirlo por su cuenta.
+     */
+    if (queue.length > 0 && chosenPrimary === null) {
+      found.images = 'Elige la portada antes de guardar: es la primera imagen que verá la tienda.';
+    }
+
     if (
       axisProblems.length > 0 ||
       hasEnrichmentProblems(enrichmentIssues) ||
@@ -333,8 +365,14 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
         slug: fields.slug.trim(),
         name: fields.name.trim(),
         priceCop: price.ok ? price.value : 0,
-        stockQuantity: Number(fields.stockQuantity || 0),
-        lowStockThreshold: Number(fields.lowStockThreshold || 0),
+        /*
+         * El inventario se **omite** si el borrador todavía no es válido. Omitirlo significa lo
+         * que dice el contrato —«cero unidades controladas»—, no una cantidad inventada, y
+         * `validate()` impide llegar aquí con un borrador roto.
+         */
+        ...(inventoryBody(inventory) === null
+          ? {}
+          : { inventory: inventoryBody(inventory) as SetInventoryControl }),
         ...(fields.shortDescription.trim() === ''
           ? {}
           : { shortDescription: fields.shortDescription.trim() }),
@@ -570,14 +608,13 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
             onMove={(entryId, direction) =>
               applyChange(moveInQueue(queue, entryId, direction, lockedIds))
             }
-            onPrimary={(entryId) => setChosenPrimary(entryId)}
+            onPrimary={(entryId) => applyChange(setCoverIntent(queue, entryId, lockedIds))}
             onRemove={(entryId) => applyChange(removeFromQueue(queue, entryId, lockedIds))}
             onReplace={(entryId, file) =>
               applyChange(
                 replaceFile(queue, entryId, file, track(file), crypto.randomUUID(), lockedIds),
               )
             }
-            primaryEntryId={chosenPrimary}
             queue={queue}
           />
         </div>
@@ -657,19 +694,23 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
           </section>
           <section className={styles.card} id={SECTION_IDS.inventario}>
             <div className={styles.cardPad}>
-              <SectionHeading icon="inventario" title="Inventario" />
-              <Field
-                id={ids.stockQuantity}
-                input={field('stockQuantity')}
-                label="Stock inicial"
-                type="number"
+              <SectionHeading icon="inventario" title="Cómo controlar el inventario" />
+              <InventoryFields
+                disabled={busy || created !== null}
+                draft={inventory}
+                onChange={setInventory}
               />
-              <Field
-                id={ids.lowStockThreshold}
-                input={field('lowStockThreshold')}
-                label="Umbral de stock bajo"
-                type="number"
-              />
+              {inventoryProblems(inventory).length === 0 ? null : (
+                <p className={styles.fieldError} role="alert">
+                  {describeInventoryProblem(inventoryProblems(inventory)[0]!)}
+                </p>
+              )}
+              {variants.length === 0 ? null : (
+                <p className={styles.hint}>
+                  Con variantes, esto deja de ser lo que se vende: cada variante lleva su propia
+                  modalidad y su propio inventario. El valor base se guarda igual y no se borra.
+                </p>
+              )}
             </div>
           </section>
         </div>
@@ -716,7 +757,7 @@ export function CreateProductForm({ canPublish }: { readonly canPublish: boolean
                     draftId: crypto.randomUUID(),
                     sku: '',
                     priceCop: fields.priceCop,
-                    stockQuantity: '0',
+                    inventory: EMPTY_INVENTORY_DRAFT,
                     attributes: declaredAxes(axes).map((axis) => ({
                       key: axis.key,
                       value: '',

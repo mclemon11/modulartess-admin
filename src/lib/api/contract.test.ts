@@ -62,7 +62,7 @@ describe('copia versionada del contrato', () => {
     ]);
   });
 
-  it('publica las quince operaciones de catálogo administrativo', () => {
+  it('publica las diecisiete operaciones de catálogo administrativo', () => {
     const operations: string[] = [];
 
     for (const [path, node] of Object.entries(contract.paths)) {
@@ -93,13 +93,17 @@ describe('copia versionada del contrato', () => {
       'POST /v1/admin/products/{productId}/variants',
       'POST /v1/admin/products/{productId}/variants/{variantId}/archive',
       'POST /v1/admin/products/{productId}/variants/{variantId}/inventory-adjustments',
+      // Las dos rutas de los modos. Son `PUT` y no `POST` a propósito: escriben el estado final,
+      // no acumulan un movimiento.
+      'PUT /v1/admin/products/{productId}/inventory',
+      'PUT /v1/admin/products/{productId}/variants/{variantId}/inventory',
     ]);
   });
 
   it('describe cada parámetro de ruta en las operaciones dinámicas', () => {
     const dynamic = Object.entries(contract.paths).filter(([path]) => path.includes('{productId}'));
 
-    expect(dynamic.length).toBe(11);
+    expect(dynamic.length).toBe(13);
 
     let declarations = 0;
 
@@ -131,7 +135,7 @@ describe('copia versionada del contrato', () => {
       }
     }
 
-    expect(declarations).toBe(13);
+    expect(declarations).toBe(15);
   });
 
   it('el alta de producto no admite clasificación ni ejes: eso viaja en el PATCH', () => {
@@ -141,13 +145,13 @@ describe('copia versionada del contrato', () => {
 
     expect(Object.keys(create).sort()).toEqual([
       'description',
-      'lowStockThreshold',
+      // Un único `inventory`: los dos campos planos que había antes desaparecieron del alta.
+      'inventory',
       'name',
       'priceCop',
       'shortDescription',
       'sku',
       'slug',
-      'stockQuantity',
     ]);
 
     const update = contract.components.schemas.UpdateProductRequestDto.properties;
@@ -262,6 +266,10 @@ describe('copia versionada del contrato', () => {
       'POST /v1/admin/products/{productId}/inventory-adjustments',
       'POST /v1/admin/products/{productId}/variants/{variantId}/inventory-adjustments',
       'POST /v1/orders',
+      // Las dos rutas que usa el panel desde los dos modos. La clave es obligatoria ahí, y por eso
+      // el BFF la exige en el cuerpo antes de llamar: sin ella no hay reintento seguro.
+      'PUT /v1/admin/products/{productId}/inventory',
+      'PUT /v1/admin/products/{productId}/variants/{variantId}/inventory',
     ]);
   });
 
@@ -345,11 +353,11 @@ describe('tipos generados', () => {
 /**
  * Superficie administrativa de pedidos.
  *
- * El panel da por ciertas exactamente estas cuatro operaciones y estos campos. Si el backend cambia
+ * El panel da por ciertas exactamente estas cinco operaciones y estos campos. Si el backend cambia
  * el contrato y se actualiza la copia, esto falla aquí en lugar de fallar en producción.
  */
 describe('pedidos administrativos', () => {
-  it('publica exactamente las cuatro operaciones que el panel usa', () => {
+  it('publica exactamente las cinco operaciones que el panel usa', () => {
     const operations: string[] = [];
 
     for (const [path, node] of Object.entries(contract.paths)) {
@@ -366,6 +374,7 @@ describe('pedidos administrativos', () => {
       'GET /v1/admin/orders',
       'GET /v1/admin/orders/{orderId}',
       'POST /v1/admin/orders/{orderId}/cancel',
+      'POST /v1/admin/orders/{orderId}/payment-simulation',
       'POST /v1/admin/orders/{orderId}/status',
     ]);
   });
@@ -379,11 +388,14 @@ describe('pedidos administrativos', () => {
     }
   });
 
-  it('publica los seis estados del pedido, en el orden del recorrido', () => {
+  it('publica los siete estados del pedido, en el orden del recorrido', () => {
+    // `ready_to_ship` entró entre producir y despachar: es la única señal que distingue un pedido
+    // todavía en el taller de uno terminado esperando al transportador.
     expect(contract.components.schemas.AdminOrderDto.properties.status.enum).toEqual([
       'pending_payment',
       'paid',
       'preparing',
+      'ready_to_ship',
       'shipped',
       'delivered',
       'cancelled',
@@ -391,19 +403,109 @@ describe('pedidos administrativos', () => {
   });
 
   /*
+   * El pago es otra lectura, con sus propios estados. El panel los mantiene separados de los del
+   * pedido incluso en el vocabulario: solo `approved` hace avanzar al pedido.
+   */
+  it('publica los siete estados del pago, separados de los del pedido', () => {
+    // `voided` entró con Wompi: una transacción anulada no es un rechazo ni un vencimiento, y el
+    // contrato la publica como su propio desenlace en lugar de fundirla con otro.
+    expect(contract.components.schemas.OrderPaymentDto.properties.status.enum).toEqual([
+      'pending',
+      'processing',
+      'approved',
+      'declined',
+      'voided',
+      'expired',
+      'error',
+    ]);
+  });
+
+  /*
+   * Los hitos del recorrido salen de dos historiales y el contrato dice cómo se desempatan cuando
+   * comparten marca de tiempo. Esa regla está en la descripción del `timeline`, no en el esquema,
+   * así que se fija aquí: si desapareciera, el panel estaría ordenando por una razón inventada.
+   */
+  it('fija el desempate entre el historial del pedido y el del pago', () => {
+    const timeline = contract.components.schemas.AdminOrderDto.properties.timeline;
+
+    expect(timeline.description).toContain('the payment one comes first');
+    expect(timeline.description).toContain('sorting by `at` alone does not decide between them');
+  });
+
+  /* Las etiquetas son autoritativas: el panel las consume y no mantiene una tabla paralela. */
+  it('publica la etiqueta del estado en el resumen, en la ficha y en cada hito', () => {
+    expect(contract.components.schemas.AdminOrderSummaryDto.required).toContain('statusLabel');
+    expect(contract.components.schemas.AdminOrderDto.required).toContain('statusLabel');
+    expect(contract.components.schemas.OrderTimelineEntryDto.required).toContain('label');
+    expect(contract.components.schemas.AdminPaymentEventDto.required).toContain('label');
+  });
+
+  /*
+   * El simulador es de staging y el contrato lo dice en su descripción: sin pasarela, sin cobro y
+   * con `payments.simulate`, que solo tiene `super_admin`. De ahí sale la matriz de permisos.
+   */
+  it('reserva el simulador a super_admin y lo declara como sandbox', () => {
+    const operation = contract.paths['/v1/admin/orders/{orderId}/payment-simulation'].post;
+
+    expect(operation.description).toContain('STAGING ONLY, AND NOT A GATEWAY');
+    expect(operation.description).toContain('payments.simulate permission, which only super_admin');
+    expect(operation.description).toContain('DOES NOT represent a charge');
+  });
+
+  /* El `eventId` es la idempotencia, y el contrato explica qué pasa al repetirlo. */
+  it('exige evento, versión e identificador idempotente en la simulación', () => {
+    const request = contract.components.schemas.SimulatePaymentRequestDto;
+
+    expect(request.required).toEqual(['event', 'expectedVersion', 'eventId']);
+    expect(request.properties.eventId.minLength).toBe(8);
+    expect(request.properties.eventId.maxLength).toBe(128);
+    expect(request.properties.eventId.description).toContain('Replaying the same eventId');
+  });
+
+  /*
+   * No hay vista previa, ni reenvío, ni envío manual de avisos. Por eso la tarjeta de
+   * Notificaciones es de solo lectura: no es una omisión de diseño.
+   */
+  it('no publica ninguna operación sobre las notificaciones', () => {
+    for (const path of Object.keys(contract.paths)) {
+      expect(path).not.toContain('notification');
+      expect(path).not.toContain('email');
+      expect(path).not.toContain('preview');
+    }
+  });
+
+  /* Ni destinatario ni cuerpo: el contrato lo dice y el panel no puede pintarlos. */
+  it('el aviso no publica destinatario ni cuerpo', () => {
+    const notification = contract.components.schemas.AdminNotificationDto;
+    const keys = Object.keys(notification.properties);
+
+    expect(keys).not.toContain('recipient');
+    expect(keys).not.toContain('to');
+    expect(keys).not.toContain('body');
+    expect(keys).not.toContain('subject');
+    expect(
+      contract.components.schemas.AdminOrderDto.properties.notifications.description,
+    ).toContain('Bodies and recipients are never returned');
+  });
+
+  /*
    * La fila del listado trae esto y nada más: sin líneas completas, sin dirección y sin correo. Es
    * lo que impide que la tabla prometa columnas que no existen.
    */
   it('publica en el resumen solo los campos que pinta la tabla', () => {
+    // `paymentStatus` y `statusLabel` entraron para que la lista pueda enseñar las dos lecturas sin
+    // abrir cada pedido: el contrato dice que «the row costs no extra read».
     expect(Object.keys(contract.components.schemas.AdminOrderSummaryDto.properties).sort()).toEqual(
       [
         'createdAt',
         'customerName',
         'id',
         'itemCount',
+        'paymentStatus',
         'previewLine',
         'publicId',
         'status',
+        'statusLabel',
         'totalCop',
         'updatedAt',
         'version',
@@ -456,8 +558,8 @@ describe('pedidos administrativos', () => {
     ]);
   });
 
-  /* Sin `expectedVersion` no hay control de concurrencia: las dos mutaciones lo exigen. */
-  it.each(['UpdateOrderStatusRequestDto', 'CancelOrderRequestDto'])(
+  /* Sin `expectedVersion` no hay control de concurrencia: las tres mutaciones lo exigen. */
+  it.each(['UpdateOrderStatusRequestDto', 'CancelOrderRequestDto', 'SimulatePaymentRequestDto'])(
     '%s exige expectedVersion',
     (schema) => {
       const schemas = contract.components.schemas as unknown as Record<
@@ -489,5 +591,264 @@ describe('pedidos administrativos', () => {
     ] as const) {
       expect(schemas[schema]?.properties[field]?.type, `${schema}.${field}`).toBe('number');
     }
+  });
+});
+
+/**
+ * Superficie del resumen comercial.
+ *
+ * Una sola operación, cuatro errores y una forma de respuesta. Lo que se fija aquí es lo que el
+ * Dashboard da por cierto: si el backend cambia el contrato y se actualiza la copia, falla en esta
+ * prueba y no en una pantalla que enseña cifras.
+ */
+describe('resumen del dashboard', () => {
+  it('publica exactamente una operación de dashboard', () => {
+    const operations: string[] = [];
+
+    for (const [path, node] of Object.entries(contract.paths)) {
+      if (!path.startsWith('/v1/admin/dashboard')) {
+        continue;
+      }
+
+      for (const method of Object.keys(node)) {
+        operations.push(`${method.toUpperCase()} ${path}`);
+      }
+    }
+
+    expect(operations).toEqual(['GET /v1/admin/dashboard/summary']);
+  });
+
+  /* Tres parámetros y ninguno más: el panel no puede inventar un filtro ni una granularidad. */
+  it('solo admite period, from, to y el ambiente financiero', () => {
+    const parameters = contract.paths['/v1/admin/dashboard/summary'].get.parameters ?? [];
+    const names = parameters.map((parameter: { name: string }) => parameter.name).sort();
+
+    // `salesEnvironment` es un **filtro**, no una etiqueta: el contrato dice que ninguna cifra
+    // monetaria significa nunca «sandbox + live», así que el ambiente se elige al preguntar.
+    expect(names).toEqual(['from', 'period', 'salesEnvironment', 'to']);
+  });
+
+  it('publica los cuatro períodos y ninguno más', () => {
+    const parameters = contract.paths['/v1/admin/dashboard/summary'].get.parameters ?? [];
+    const period = parameters.find((parameter: { name: string }) => parameter.name === 'period') as
+      { schema: { enum: readonly string[] } } | undefined;
+
+    expect(period?.schema.enum).toEqual(['today', '7d', '30d', 'custom']);
+  });
+
+  /*
+   * `from` es obligatorio con `custom` y se rechaza con cualquier otro período. De ahí sale que el
+   * módulo server-only los omita en lugar de dejarlos viajar.
+   */
+  it('reserva from y to para el período personalizado', () => {
+    const parameters = contract.paths['/v1/admin/dashboard/summary'].get.parameters ?? [];
+    const from = parameters.find((parameter: { name: string }) => parameter.name === 'from') as
+      { description: string } | undefined;
+
+    expect(from?.description).toContain('Required for period=custom');
+    expect(from?.description).toContain('rejected for any other period');
+    expect(from?.description).toContain('At most 92 days');
+  });
+
+  it('publica los cuatro errores que el panel traduce', () => {
+    const responses = contract.paths['/v1/admin/dashboard/summary'].get.responses as Record<
+      string,
+      { description: string }
+    >;
+
+    expect(Object.keys(responses).sort()).toEqual(['200', '400', '401', '403', '503']);
+    expect(responses['400']?.description).toContain('dashboard_query_invalid');
+    expect(responses['401']?.description).toContain('admin_session_required');
+    expect(responses['403']?.description).toContain('admin_forbidden');
+    expect(responses['503']?.description).toContain('dashboard_unavailable');
+  });
+
+  /*
+   * El resumen trae las once secciones que pinta la pantalla. Si el backend retirara una, la
+   * pantalla dejaría de compilar antes de quedarse con un hueco silencioso.
+   */
+  it('el resumen trae todas las secciones que el Dashboard pinta', () => {
+    expect([...contract.components.schemas.DashboardSummaryDto.required].sort()).toEqual([
+      'attention',
+      'commerce',
+      'environment',
+      'generatedAt',
+      'operations',
+      'ordersByStatus',
+      'paymentsByStatus',
+      'period',
+      'recentOrders',
+      'salesSeries',
+      'timezone',
+      'topProducts',
+      'truncated',
+    ]);
+  });
+
+  /*
+   * La distinción que la pantalla tiene que declarar: unas cifras son del período y otras son de
+   * ahora mismo. Si desapareciera de la descripción, el panel estaría afirmándolo por su cuenta.
+   */
+  it('fija que la operación es una fotografía y no del período', () => {
+    const description = contract.paths['/v1/admin/dashboard/summary'].get.description;
+
+    expect(description).toContain('commerce, salesSeries and topProducts describe the PERIOD');
+    expect(description).toContain('are the snapshot of RIGHT NOW');
+    expect(description).toContain('do not change when the period changes');
+  });
+
+  /* Una venta es un pago aprobado, no un pedido creado. Es la confusión que cuesta dinero. */
+  it('fija que la venta se atribuye a la fecha de aprobación del pago', () => {
+    const description = contract.paths['/v1/admin/dashboard/summary'].get.description;
+
+    expect(description).toContain('attributed to the approval date and never to the creation date');
+
+    const created = contract.components.schemas.DashboardCommerceDto.properties.createdOrders;
+
+    expect(created.description).toContain('These are intentions to buy, NOT sales');
+  });
+
+  /* `null` significa que no hay comparación. El panel no puede convertirlo en cero. */
+  it('declara changePercent como nullable y finito', () => {
+    for (const schema of ['DashboardAmountComparisonDto', 'DashboardCountComparisonDto'] as const) {
+      const node = contract.components.schemas[schema];
+
+      expect(node.required).toContain('changePercent');
+      expect(node.properties.changePercent.nullable).toBe(true);
+      expect(node.properties.changePercent.description).toContain('as a finite number');
+      expect(node.properties.changePercent.description).toContain('null when the previous period');
+    }
+  });
+
+  /* `truncated` se publica para mostrarse, no para decidir si se muestra. */
+  it('publica truncated y explica por qué', () => {
+    const truncated = contract.components.schemas.DashboardSummaryDto.properties.truncated;
+
+    expect(truncated.description).toContain('the period figures are a MINIMUM and not a total');
+    expect(truncated.description).toContain('published instead of hidden');
+  });
+
+  it('la serie trae un punto por día, con los días vacíos en cero', () => {
+    const series = contract.components.schemas.DashboardSummaryDto.properties.salesSeries;
+
+    expect(series.description).toContain('One point per calendar day');
+    expect(series.description).toContain('never omitted');
+    expect([...contract.components.schemas.DashboardSeriesPointDto.required].sort()).toEqual([
+      'approvedAmountCop',
+      'approvedOrders',
+      'createdOrders',
+      'date',
+    ]);
+  });
+
+  /* Los ocho estados de la operación, para que la tarjeta no pueda olvidarse de uno. */
+  it('la operación publica los ocho contadores', () => {
+    expect([...contract.components.schemas.DashboardOperationsDto.required].sort()).toEqual([
+      'cancelled',
+      'delivered',
+      'paid',
+      'paymentProcessing',
+      'pendingPayment',
+      'preparing',
+      'readyToShip',
+      'shipped',
+    ]);
+  });
+
+  /* `ready_to_ship` no puede faltar en la distribución: es el paso que el panel acaba de ganar. */
+  it('la distribución publica los siete estados del pedido', () => {
+    expect(contract.components.schemas.DashboardOrderStatusCountDto.properties.status.enum).toEqual(
+      [
+        'pending_payment',
+        'paid',
+        'preparing',
+        'ready_to_ship',
+        'shipped',
+        'delivered',
+        'cancelled',
+      ],
+    );
+  });
+
+  it('la distribución de pagos publica los siete estados del pago', () => {
+    expect(
+      contract.components.schemas.DashboardPaymentStatusCountDto.properties.status.enum,
+    ).toEqual(['pending', 'processing', 'approved', 'declined', 'voided', 'expired', 'error']);
+  });
+
+  /*
+   * De aquí sale la frase que la tarjeta escribe: los dos totales pueden no coincidir, y quien
+   * administra tiene que saberlo antes de restar y creer que faltan pedidos.
+   */
+  it('avisa de que los pagos por estado pueden sumar menos que los pedidos', () => {
+    expect(
+      contract.components.schemas.DashboardSummaryDto.properties.paymentsByStatus.description,
+    ).toContain('can add up to less than ordersByStatus');
+  });
+
+  /* Los pedidos recientes viajan dentro del resumen: no hay que pedir cada uno. */
+  it('el resumen trae los pedidos recientes con la proyección del listado', () => {
+    const recent = contract.components.schemas.DashboardSummaryDto.properties.recentOrders;
+
+    expect(recent.items).toEqual({ $ref: '#/components/schemas/AdminOrderSummaryDto' });
+    expect(recent.description).toContain('The last 8 orders created');
+  });
+
+  /* El nombre y la imagen del producto son los de la venta, no los del catálogo de hoy. */
+  it('los productos más vendidos usan la instantánea histórica', () => {
+    const product = contract.components.schemas.DashboardTopProductDto;
+
+    expect([...product.required].sort()).toEqual([
+      'approvedRevenueCop',
+      'imageUrl',
+      'name',
+      'productId',
+      'units',
+    ]);
+    expect(product.properties.name.description).toContain('never read from the current catalogue');
+    expect(product.properties.imageUrl.nullable).toBe(true);
+  });
+
+  /*
+   * Los cinco avisos de atención, con las dos limitaciones que la pantalla tiene que explicar: el
+   * inventario bajo no cubre variantes, y la outbox no tiene listado.
+   */
+  it('publica los seis contadores de atención con sus límites', () => {
+    const attention = contract.components.schemas.DashboardAttentionDto;
+
+    expect([...attention.required].sort()).toEqual([
+      'failedNotifications',
+      'lowStockProducts',
+      'paymentIncidents',
+      'pendingPayments',
+      'readyToShipOrders',
+      'staleProcessingPayments',
+    ]);
+    expect(attention.properties.lowStockProducts.description).toContain(
+      'Products that sell through variants are NOT counted',
+    );
+  });
+
+  /* El período resuelto lo devuelve el backend: el panel no calcula ni una fecha. */
+  it('el período resuelto trae su rango y el de comparación', () => {
+    expect([...contract.components.schemas.DashboardPeriodDto.required].sort()).toEqual([
+      'from',
+      'kind',
+      'previousFrom',
+      'previousTo',
+      'to',
+    ]);
+  });
+
+  /*
+   * La fecha real de la venta. El dashboard le atribuye los ingresos, y la ficha del pedido la
+   * enseña para que las dos pantallas cuenten lo mismo.
+   */
+  it('el pago publica cuándo se aprobó por primera vez', () => {
+    const approvedAt = contract.components.schemas.OrderPaymentDto.properties.approvedAt;
+
+    expect(contract.components.schemas.OrderPaymentDto.required).toContain('approvedAt');
+    expect(approvedAt.nullable).toBe(true);
+    expect(approvedAt.description).toContain('This is the real date of the sale');
   });
 });

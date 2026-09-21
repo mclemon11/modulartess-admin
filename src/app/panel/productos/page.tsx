@@ -2,16 +2,15 @@ import Link from 'next/link';
 
 import styles from '@/features/panel/catalog.module.css';
 import { describeBackendFailure } from '@/features/panel/catalog-errors';
-import { formatDateTime } from '@/features/panel/format';
-import { formatCop } from '@/features/panel/money';
 import { PanelHeader } from '@/features/panel/panel-header';
+import { PanelPageHeader } from '@/features/panel/panel-page-header';
 import { EmptyState, ErrorState } from '@/features/panel/panel-states';
-import { ProductThumb } from '@/features/panel/product-thumb';
-import { describeReadiness } from '@/features/panel/publication-readiness';
+import { ProductMobileCard } from '@/features/panel/product-mobile-card';
+import { ProductsTable } from '@/features/panel/products-table';
+import { RefreshButton } from '@/features/panel/refresh-button';
 import { resolvePanelSession } from '@/features/panel/session-context';
-import { StatusBadge } from '@/features/panel/status-badge';
 import { can } from '@/features/session/permissions';
-import { listProducts, type AdminProduct } from '@/lib/api/catalog';
+import { listProducts } from '@/lib/api/catalog';
 import { isBackendFailure } from '@/lib/api/errors';
 
 export const dynamic = 'force-dynamic';
@@ -27,16 +26,20 @@ function firstValue(value: string | string[] | undefined): string | undefined {
 /**
  * Listado de productos con datos reales del backend.
  *
- * Sigue las referencias de escritorio y móvil en lo que el contrato permite: tabla con miniatura en
- * escritorio, tarjetas apiladas en móvil, badges de estado, categoría, precio en pesos y, en los
- * borradores, la preparación para publicar que evalúa el backend.
+ * Sigue las referencias en lo que el contrato permite: tabla con miniatura en escritorio, tarjetas
+ * apiladas en móvil, badges de estado, categoría, precio en pesos y, en los borradores, la
+ * preparación para publicar que evalúa el backend.
  *
- * Lo que las referencias muestran y **no** está aquí, porque OpenAPI todavía no lo publica:
- * buscador, filtros por categoría/colección/stock/fecha/visibilidad, contadores por estado
- * (`Publicados 128`, `Borradores 16`…), columna de visibilidad, exportación, selección múltiple,
- * «Filtros rápidos», «Resumen del catálogo» y «Acciones sugeridas». `GET /v1/admin/products` solo
- * admite `pageToken` y `pageSize`: un buscador que filtrara la página ya cargada mentiría sobre el
- * catálogo entero, y los contadores globales no se pueden calcular.
+ * Lo que las referencias muestran y **no** está aquí, porque OpenAPI no lo publica: las cuatro
+ * tarjetas de métricas con su variación mensual —`Publicados 128`, `Borradores 16`…—, el buscador,
+ * los chips por estado con sus conteos, los seis selectores de filtro, la columna de visibilidad,
+ * la exportación, la selección múltiple y la columna derecha con «Filtros rápidos», «Resumen del
+ * catálogo» y «Acciones sugeridas». `GET /v1/admin/products` solo admite `pageToken` y `pageSize`:
+ * un contador calculado con la página cargada mentiría sobre el catálogo entero, y un buscador que
+ * filtrara esa misma página se presentaría como búsqueda global sin serlo.
+ *
+ * Sin métricas, el listado empieza donde empieza el contenido y ocupa todo el ancho, que es lo que
+ * el catálogo necesita.
  *
  * La paginación tampoco puede ser numérica: el contrato devuelve un `pageToken` opaco, que permite
  * avanzar pero no saltar a una página concreta ni saber cuántas hay.
@@ -70,11 +73,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
       <>
         <PanelHeader trail={trail} />
         <div className={styles.page}>
-          <div className={styles.pageHead}>
-            <div className={styles.pageHeadText}>
-              <h1 className={styles.pageTitle}>Productos</h1>
-            </div>
-          </div>
+          <PanelPageHeader title="Productos" />
           <ErrorState
             action={
               <Link className={styles.buttonSecondary} href="/panel/productos">
@@ -93,57 +92,31 @@ export default async function ProductsPage({ searchParams }: PageProps) {
     <>
       <PanelHeader trail={trail} />
       <div className={styles.page}>
-        <div className={styles.pageHead}>
-          <div className={styles.pageHeadText}>
-            <h1 className={styles.pageTitle}>Productos</h1>
-            <p className={styles.pageLead}>
-              Publicados, borradores y archivados, ordenados por última actualización. En los
-              borradores se indica lo que el backend pide para poder publicarlos.
-            </p>
-          </div>
-          {canCreate ? (
-            <Link className={styles.buttonPrimary} href="/panel/productos/nuevo">
-              <span aria-hidden="true">+</span> Nuevo producto
-            </Link>
-          ) : null}
-        </div>
+        <PanelPageHeader
+          actions={
+            <>
+              <RefreshButton />
+              {canCreate ? (
+                <Link className={styles.buttonPrimary} href="/panel/productos/nuevo">
+                  <span aria-hidden="true">+</span> Nuevo producto
+                </Link>
+              ) : null}
+            </>
+          }
+          lead="Publicados, borradores y archivados de tu tienda, ordenados por última actualización. En los borradores se indica lo que el backend pide para poder publicarlos."
+          title="Productos"
+        />
 
         {page.items.length === 0 ? (
           <CatalogEmpty canCreate={canCreate} />
         ) : (
           <section className={styles.listSurface}>
-            <div className={styles.tableScroll}>
-              <table className={styles.table}>
-                <caption className="sr-only">Productos del catálogo administrativo</caption>
-                <thead>
-                  <tr>
-                    <th className={styles.thumbCell} scope="col">
-                      Imagen
-                    </th>
-                    <th scope="col">Producto</th>
-                    <th scope="col">SKU</th>
-                    <th scope="col">Categoría</th>
-                    <th scope="col">Precio</th>
-                    <th scope="col">Inventario</th>
-                    <th scope="col">Estado</th>
-                    <th scope="col">Última actualización</th>
-                    <th scope="col">
-                      <span className="sr-only">Acciones</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {page.items.map((product) => (
-                    <ProductRow canEdit={canEdit} key={product.id} product={product} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ProductsTable canEdit={canEdit} products={page.items} />
 
             <ul className={styles.cardList}>
               {page.items.map((product) => (
                 <li key={product.id}>
-                  <ProductCard canEdit={canEdit} product={product} />
+                  <ProductMobileCard canEdit={canEdit} product={product} />
                 </li>
               ))}
             </ul>
@@ -167,130 +140,6 @@ export default async function ProductsPage({ searchParams }: PageProps) {
         )}
       </div>
     </>
-  );
-}
-
-/**
- * Preparación para publicar de un borrador.
- *
- * Solo se pinta en `draft`: en un producto publicado o archivado la evaluación no le dice nada a
- * nadie. El texto sale de `publicationReadiness`, que calcula el backend; aquí no se deriva ninguna
- * regla.
- */
-function ReadinessPill({ product }: { readonly product: AdminProduct }) {
-  if (product.status !== 'draft') {
-    return null;
-  }
-
-  const { publicationReadiness: readiness } = product;
-
-  return (
-    <span className={readiness.ready ? styles.readyPill : styles.pendingPill}>
-      {describeReadiness(readiness)}
-    </span>
-  );
-}
-
-function stockClass(product: AdminProduct): string | undefined {
-  return product.stockQuantity <= product.lowStockThreshold ? styles.lowStock : undefined;
-}
-
-/**
- * Inventario de la fila.
- *
- * «Sin existencias» no es un estado inventado: es el mismo `stockQuantity` dicho en palabras cuando
- * vale cero. El estado del producto sigue siendo el del contrato —borrador, publicado o
- * archivado—, y la disponibilidad la deriva el backend, no esta pantalla.
- */
-function StockCell({ product }: { readonly product: AdminProduct }) {
-  if (product.stockQuantity === 0) {
-    return <span className={styles.outOfStock}>Sin existencias</span>;
-  }
-
-  return <span className={stockClass(product)}>{product.stockQuantity}</span>;
-}
-
-function ProductRow({
-  product,
-  canEdit,
-}: {
-  readonly product: AdminProduct;
-  readonly canEdit: boolean;
-}) {
-  return (
-    <tr>
-      <td className={styles.thumbCell}>
-        <ProductThumb product={product} />
-      </td>
-      <td>
-        <span className={styles.productCell}>
-          <Link className={styles.productName} href={`/panel/productos/${product.id}`}>
-            {product.name}
-          </Link>
-          <span className={styles.productSlug}>{product.shortDescription || product.slug}</span>
-        </span>
-      </td>
-      <td className={styles.mono}>{product.sku}</td>
-      {/* La categoría solo se pinta si el backend la trae: los productos anteriores al catálogo
-          enriquecido no la tienen, y «—» dice eso sin inventar una. */}
-      <td>{product.category === null ? '—' : product.category.name}</td>
-      <td className={styles.numeric}>{formatCop(product.priceCop)}</td>
-      <td className={styles.numeric}>
-        <StockCell product={product} />
-      </td>
-      <td>
-        <span className={styles.statusCell}>
-          <StatusBadge status={product.status} />
-          <ReadinessPill product={product} />
-        </span>
-      </td>
-      <td className={styles.timestamp}>{formatDateTime(product.updatedAt)}</td>
-      <td className={styles.actionCell}>
-        <Link className={styles.rowAction} href={`/panel/productos/${product.id}`}>
-          {canEdit ? 'Editar' : 'Ver'}
-        </Link>
-      </td>
-    </tr>
-  );
-}
-
-/** Tarjeta de móvil: misma información que la tabla, con la jerarquía de la referencia. */
-function ProductCard({
-  product,
-  canEdit,
-}: {
-  readonly product: AdminProduct;
-  readonly canEdit: boolean;
-}) {
-  return (
-    <article className={styles.productCard}>
-      <ProductThumb product={product} variant="card" />
-      <div className={styles.productCardBody}>
-        <h2 className={styles.productCardTitle}>
-          <Link href={`/panel/productos/${product.id}`}>{product.name}</Link>
-        </h2>
-        <p className={styles.productCardSku}>SKU: {product.sku}</p>
-        {product.category === null ? null : (
-          <p className={styles.productCardMeta}>{product.category.name}</p>
-        )}
-        <p className={styles.productCardPrice}>{formatCop(product.priceCop)}</p>
-        <div className={styles.productCardStatus}>
-          <StatusBadge status={product.status} />
-          <ReadinessPill product={product} />
-        </div>
-        <p className={styles.productCardMeta}>
-          <span>
-            Inventario: <StockCell product={product} />
-          </span>
-          <span>Actualizado {formatDateTime(product.updatedAt)}</span>
-        </p>
-        <div className={styles.productCardFooter}>
-          <Link className={styles.rowAction} href={`/panel/productos/${product.id}`}>
-            {canEdit ? 'Editar' : 'Ver producto'} <span aria-hidden="true">→</span>
-          </Link>
-        </div>
-      </div>
-    </article>
   );
 }
 

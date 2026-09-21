@@ -14,7 +14,7 @@ function draft(draftId: string): VariantDraft {
     draftId,
     sku: `SKU-${draftId.toUpperCase()}`,
     priceCop: '1490000',
-    stockQuantity: '1',
+    inventory: { mode: 'tracked', quantity: '1', lowStockThreshold: '0', status: 'in_stock' },
     attributes: [{ key: 'finish', value: draftId, label: draftId }],
   };
 }

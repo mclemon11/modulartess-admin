@@ -45,6 +45,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/dashboard/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Commercial summary for the admin dashboard
+         * @description Every figure comes from real stored data; nothing is estimated, sampled or generated. Requires dashboard.read. Calendar days are America/Bogota days, converted to UTC once before querying, so "today" is the Colombian day and not the UTC one. A SALE is an order whose FIRST valid payment was approved inside the period, attributed to the approval date and never to the creation date: an order placed on the 30th and paid on the 2nd is a sale of the second month. A replayed or duplicated payment event never counts twice. commerce, salesSeries and topProducts describe the PERIOD and belong to ONE payment environment, chosen with salesEnvironment: no monetary figure ever mixes sandbox with live. operations, ordersByStatus, paymentsByStatus and attention are the snapshot of RIGHT NOW, global across environments, and do not change when the period changes. Response is always Cache-Control: no-store, like the rest of this surface.
+         */
+        get: operations["AdminDashboardController_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/integrations/wompi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the Wompi integration status
+         * @description Never returns a secret. The public key comes back masked to its prefix and last four characters, and of the other three only whether a version is stored. webhookUrl is read-only and derived from server configuration: copy it into the Wompi dashboard. Requires integrations.read, which super_admin and master_admin have.
+         */
+        get: operations["AdminIntegrationsController_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Configure or rotate the Wompi credentials
+         * @description Every secret field is WRITE-ONLY: sending a value stores a NEW version in Secret Manager, omitting it leaves the current one, and no operation ever returns them. A rotation writes the new versions first and only then moves the pointer, so a partial failure leaves orphan versions nobody uses instead of a pointer to something that does not exist. Sandbox keys must carry the sandbox prefixes and production keys the production ones; mixing environments is rejected. Turning the environment on requires the complete configuration. Turning it off stops new checkouts and DELETES NOTHING: orders, attempts, events and secrets stay, and the webhook keeps closing payments already in flight. environment=production is always rejected with wompi_live_payments_not_enabled: the block is a constant in the binary, not a setting. Requires expectedVersion and integrations.manage, which only super_admin has.
+         */
+        patch: operations["AdminIntegrationsController_update"];
+        trace?: never;
+    };
+    "/v1/admin/integrations/wompi/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test the sandbox connection
+         * @description Calls GET https://sandbox.wompi.co/v1/merchants/info with the stored public key in the x-merchant-public-key header. It proves the public key and connectivity, AND NOTHING ELSE: Wompi offers no safe operation to verify the private key, the Events secret or the Integrity secret, so the response reports those three as 'configured', never as 'verified'. The remote body is never included in the response, the error or the logs. Requires integrations.manage: it is an outbound call against the provider, not a read.
+         */
+        post: operations["AdminIntegrationsController_test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/orders": {
         parameters: {
             query?: never;
@@ -105,6 +169,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/orders/{orderId}/payment-simulation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply a simulated payment outcome (staging only)
+         * @description STAGING ONLY, AND NOT A GATEWAY. Available only when PAYMENT_SIMULATION_MODE=enabled, which the configuration accepts only together with INTEGRATION_MODE=mock; otherwise this route answers 404 as if it did not exist. Requires the payments.simulate permission, which only super_admin has. Every outcome is recorded with environment=sandbox and source=payment_simulator: an approved simulation moves the order to paid so the lifecycle can be exercised, but it DOES NOT represent a charge and DOES NOT change stock. The outcome goes through the same state machine a verified gateway webhook will use, so there is no way to write an arbitrary payment state. Replaying the same eventId with the same outcome changes nothing and sends no second email; reusing it with a different outcome, or sending any outcome after approved, is a conflict.
+         */
+        post: operations["AdminOrdersController_simulatePayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/orders/{orderId}/status": {
         parameters: {
             query?: never;
@@ -116,13 +200,53 @@ export interface paths {
         put?: never;
         /**
          * Move the order through the operational statuses
-         * @description Only paid→preparing, preparing→shipped and shipped→delivered. No skips and no going back. pending_payment→paid is NOT available here: it belongs to the future payments webhook. Lines, prices, totals and customer are never modified by a transition. Requires expectedVersion and orders.update_status, which all three roles have.
+         * @description Only paid→preparing, preparing→ready_to_ship, ready_to_ship→shipped and shipped→delivered. No skips and no going back. preparing→shipped is rejected for new mutations: ready_to_ship is a real state and skipping it lost the only signal that tells an order still being produced from a finished one waiting for the carrier. Orders whose history already contains preparing→shipped keep reading fine and can still move on. pending_payment→paid is NOT available here: it is applied by the payment outcome, in the same transaction that confirms it. Lines, prices, totals and customer are never modified by a transition. Requires expectedVersion and orders.update_status, which all three roles have.
          */
         post: operations["AdminOrdersController_changeStatus"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List payment incidents
+         * @description Signature-valid payment events whose commercial data did not match. Deduplicated by environment + transaction + reason, so a provider retrying the same event for hours appears once with a counter. Ordered by lastSeenAt descending: what happened again a moment ago comes first. Defaults to status=open, which is the question somebody opening the panel is asking. The projection carries closed codes and technical identifiers ONLY: no provider payload, no email, no address, no payment method, no received amount, no signature and no secrets. Requires integrations.read.
+         */
+        get: operations["AdminPaymentIncidentsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-incidents/{incidentId}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark a payment incident as reviewed
+         * @description Closing an incident is an ASSERTION about money that did not add up, so it needs integrations.manage, which only super_admin has; looking at the inbox only needs integrations.read. Requires expectedVersion: two administrators looking at the same inbox could otherwise close it with different reasons and the second would overwrite the first without noticing. resolutionCode is a closed vocabulary, never free text: a notes field would end up holding the payer's email or a fragment of the provider's response. If the same fact happens again afterwards the incident is REOPENED — its version and occurrences increase and the resolution is cleared — because leaving it closed would hide something that is still going on. The reopening is audited.
+         */
+        patch: operations["AdminPaymentIncidentsController_resolve"];
         trace?: never;
     };
     "/v1/admin/products": {
@@ -250,6 +374,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/products/{productId}/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the inventory of the base option
+         * @description Sets the FINAL STATE, never a difference: the caller says 'there are twelve' or 'it is available'. Computing a delta against what a browser believes was there is doing arithmetic with stale data, and the result of that arithmetic would be a wrong stock movement. The backend still derives the difference, but only for the audit trail. Two modes, and they cannot be mixed: tracked carries quantity and an optional lowStockThreshold and derives availability from quantity > 0; availability carries status and HAS NO QUANTITY AT ALL — no sentinel value is stored or published. Fields of one mode are rejected in the other. Moving from availability to tracked requires an explicit quantity. Moving from tracked to availability makes the previous number stop being authoritative: it is not published as current stock. Changing mode is audited. Rejected with product_sells_by_variant when the product has active variants: the base number no longer governs anything, and letting it change would make the caller believe stock was replenished. Requires expectedVersion, an Idempotency-Key and inventory.adjust. No reason is required: 'there are twelve' explains itself.
+         */
+        put: operations["AdminProductsController_setInventory"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/products/{productId}/inventory-adjustments": {
         parameters: {
             query?: never;
@@ -348,6 +492,26 @@ export interface paths {
          * @description Withdraws it from the sellable options and from the public projection immediately. Its SKU and its identifier stay reserved for ever. Archiving the last active variant leaves the product with nothing to sell, and it can no longer be published. Requires expectedVersion and products.archive, which moderator does not have.
          */
         post: operations["AdminProductsController_archiveVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/products/{productId}/variants/{variantId}/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the inventory of one variant
+         * @description Same rules and the same idempotency as the base operation, applied to one variant: final state, never a delta. Each variant chooses its own mode, and tracked and availability variants can coexist in the same product: one finish may sit in the warehouse while another is made to order. An archived variant cannot be modified. Requires expectedVersion, an Idempotency-Key and inventory.adjust.
+         */
+        put: operations["AdminProductsController_setVariantInventory"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -462,6 +626,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orders/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Look up one order with its public identifier and the buyer's email
+         * @description POST, not GET, so the email never travels in a URL, a query string, a Referer header or an access log. The publicId alone authorises nothing: the order is returned only when the publicId and the normalised email belong to the same record. An unknown order and a wrong email answer with exactly the same status, code and body, so this endpoint cannot be used to find out which orders exist; the global rate limit covers it like every other /v1 operation. The projection is built from the stored snapshot, so it never re-reads the catalogue. It carries no internal id, no version, no SKU, no product or variant identifier, and no customer name, email, phone or address.
+         */
+        post: operations["PublicOrdersController_lookup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/payments/wompi/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a Wompi hosted checkout for an order
+         * @description SANDBOX ONLY, AND NO REAL MONEY MOVES. Live payments are blocked in code and no configuration can enable them. Everything that decides the charge is generated by the backend: the reference, the amount from the STORED order total, the currency, the expiration, the return URL and the signature. The body carries only publicId and email, and any other field is rejected rather than ignored. The redirectUrl it returns ends with the attempt's own opaque reference, which is how the result page recovers the attempt after the browser loses its state. It contains no publicId, no email and no internal id. Reloading returns the SAME open attempt and the same reference: a new one is only created after the previous outcome was declined, voided, error or expired, and never after approved. An order that is cancelled, already paid or has a payment in progress is refused with payment_checkout_not_allowed. Card data never reaches this backend: the payment happens entirely on Wompi's hosted checkout.
+         */
+        post: operations["PublicPaymentsController_createCheckout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/payments/wompi/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a payment outcome server to server
+         * @description THE BROWSER RETURNING TO THE RESULT PAGE DOES NOT CONFIRM A PAYMENT: anyone can open that URL, and the ?id= in it is put there by the browser. This endpoint asks Wompi directly, from the server, with the private key, and applies the outcome through the same state machine the signed webhook uses. The frontend never queries Wompi: the private key never leaves the backend, and a check made from a browser can be forged by exactly the person who wants a payment to look approved. The context is the OPAQUE REFERENCE of the attempt, which is the last segment of the return URL. It carries no personal data, so the shop does not have to ask for the email again, keep it in the browser or put it in a URL. The backend resolves reference -> attempt -> order on its own. Knowing the reference and the transaction id does NOT let anyone invent a payment: no state is accepted from the caller, and only what Wompi confirms is applied. The transaction must belong to THAT reference; if it does not, the answer is the stable mismatch code and an audited incident, and it never says which field differed. It shares the webhook's canonical idempotency, so the same outcome arriving by both doors is applied once: no second email, no second history entry and no change to the approval date. The response carries the NORMALIZED payment state; the provider's payload and its own status vocabulary are never published.
+         */
+        post: operations["PublicPaymentsController_reconcile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/products": {
         parameters: {
             query?: never;
@@ -502,16 +726,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/webhooks/wompi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive a signed Wompi event
+         * @description No administrative session: authenticity comes from the Wompi signature. A valid event we do not process — anything other than transaction.updated — answers 200 and is ignored: an error would make the provider retry it forever and eventually disable the webhook. A signature-valid event whose commercial data does not match the attempt (amount, currency, environment, unknown reference, or a transaction already bound to another attempt) also answers 200, is NOT applied, and raises an audited mismatch: retrying would never fix it, a person has to look at it. An invalid signature or a corrupt body answers 401, which is what should make the provider retry and what can be alerted on. The same outcome received twice changes nothing: no second history entry, no second email, no move of the order and no change to the approval date.
+         */
+        post: operations["WompiWebhookController_receive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdminNotificationDto: {
+            attempts: number;
+            /**
+             * @example customer
+             * @enum {string}
+             */
+            audience: "customer" | "admin";
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * @description Delivery mode recorded when the message was written. A message is only ever delivered under the mode it was created with.
+             * @enum {string}
+             */
+            deliveryMode: "disabled" | "preview" | "provider";
+            /**
+             * @example payment_approved
+             * @enum {string}
+             */
+            eventKey: "order_received" | "payment_processing" | "payment_approved" | "payment_declined" | "payment_voided" | "payment_expired" | "payment_error" | "order_preparing" | "order_ready_to_ship" | "order_shipped" | "order_delivered" | "order_cancelled";
+            /** @example ntf_0123456789abcdef */
+            id: string;
+            /** @description Stable error code of the last failure. Never the provider's message. */
+            lastErrorCode: string | null;
+            /** Format: date-time */
+            nextAttemptAt: string | null;
+            /** Format: date-time */
+            sentAt: string | null;
+            /**
+             * @description previewed means it was rendered for inspection and NOT sent. suppressed means delivery was off and it will not be delivered later. sent is never resent automatically.
+             * @enum {string}
+             */
+            status: "pending" | "sending" | "sent" | "failed" | "dead_letter" | "previewed" | "suppressed";
+            /** @example customer_payment_approved */
+            template: string;
+            /** @example 1 */
+            templateVersion: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         AdminOrderDto: {
+            /**
+             * @description Outcomes that can be applied from the current payment state. The panel renders these instead of reimplementing the state machine.
+             * @example [
+             *       "processing",
+             *       "approved"
+             *     ]
+             */
+            availableSimulationEvents: ("processing" | "approved" | "declined" | "voided" | "expired" | "error")[];
             /** Format: date-time */
             createdAt: string;
             customer: components["schemas"]["OrderCustomerDto"];
             id: string;
             items: components["schemas"]["OrderLineDto"][];
+            /** @description Outbox messages for this order, oldest first. Bodies and recipients are never returned. */
+            notifications: components["schemas"]["AdminNotificationDto"][];
+            payment: components["schemas"]["OrderPaymentDto"];
+            /** @description Append-only payment history. Separate from the order timeline on purpose. */
+            paymentEvents: components["schemas"]["AdminPaymentEventDto"][];
+            /** @description Whether the staging payment simulator is switched on in this deployment. When false the simulation route answers as if it did not exist. */
+            paymentSimulationEnabled: boolean;
             publicId: string;
             shippingAddress: components["schemas"]["OrderShippingAddressDto"];
             /**
@@ -519,14 +817,19 @@ export interface components {
              * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
              */
             shippingCop: number;
-            /** @enum {string} */
-            status: "pending_payment" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
+            /**
+             * @description pending_payment → paid → preparing → ready_to_ship → shipped → delivered, with cancelled as the way out.
+             * @enum {string}
+             */
+            status: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
+            /** @example Pendiente de pago */
+            statusLabel: string;
             /**
              * Format: int32
              * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
              */
             subtotalCop: number;
-            /** @description Append-only status history. */
+            /** @description Append-only status history. Merging it with paymentEvents by timestamp yields the seven milestones the panel renders: Pedido recibido, Pago confirmado, Pedido confirmado, En producción, Listo para envío, Enviado and Entregado. When a payment entry and an order entry share the same `at`, the payment one comes first: approving the payment is what causes the order to advance, so 'Pago confirmado' precedes 'Pedido confirmado'. They are written in the same transaction and may carry the same timestamp, so sorting by `at` alone does not decide between them. Milestones 2 and 3 are two milestones, never two emails: only payment_approved is sent. */
             timeline: components["schemas"]["OrderTimelineEntryDto"][];
             /**
              * Format: int32
@@ -567,12 +870,19 @@ export interface components {
             id: string;
             /** @description Total number of lines in the order. The panel subtracts one from it to say "and N more products"; the backend does not compose that text. */
             itemCount: number;
+            /**
+             * @description Payment state, so the list can tell a pending order from a declined one without opening each. It is already in the order document: the row costs no extra read.
+             * @enum {string}
+             */
+            paymentStatus: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
             /** @description First line of the order, from its snapshot. Lets the list show the product photo and name without fetching each order. Always present: a valid order always has at least one line. */
             previewLine: components["schemas"]["AdminOrderPreviewLineDto"];
             /** @example MZ-7KQ2R9DA */
             publicId: string;
             /** @enum {string} */
-            status: "pending_payment" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
+            status: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
+            /** @example Pendiente de pago */
+            statusLabel: string;
             /**
              * Format: int32
              * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
@@ -581,6 +891,31 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             version: number;
+        };
+        AdminPaymentEventDto: {
+            attemptNumber: number;
+            /** @enum {string} */
+            environment: "sandbox" | "live";
+            /** @description Identifier given by the event source. */
+            eventId: string;
+            /**
+             * @description Milestone name for this payment entry. approved is the second of the seven.
+             * @example Pago confirmado
+             */
+            label: string;
+            /** Format: date-time */
+            occurredAt: string;
+            /** @description Safe sentence that may be shown to the shopper, or null. */
+            publicMessage: string | null;
+            /** @description Stable, bounded code. Never a provider's free-form message or raw payload. */
+            reasonCode: string | null;
+            /**
+             * @description payment_simulator is the staging-only administrative surface; provider_webhook is the future verified gateway webhook.
+             * @enum {string}
+             */
+            source: "payment_simulator" | "provider_webhook" | "provider_reconciliation";
+            /** @enum {string} */
+            status: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
         };
         AdminPrincipalDto: {
             /**
@@ -611,8 +946,8 @@ export interface components {
             id: string;
             /** @description Active and archived images. At most 10 active ones; archived images stay listed and their identifiers are never reused. */
             images: components["schemas"]["AdminProductImageDto"][];
-            /** @example 3 */
-            lowStockThreshold: number;
+            /** @description Inventory of the BASE option: what is sold when the product has no variants. Once there is an active variant, the variants decide and this stops governing anything, though it keeps its last value. */
+            inventory: components["schemas"]["InventoryControlDto"];
             /** @example Tocador Aura */
             name: string;
             /**
@@ -644,8 +979,6 @@ export interface components {
              * @enum {string}
              */
             status: "draft" | "active" | "archived";
-            /** @example 12 */
-            stockQuantity: number;
             /** Format: date-time */
             updatedAt: string;
             /** @description Active and archived variants. At most 72 active ones. A product with no variants sells through its own SKU, price and stock. */
@@ -712,6 +1045,8 @@ export interface components {
             createdAt: string;
             /** @example var_0123456789abcdef */
             id: string;
+            /** @description Inventory of this variant. Each variant chooses its own mode. */
+            inventory: components["schemas"]["InventoryControlDto"];
             /**
              * Format: int32
              * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as "$ 1.450.000". Must be greater than zero.
@@ -729,8 +1064,6 @@ export interface components {
              * @enum {string}
              */
             status: "active" | "archived";
-            /** @example 4 */
-            stockQuantity: number;
             /** Format: date-time */
             updatedAt: string;
             version: number;
@@ -899,8 +1232,8 @@ export interface components {
         CreateProductRequestDto: {
             /** @description Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations. */
             description?: string;
-            /** @default 0 */
-            lowStockThreshold: number;
+            /** @description Inventory mode and its initial value. Omitting it creates the product with zero tracked units, exactly what the previous contract did. BREAKING CHANGE: stockQuantity and lowStockThreshold are no longer accepted here and are rejected as unknown fields; keeping both contracts would allow a quantity next to a mode that has none. */
+            inventory?: components["schemas"]["SetInventoryControlDto"];
             /** @example Tocador Aura */
             name: string;
             /**
@@ -915,14 +1248,14 @@ export interface components {
             sku: string;
             /** @example tocador-aura */
             slug: string;
-            /** @default 0 */
-            stockQuantity: number;
         };
         CreateProductVariantRequestDto: {
             /** @description Every axis the product declares, and no other. */
             attributes: components["schemas"]["ProductVariantAttributeDto"][];
             /** @description Product version the caller last read. */
             expectedVersion: number;
+            /** @description Inventory mode of this variant. Omitting it creates it with zero tracked units. */
+            inventory?: components["schemas"]["SetInventoryControlDto"];
             /**
              * Format: int32
              * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as "$ 1.450.000". Must be greater than zero.
@@ -934,8 +1267,241 @@ export interface components {
              * @example TOCADOR-AURA-80-ROBLE
              */
             sku: string;
-            /** @default 0 */
-            stockQuantity: number;
+        };
+        DashboardAmountComparisonDto: {
+            /**
+             * @description Percentage change against the previous period, as a finite number (12.5 means +12.5%). null when the previous period was zero and the current one was not: the change does not exist, and infinity is not a figure anyone can show. 0 when both periods were zero. Never a symbol, a sign or a formatted string.
+             * @example 12.5
+             */
+            changePercent: number | null;
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. No decimals and no formatting: the symbol and the separators belong to the frontend.
+             */
+            currentAmountCop: number;
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. No decimals and no formatting: the symbol and the separators belong to the frontend.
+             */
+            previousAmountCop: number;
+        };
+        DashboardAttentionDto: {
+            /**
+             * Format: int32
+             * @description Transactional notifications in dead_letter: attempts exhausted or a permanent error. Retrying one is a person's decision.
+             */
+            failedNotifications: number;
+            /**
+             * Format: int32
+             * @description Active products at or below their own lowStockThreshold. Products that sell through variants are NOT counted: the model stores no per-variant threshold, and inventing one would turn an operational alert into an unsupported figure.
+             */
+            lowStockProducts: number;
+            /**
+             * Format: int32
+             * @description Payment events with a VALID SIGNATURE whose commercial data does not match: wrong amount, wrong currency, unknown reference, or a transaction already bound to another attempt. Deduplicated by environment + transaction + reason, so a provider retrying the same event for hours raises one incident and not a hundred. It is a real inconsistency between what was charged and what we believe we charged.
+             */
+            paymentIncidents: number;
+            /**
+             * Format: int32
+             * @description Orders still in pending_payment more than 24 hours after they were created.
+             */
+            pendingPayments: number;
+            /**
+             * Format: int32
+             * @description Orders currently in ready_to_ship, finished and waiting for the carrier.
+             */
+            readyToShipOrders: number;
+            /**
+             * Format: int32
+             * @description Payments stuck in processing for more than 30 minutes: the outcome never arrived and somebody is waiting without knowing whether they paid.
+             */
+            staleProcessingPayments: number;
+        };
+        DashboardCommerceDto: {
+            /** @description Orders whose first valid payment was approved inside the period. A duplicated or replayed payment event never counts twice: the approval date is written once and no later event moves it. */
+            approvedOrders: components["schemas"]["DashboardCountComparisonDto"];
+            /** @description Sum of the totals of the orders whose first valid payment was APPROVED inside the period, attributed to the approval date and not to the creation date. pending, processing, declined, expired and error never count, and neither does a cancelled order that was never paid. */
+            approvedSales: components["schemas"]["DashboardAmountComparisonDto"];
+            /** @description approvedSales divided by approvedOrders, rounded to whole pesos. Zero when there were no approved orders: never NaN and never Infinity. */
+            averageOrderValue: components["schemas"]["DashboardAmountComparisonDto"];
+            /** @description Orders created inside the period, by createdAt. These are intentions to buy, NOT sales: an order created today and paid next week is counted here today and as a sale next week. */
+            createdOrders: components["schemas"]["DashboardCountComparisonDto"];
+            /** @description Units sold: the sum of the quantity of every line of those orders, NOT the number of lines. One line with six chairs is six units. */
+            unitsSold: components["schemas"]["DashboardCountComparisonDto"];
+        };
+        DashboardCountComparisonDto: {
+            /**
+             * @description Percentage change against the previous period, as a finite number (12.5 means +12.5%). null when the previous period was zero and the current one was not: the change does not exist, and infinity is not a figure anyone can show. 0 when both periods were zero. Never a symbol, a sign or a formatted string.
+             * @example -8.3
+             */
+            changePercent: number | null;
+            /** Format: int32 */
+            currentCount: number;
+            /** Format: int32 */
+            previousCount: number;
+        };
+        DashboardEnvironmentDto: {
+            /**
+             * Format: int32
+             * @description Approved orders of the LIVE environment in this period. Always 0 while live payments are blocked.
+             */
+            liveApprovedOrders: number;
+            /**
+             * @description Whether real charges are enabled at all. It is a constant in the binary, not a setting: while it is false, every approved payment in this deployment is a test.
+             * @example false
+             */
+            livePaymentsEnabled: boolean;
+            /**
+             * @description The environment commerce, salesSeries and topProducts belong to. It is a FILTER, not a label: no monetary figure ever means 'sandbox + live'. sandbox means those figures are tests and approvedSales is NOT revenue, so the panel must show 'Datos de prueba'. Ask for the other environment in a separate request.
+             * @enum {string}
+             */
+            salesEnvironment: "sandbox" | "live";
+            /**
+             * Format: int32
+             * @description Approved orders of the SANDBOX environment in this period, whether or not they are the ones being shown. It lets the panel say 'there are figures you are not looking at'.
+             */
+            sandboxApprovedOrders: number;
+        };
+        DashboardOperationsDto: {
+            /** Format: int32 */
+            cancelled: number;
+            /** Format: int32 */
+            delivered: number;
+            /**
+             * Format: int32
+             * @description Paid orders that have not entered production yet. This is the work to start.
+             */
+            paid: number;
+            /**
+             * Format: int32
+             * @description Payments currently in processing. It is a PAYMENT state, not an order state: a payment in flight leaves the order in pending_payment.
+             */
+            paymentProcessing: number;
+            /** Format: int32 */
+            pendingPayment: number;
+            /** Format: int32 */
+            preparing: number;
+            /** Format: int32 */
+            readyToShip: number;
+            /** Format: int32 */
+            shipped: number;
+        };
+        DashboardOrderStatusCountDto: {
+            /** Format: int32 */
+            count: number;
+            /**
+             * @description Current-state name, the same one the order list and detail use.
+             * @example Listo para envío
+             */
+            label: string;
+            /** @enum {string} */
+            status: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
+        };
+        DashboardPaymentStatusCountDto: {
+            /** Format: int32 */
+            count: number;
+            /** @example Pago confirmado */
+            label: string;
+            /** @enum {string} */
+            status: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+        };
+        DashboardPeriodDto: {
+            /**
+             * Format: date
+             * @description First calendar day of the period, inclusive, in America/Bogota.
+             * @example 2026-09-19
+             */
+            from: string;
+            /** @enum {string} */
+            kind: "today" | "7d" | "30d" | "custom";
+            /**
+             * Format: date
+             * @description First day of the comparison period: the same number of days, immediately before this one.
+             */
+            previousFrom: string;
+            /** Format: date */
+            previousTo: string;
+            /**
+             * Format: date
+             * @description Last calendar day of the period, inclusive, in America/Bogota.
+             */
+            to: string;
+        };
+        DashboardSeriesPointDto: {
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. No decimals and no formatting: the symbol and the separators belong to the frontend.
+             */
+            approvedAmountCop: number;
+            /**
+             * Format: int32
+             * @description Orders approved on this day, by payment approval date.
+             */
+            approvedOrders: number;
+            /**
+             * Format: int32
+             * @description Orders created on this day, by createdAt. It is a DIFFERENT date from the one above, on purpose.
+             */
+            createdOrders: number;
+            /**
+             * Format: date
+             * @description Calendar day in America/Bogota.
+             */
+            date: string;
+        };
+        DashboardSummaryDto: {
+            attention: components["schemas"]["DashboardAttentionDto"];
+            commerce: components["schemas"]["DashboardCommerceDto"];
+            /** @description Selected financial environment. commerce, salesSeries and topProducts contain EXCLUSIVELY this environment; the operational snapshot below is global on purpose, because pending work exists regardless of which credentials paid for it. */
+            environment: components["schemas"]["DashboardEnvironmentDto"];
+            /** Format: date-time */
+            generatedAt: string;
+            /** @description Operational snapshot of RIGHT NOW. It counts every order in its current state, including orders created before the selected range, and it does not change when the period changes. It is GLOBAL across payment environments, deliberately: it describes pending work — orders to prepare, payments stuck — and that work exists whatever credentials paid for it. Money is the thing that is never global. */
+            operations: components["schemas"]["DashboardOperationsDto"];
+            /** @description Every order status, always all of them, in the order of the operational journey. A status with no orders travels as zero. */
+            ordersByStatus: components["schemas"]["DashboardOrderStatusCountDto"][];
+            /** @description Every payment status. Orders written before the payment model have no stored payment block and are not counted in any of them, so this list can add up to less than ordersByStatus. */
+            paymentsByStatus: components["schemas"]["DashboardPaymentStatusCountDto"][];
+            period: components["schemas"]["DashboardPeriodDto"];
+            /** @description The last 8 orders created, with the same projection the order list uses. The full list, with paging, is GET /v1/admin/orders. */
+            recentOrders: components["schemas"]["AdminOrderSummaryDto"][];
+            /** @description One point per calendar day of the period, ascending, in America/Bogota. Days with no activity are present with zeros and are never omitted. */
+            salesSeries: components["schemas"]["DashboardSeriesPointDto"][];
+            /**
+             * @description Fixed business timezone. Every calendar day in this response is a Colombian calendar day, converted to UTC once before querying.
+             * @example America/Bogota
+             */
+            timezone: string;
+            /** @description At most 5, from the historical snapshot of the approved orders. Deterministic order: units descending, revenue descending, name ascending, productId ascending. */
+            topProducts: components["schemas"]["DashboardTopProductDto"][];
+            /**
+             * @description true when a bounded read hit its cap, so the period figures are a MINIMUM and not a total. It is published instead of hidden: a partial sum presented as a total is a false figure.
+             * @example false
+             */
+            truncated: boolean;
+        };
+        DashboardTopProductDto: {
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. No decimals and no formatting: the symbol and the separators belong to the frontend.
+             */
+            approvedRevenueCop: number;
+            /**
+             * Format: uri
+             * @description Image from the same historical snapshot, or null when the line had none.
+             */
+            imageUrl: string | null;
+            /**
+             * @description Name AS IT WAS SOLD, from the snapshot stored on the order line. It is never read from the current catalogue: a product renamed after the sale keeps the name it was sold with.
+             * @example Tocador Aura
+             */
+            name: string;
+            productId: string;
+            /**
+             * Format: int32
+             * @description Units, from the quantity of each line. Not the number of lines.
+             */
+            units: number;
         };
         DemoProductDto: {
             /**
@@ -1007,6 +1573,35 @@ export interface components {
             /** @description True when the idempotency key had already been applied and nothing changed. */
             replayed: boolean;
         };
+        InventoryControlDto: {
+            /**
+             * @description Effective availability, ALWAYS resolved: tracked with quantity > 0 is in_stock, tracked with 0 is out_of_stock, and availability is whatever was declared. This is what the storefront sees.
+             * @enum {string}
+             */
+            availability: "in_stock" | "out_of_stock";
+            /**
+             * Format: int32
+             * @description Low-stock threshold, in tracked mode only. null otherwise.
+             * @example 3
+             */
+            lowStockThreshold: number | null;
+            /**
+             * @description What the administrator declared by hand, in availability mode. null in tracked mode, where availability is derived from the quantity.
+             * @enum {string|null}
+             */
+            manualAvailability: "in_stock" | "out_of_stock" | null;
+            /**
+             * @description tracked: the administrator states how many units exist, and availability is derived from quantity > 0. availability: the administrator only says whether it can be bought, and NO meaningful quantity exists.
+             * @enum {string}
+             */
+            mode: "tracked" | "availability";
+            /**
+             * Format: int32
+             * @description Units, in tracked mode. null in availability mode, and null means 'does not apply', never 'zero'.
+             * @example 12
+             */
+            quantity: number | null;
+        };
         OrderCreatedDto: {
             /** Format: date-time */
             createdAt: string;
@@ -1029,7 +1624,7 @@ export interface components {
              * @example pending_payment
              * @enum {string}
              */
-            status: "pending_payment" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
+            status: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
             /**
              * Format: int32
              * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
@@ -1078,6 +1673,166 @@ export interface components {
             /** @description Null when the product sells through its base option, without variants. */
             variantId: string | null;
         };
+        OrderLookupAttributeDto: {
+            /**
+             * @description Public axis key.
+             * @example finish
+             */
+            key: string;
+            /**
+             * @description Text shown to shoppers.
+             * @example Roble natural
+             */
+            label: string;
+        };
+        OrderLookupDto: {
+            /** Format: date-time */
+            createdAt: string;
+            items: components["schemas"]["OrderLookupLineDto"][];
+            /** @description Payment state and when it last changed. Nothing else about the payment travels. */
+            payment: components["schemas"]["OrderLookupPaymentDto"];
+            /** @description Payment news, oldest first, kept separate from the order timeline so the frontend can merge them by timestamp without duplicating anything. When a payment entry and an order entry share the same `at`, the payment one comes first: approving the payment is what causes the order to advance, so 'Pago confirmado' precedes 'Pedido confirmado'. They are written in the same transaction and may carry the same timestamp, so sorting by `at` alone does not decide between them. */
+            paymentTimeline: components["schemas"]["OrderLookupPaymentEntryDto"][];
+            /** @example MZ-7KQ2R9DA */
+            publicId: string;
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000". Always 0 in this phase: shipping quotes are not implemented.
+             * @example 0
+             */
+            shippingCop: number;
+            /**
+             * @description One of the seven statuses of the production order: pending_payment → paid → preparing → ready_to_ship → shipped → delivered, with cancelled as the way out. It is not the demo order's state machine.
+             * @example pending_payment
+             * @enum {string}
+             */
+            status: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
+            /**
+             * @description Plain-language name of the current state, owned by the backend.
+             * @example Pendiente de pago
+             */
+            statusLabel: string;
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
+             */
+            subtotalCop: number;
+            /** @description Append-only status history. */
+            timeline: components["schemas"]["OrderLookupTimelineEntryDto"][];
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
+             */
+            totalCop: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        OrderLookupLineDto: {
+            attributes: components["schemas"]["OrderLookupAttributeDto"][];
+            /**
+             * @description Name as it was when the order was placed, never re-read from the catalogue.
+             * @example Tocador Aura
+             */
+            name: string;
+            /**
+             * Format: uri
+             * @description Primary image at the time of purchase, or null when there was none.
+             */
+            primaryImageUrl: string | null;
+            /** @example 2 */
+            quantity: number;
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
+             */
+            totalCop: number;
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
+             */
+            unitPriceCop: number;
+        };
+        OrderLookupPaymentDto: {
+            /**
+             * @example pending
+             * @enum {string}
+             */
+            status: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+            /**
+             * @description Plain-language name of the payment state, owned by the backend.
+             * @example Pago pendiente
+             */
+            statusLabel: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        OrderLookupPaymentEntryDto: {
+            /** Format: date-time */
+            at: string;
+            /** @example Pago confirmado */
+            label: string;
+            /** @description Safe sentence for the shopper, or null. Never an internal note. */
+            message: string | null;
+            /** @enum {string} */
+            status: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+        };
+        OrderLookupRequestDto: {
+            /**
+             * Format: email
+             * @description Email the order was placed with, compared after the same normalisation the creation applied. It is never echoed back in the response.
+             * @example ana@example.com
+             */
+            email: string;
+            /**
+             * @description Human-readable identifier, as it was given to the shopper. Case and surrounding spaces do not matter; the format MZ-XXXXXXXX does.
+             * @example MZ-7KQ2R9DA
+             */
+            publicId: string;
+        };
+        OrderLookupTimelineEntryDto: {
+            /** Format: date-time */
+            at: string;
+            /**
+             * @description Milestone name. pending_payment reads "Pedido recibido" here and "Pendiente de pago" as a current state.
+             * @example Pedido recibido
+             */
+            label: string;
+            /** @enum {string} */
+            status: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
+        };
+        OrderPaymentDto: {
+            /**
+             * Format: date-time
+             * @description When the payment was approved for the FIRST time, or null when it never was. This is the real date of the sale, and it is what the dashboard attributes revenue to: an order placed on the 30th and paid on the 2nd is a sale of the second month. Only the first valid approval writes it; a replayed or duplicated event never moves it, and approved is terminal so there is no second approval that could. Orders written before the payment model report null until their next valid write materialises the block.
+             */
+            approvedAt: string | null;
+            /**
+             * @description Where approvedAt came from, WITHOUT which the date cannot be read honestly. provider_event: the instant signed inside the provider's event, which is the real approval time. reconciliation_observed: the approval was discovered by asking, and the documented query returns no approval instant, so the date is when WE observed it — an upper bound, not the provider's clock. legacy: derived from the history of an order written before the payment model. null when there is no approval.
+             * @enum {string|null}
+             */
+            approvedAtSource: "provider_event" | "reconciliation_observed" | "legacy" | null;
+            /**
+             * @description Payment attempts opened so far. 0 while nobody has tried to pay.
+             * @example 0
+             */
+            attemptNumber: number;
+            /**
+             * @description sandbox means the outcome came from the staging simulator and NO real charge happened. live is reserved for a verified gateway webhook, which does not exist yet.
+             * @example sandbox
+             * @enum {string}
+             */
+            environment: "sandbox" | "live";
+            /**
+             * @description Payment state, independent from the order state. Only approved advances the order to paid.
+             * @example pending
+             * @enum {string}
+             */
+            status: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+            /** @example Pago confirmado */
+            statusLabel: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         OrderShippingAddressDto: {
             /** @example Calle 10 #43-20, apto 501 */
             addressLine: string;
@@ -1091,8 +1846,13 @@ export interface components {
         OrderTimelineEntryDto: {
             /** Format: date-time */
             at: string;
+            /**
+             * @description Milestone name for this entry. It is NOT always the same as the current-state name: pending_payment reads "Pedido recibido" as a milestone and "Pendiente de pago" as a state, and that rule cannot be derived from the enum. The backend owns it so the panel and the web cannot drift.
+             * @example Pedido recibido
+             */
+            label: string;
             /** @enum {string} */
-            status: "pending_payment" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
+            status: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
         };
         OrderTimelineItemDto: {
             /** @example Pago confirmado */
@@ -1104,6 +1864,81 @@ export interface components {
              * @enum {string}
              */
             status: "order_received" | "payment_pending" | "payment_confirmed" | "validation" | "manual_review" | "order_confirmed" | "in_production" | "ready_for_dispatch" | "shipping_quote_required" | "shipment_created" | "shipped" | "delivered" | "incident" | "cancelled";
+        };
+        PaymentIncidentDto: {
+            /** @description Our attempt, if identified. */
+            attemptId: string | null;
+            /** @enum {string} */
+            environment: "sandbox" | "production";
+            /** Format: date-time */
+            firstSeenAt: string;
+            /**
+             * @description Derived from environment + transaction + reason: that is what deduplicates it.
+             * @example pin_0123456789abcdef0123456789abcdef
+             */
+            id: string;
+            /** Format: date-time */
+            lastSeenAt: string;
+            /**
+             * Format: int32
+             * @description How many times the same fact arrived. A provider retrying for hours raises one incident with a counter, not a hundred incidents.
+             */
+            occurrences: number;
+            /** @description Our internal order id, if identified. Never the publicId and never the customer. */
+            orderId: string | null;
+            /** @enum {string} */
+            provider: "wompi";
+            /** @description The provider's own status value, from its closed enum. Kept for auditing. */
+            providerStatus: string;
+            /** @description Transaction identifier at the provider. It is not personal data. */
+            providerTransactionId: string;
+            /**
+             * @description Which check failed on an event whose SIGNATURE WAS VALID. live_disabled means a production event reached a deployment where real charges are blocked in code.
+             * @enum {string}
+             */
+            reason: "reference_unknown" | "provider_mismatch" | "environment_mismatch" | "currency_mismatch" | "amount_mismatch" | "attempt_bound_to_other_transaction" | "transaction_bound_to_other_attempt" | "order_unknown" | "live_disabled";
+            /**
+             * @description Closed vocabulary, never free text: a notes field here would end up holding the payer's email or a fragment of the provider's response.
+             * @enum {string|null}
+             */
+            resolutionCode: "provider_confirmed_discrepancy" | "not_our_transaction" | "configuration_corrected" | "resolved_by_reconciliation" | "no_action_needed" | null;
+            /** Format: date-time */
+            resolvedAt: string | null;
+            /** @description Technical identifier (uid) of the administrator who resolved it. Never a name or an email: look the account up instead of keeping a second copy here. */
+            resolvedBy: string | null;
+            /**
+             * @description open until a person says otherwise. A resolved incident stops counting in the dashboard; if the same fact happens again it is REOPENED, because leaving it closed would hide something that is still going on.
+             * @enum {string}
+             */
+            status: "open" | "resolved";
+            /** @description Optimistic version. Send it back as expectedVersion to resolve. It also increases when the incident is reopened. */
+            version: number;
+        };
+        PaymentIncidentPageDto: {
+            items: components["schemas"]["PaymentIncidentDto"][];
+            /** @description Opaque cursor. Null when there are no more. */
+            nextPageToken: string | null;
+        };
+        PaymentResultDto: {
+            /**
+             * @description Sandbox does NOT move real money: no charge happens, no stock is reserved and no refund exists. Live payments are blocked in code and cannot be enabled by configuration.
+             * @enum {string}
+             */
+            environment: "sandbox";
+            /** @enum {string} */
+            orderStatus: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
+            /**
+             * @description What this call did. replayed means the same outcome had already been applied: no second email, no second history entry and no change to the approval date.
+             * @enum {string}
+             */
+            outcome: "applied" | "replayed" | "ignored_out_of_order" | "rejected_mismatch" | "ignored_live_disabled";
+            /**
+             * @description Normalized payment state. The provider's own vocabulary is never published: it is stored for auditing only.
+             * @enum {string}
+             */
+            paymentStatus: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+            /** @enum {string} */
+            provider: "wompi";
         };
         ProductAttributeDefinitionDto: {
             /**
@@ -1316,15 +2151,74 @@ export interface components {
             priceCop: number;
             sku: string;
         };
+        ReconcilePaymentRequestDto: {
+            /**
+             * @description The opaque reference of the payment attempt, which is the last segment of the return URL the provider sent the browser back to. It carries NO personal data: it is random and says nothing about the order or the buyer. It exists so the result page can recover the attempt without the shop having to ask for the email again, keep it in the browser or put it in a URL.
+             * @example mz-7QK4M2PDX9RTVBN3HJ48CFGW
+             */
+            reference: string;
+            /** @description Transaction identifier returned by the provider in ?id=. The backend checks that it belongs to THIS reference before applying anything. */
+            transactionId: string;
+        };
+        ResolvePaymentIncidentRequestDto: {
+            /** @description The version just read. A stale value is rejected with a conflict. */
+            expectedVersion: number;
+            /**
+             * @description Why it is being closed. Closed vocabulary; free text is rejected.
+             * @enum {string}
+             */
+            resolutionCode: "provider_confirmed_discrepancy" | "not_our_transaction" | "configuration_corrected" | "resolved_by_reconciliation" | "no_action_needed";
+        };
+        SetInventoryControlDto: {
+            /**
+             * @description Only with mode=tracked; defaults to 0, which means 'do not warn'. REJECTED with mode=availability.
+             * @default 0
+             */
+            lowStockThreshold: number;
+            /** @enum {string} */
+            mode: "tracked" | "availability";
+            /** @description Required with mode=tracked. REJECTED with mode=availability. */
+            quantity?: number;
+            /**
+             * @description Required with mode=availability. REJECTED with mode=tracked.
+             * @enum {string}
+             */
+            status?: "in_stock" | "out_of_stock";
+        };
+        SetInventoryRequestDto: {
+            /** @description Version the caller last read. */
+            expectedVersion: number;
+            inventory: components["schemas"]["SetInventoryControlDto"];
+        };
+        SimulatePaymentRequestDto: {
+            /**
+             * @description Outcome to apply. It goes through the same state machine a real gateway webhook will use; there is no way to write an arbitrary payment state.
+             * @example approved
+             * @enum {string}
+             */
+            event: "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+            /**
+             * @description Idempotent identifier of the event, chosen by whoever emits it. Replaying the same eventId with the same outcome changes nothing; reusing it with a different outcome is a conflict.
+             * @example sim-approved-0001
+             */
+            eventId: string;
+            /** @description Version the caller last read. */
+            expectedVersion: number;
+            /**
+             * @description Stable, bounded code. Never a provider's free-form message.
+             * @example insufficient_funds
+             */
+            reasonCode?: string;
+        };
         UpdateOrderStatusRequestDto: {
             /** @description Version the caller last read. */
             expectedVersion: number;
             /**
-             * @description Only paid→preparing, preparing→shipped and shipped→delivered are allowed. No skips, no going back, and pending_payment→paid is reserved for the future payments webhook.
+             * @description Only paid→preparing, preparing→ready_to_ship, ready_to_ship→shipped and shipped→delivered are allowed. preparing→shipped is NOT allowed any more: between producing and dispatching there is a real state, and skipping it lost the only signal that tells an order still in the workshop from a finished one waiting for the carrier. Orders whose history already contains preparing→shipped keep reading fine; this governs what can be written from now on. No skips, no going back, and pending_payment→paid is applied by the payment outcome, never here.
              * @example preparing
              * @enum {string}
              */
-            status: "pending_payment" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
+            status: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
         };
         UpdateProductImageRequestDto: {
             altText?: string;
@@ -1348,7 +2242,6 @@ export interface components {
             featured?: boolean;
             /** @description Optional. At most 5 concrete benefits of at most 60 characters each, with no blanks and no duplicates once accent- and case-folded. Not a place for colour lists, measurements, warranty or policies: selectable colours, finishes and sizes are attributes and variants, with their own SKU, price and stock. Records written before these limits may still hold more; the caps apply to new mutations. */
             features?: string[];
-            lowStockThreshold?: number;
             materials?: string;
             measurements?: string;
             name?: string;
@@ -1362,6 +2255,30 @@ export interface components {
             attributes?: components["schemas"]["ProductVariantAttributeDto"][];
             expectedVersion: number;
             priceCop?: number;
+        };
+        UpdateWompiIntegrationRequestDto: {
+            /** @description Turning it on requires the complete configuration. Turning it off stops new checkouts and deletes nothing: orders, attempts, events and secrets stay, and the webhook keeps closing payments already in flight. */
+            enabledForNewPayments?: boolean;
+            /**
+             * @description Which environment to configure. Declared explicitly instead of inferred from the key prefixes, so pasting a key from the wrong environment is rejected instead of silently switching environments. production is always rejected while live payments are blocked.
+             * @enum {string}
+             */
+            environment: "sandbox" | "production";
+            /** @description Write-only. */
+            eventsSecret?: string;
+            /** @description The version just read. A stale value is rejected with a conflict. */
+            expectedVersion: number;
+            /** @description Write-only. */
+            integritySecret?: string;
+            /** @description Write-only. Stored in Secret Manager and never returned by any operation. */
+            privateKey?: string;
+            /**
+             * @description Sandbox keys must start with pub_test_, prv_test_, test_events_ and test_integrity_; production with pub_prod_, prv_prod_, prod_events_ and prod_integrity_. Mixing environments is rejected.
+             * @example pub_test_…
+             */
+            publicKey?: string;
+            /** @description EMERGENCY ROTATION: stop accepting the previous Events-secret versions immediately, instead of after the documented grace. The grace exists because the provider retries for hours and a routine rotation would otherwise lose real payment outcomes; but if the secret leaked, that same grace is a window in which whoever holds it can still sign events we would accept. The price is stated: events signed with the previous version and still in flight will be rejected and must be closed by reconciliation. Right after a leak, wrong as a routine. */
+            revokeRetiredEventsSecrets?: boolean;
         };
         UploadProductImageRequestDto: {
             /** @description Mandatory alternative text. Whitespace is collapsed. */
@@ -1387,6 +2304,163 @@ export interface components {
             /** @description True when the idempotency key had already been applied and nothing changed. */
             replayed: boolean;
             variant: components["schemas"]["AdminProductVariantDto"];
+        };
+        WompiCheckoutCustomerDto: {
+            /** Format: email */
+            email: string;
+            fullName: string;
+            /** @example 3000000000 */
+            phoneNumber: string;
+            /** @example +57 */
+            phoneNumberPrefix: string;
+        };
+        WompiCheckoutDto: {
+            /**
+             * Format: int64
+             * @description Whole Colombian pesos times 100, computed from the STORED order total. Never accepted from the request.
+             * @example 145000000
+             */
+            amountInCents: number;
+            /**
+             * Format: uri
+             * @example https://checkout.wompi.co/p/
+             */
+            checkoutUrl: string;
+            /** @enum {string} */
+            currency: "COP";
+            customerData: components["schemas"]["WompiCheckoutCustomerDto"];
+            /**
+             * @description Sandbox does NOT move real money: no charge happens, no stock is reserved and no refund exists. Live payments are blocked in code and cannot be enabled by configuration.
+             * @enum {string}
+             */
+            environment: "sandbox";
+            /**
+             * Format: date-time
+             * @description When the checkout expires. It is part of the signature when present.
+             */
+            expirationTime: string | null;
+            /** @description SHA-256 of reference + amount + currency + expiration + integrity secret, in that exact order. It is not a secret: without the secret no other signature can be produced. */
+            integritySignature: string;
+            /** @enum {string} */
+            provider: "wompi";
+            /** @description Public key of the merchant. It is not a secret: it identifies, it does not charge. */
+            publicKey: string;
+            /**
+             * Format: uri
+             * @description Where the provider returns the browser. It ends with the attempt's OWN OPAQUE REFERENCE, which is how the result page recovers the attempt after leaving the shop: it contains no publicId, no email and no internal identifier. It is derived from server configuration only, never from Host, Origin, Referer or anything the browser sent, and a reused attempt returns exactly the same URL because that is the one that was signed. The browser returning to the result page does NOT confirm a payment: anyone can open that URL. The authorities are the signed webhook and the server-to-server reconciliation, and only those two move an order.
+             * @example https://tienda.example/pagos/resultado/mz-7QK4M2PDX9RTVBN3HJ48CFGW
+             */
+            redirectUrl: string;
+            /**
+             * @description Opaque, unique reference generated by the backend. It is NOT the order publicId: that identifier is dictated over the phone and would end up in the provider's dashboard tied to an order.
+             * @example mz-7QK4M2PDX9RTVBN3HJ48CFGW
+             */
+            reference: string;
+        };
+        WompiCheckoutRequestDto: {
+            /** Format: email */
+            email: string;
+            /** @example 7QK4M2PD */
+            publicId: string;
+        };
+        WompiConnectionTestDto: {
+            /**
+             * @description Closed code from our own vocabulary. The remote body is never included.
+             * @example merchant_lookup_failed:http_401
+             */
+            errorCode: string | null;
+            /** @description An Events secret is stored. Verifying it would require a real event. */
+            eventsSecretConfigured: boolean;
+            /** @description An Integrity secret is stored. Verifying it would require a real payment. */
+            integritySecretConfigured: boolean;
+            /** @description A private key version is stored. This is NOT a verification: Wompi offers no safe operation to check it. */
+            privateKeyConfigured: boolean;
+            /** @description The provider answered to this public key. It is the ONLY thing a test can prove without moving money. */
+            publicKeyVerified: boolean;
+            /** Format: date-time */
+            testedAt: string;
+        };
+        WompiEnvironmentConfigDto: {
+            /** @description True only when the public key and all three secrets are set. */
+            configured: boolean;
+            /** @description Whether new checkouts may be opened with this environment. production always answers false while live payments are blocked. */
+            enabledForNewPayments: boolean;
+            eventsSecretConfigured: boolean;
+            /**
+             * @description Hours a retired Events secret stays accepted after a rotation.
+             * @example 25
+             */
+            eventsSecretGraceHours: number;
+            integritySecretConfigured: boolean;
+            /**
+             * @description Closed code from our own vocabulary. Never a message from the provider.
+             * @example checksum_mismatch
+             */
+            lastErrorCode: string | null;
+            /**
+             * Format: date-time
+             * @description The last time WE asked the provider. It is not a webhook and never pretends to be one: if the event integration were broken, reconciliation would keep working and this mark must not hide it.
+             */
+            lastReconciledAt: string | null;
+            /** Format: date-time */
+            lastTestedAt: string | null;
+            /** @enum {string|null} */
+            lastTestStatus: "passed" | "failed" | null;
+            /**
+             * Format: date-time
+             * @description The last event that arrived WITH A VALID SIGNATURE, even if it was a type we ignore. This is the mark that says the integration works; a rejected body never updates it.
+             */
+            lastVerifiedWebhookAt: string | null;
+            /**
+             * Format: date-time
+             * @description Something reached the webhook route. It does NOT claim the event was authentic: a rejected signature updates this one too.
+             */
+            lastWebhookAttemptAt: string | null;
+            /** @description Whether a private key version is stored. NOT whether it is correct. */
+            privateKeyConfigured: boolean;
+            /**
+             * @description Prefix and last four characters only. The full key is never returned by any operation.
+             * @example pub_test_…a1b2
+             */
+            publicKeyMasked: string | null;
+            /**
+             * Format: uri
+             * @description BASE path the provider returns the browser to. Each payment appends its own opaque attempt reference as a final segment, so the result page can recover the attempt without any personal data in the URL. Derived from server configuration and never accepted from a request.
+             */
+            redirectUrl: string;
+            /**
+             * Format: int32
+             * @description Retired Events-secret versions still accepted. Rotating keeps the previous one alive for a bounded grace so retries signed before the rotation are not rejected. The versions themselves are never published.
+             */
+            retiredEventsSecretCount: number;
+            /**
+             * Format: uri
+             * @description READ ONLY: copy this into the Wompi dashboard. It is derived from server configuration and cannot be changed from the panel.
+             */
+            webhookUrl: string;
+        };
+        WompiIntegrationDto: {
+            /**
+             * @description Derived, never written by the panel: sandbox when sandbox is on, disabled otherwise. production is unreachable while live payments are blocked.
+             * @enum {string}
+             */
+            activeEnvironment: "disabled" | "sandbox" | "production";
+            /**
+             * @description Always false in this phase. It is a constant in the binary, not an environment variable: no configuration change can turn real charges on.
+             * @example false
+             */
+            livePaymentsEnabled: boolean;
+            /** @description Always reports enabledForNewPayments=false, whatever is stored. */
+            production: components["schemas"]["WompiEnvironmentConfigDto"];
+            /** @enum {string} */
+            provider: "wompi";
+            sandbox: components["schemas"]["WompiEnvironmentConfigDto"];
+            /** @description Optimistic version. Every mutation must send it back as expectedVersion. */
+            version: number;
+        };
+        WompiWebhookAckDto: {
+            /** @example true */
+            received: boolean;
         };
     };
     responses: never;
@@ -1574,6 +2648,230 @@ export interface operations {
                 headers: {
                     /** @description Always no-store on this surface, including error responses. */
                     "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminDashboardController_summary: {
+        parameters: {
+            query?: {
+                /** @description Which payment environment the financial figures belong to. Defaults to sandbox while live payments are blocked. It is a FILTER: commerce, salesSeries and topProducts contain exclusively this environment, and no monetary figure ever mixes the two. */
+                salesEnvironment?: "sandbox" | "live";
+                /** @description Colombian calendar day, YYYY-MM-DD, inclusive. Required for period=custom. */
+                to?: string;
+                /** @description Colombian calendar day, YYYY-MM-DD. Required for period=custom and rejected for any other period. At most 92 days between from and to. */
+                from?: string;
+                /** @description Defaults to today. 7d and 30d end today, both inclusive. */
+                period?: "today" | "7d" | "30d" | "custom";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardSummaryDto"];
+                };
+            };
+            /** @description dashboard_query_invalid: unknown period, malformed or impossible date, inverted range, range longer than the documented maximum, or from/to sent with a period other than custom. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden: the principal lacks dashboard.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description dashboard_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminIntegrationsController_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WompiIntegrationDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_provider_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminIntegrationsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWompiIntegrationRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WompiIntegrationDto"];
+                };
+            };
+            /** @description payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden: the principal lacks integrations.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_integration_conflict or wompi_live_payments_not_enabled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_provider_unavailable: the secret store could not be written */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminIntegrationsController_test: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WompiConnectionTestDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_provider_unavailable */
+            503: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -1780,6 +3078,86 @@ export interface operations {
             };
         };
     };
+    AdminOrdersController_simulatePayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated internal identifier, not the human-readable publicId. */
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimulatePaymentRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrderDto"];
+                };
+            };
+            /** @description order_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden: the principal lacks payments.simulate */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_not_found, or not_found when the simulator is switched off in this deployment */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_version_conflict, order_payment_transition_invalid or order_payment_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     AdminOrdersController_changeStatus: {
         parameters: {
             query?: never;
@@ -1850,6 +3228,149 @@ export interface operations {
                 };
             };
             /** @description order_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentIncidentsController_list: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor. */
+                pageToken?: string;
+                /** @description Default 20, maximum 50. */
+                pageSize?: number;
+                reason?: "reference_unknown" | "provider_mismatch" | "environment_mismatch" | "currency_mismatch" | "amount_mismatch" | "attempt_bound_to_other_transaction" | "transaction_bound_to_other_attempt" | "order_unknown" | "live_disabled";
+                environment?: "sandbox" | "production";
+                /** @description Defaults to open. */
+                status?: "open" | "resolved";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentIncidentPageDto"];
+                };
+            };
+            /** @description payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden: the principal lacks integrations.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_provider_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentIncidentsController_resolve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incidentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolvePaymentIncidentRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentIncidentDto"];
+                };
+            };
+            /** @description payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden: the principal lacks integrations.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_incident_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_integration_conflict: the incident changed since it was read */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_provider_unavailable */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -2446,6 +3967,89 @@ export interface operations {
             };
         };
     };
+    AdminProductsController_setInventory: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Repeating the same key with the same body returns the same result with replayed=true and changes nothing; reusing it with a different body is a conflict. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description Backend-generated product identifier. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetInventoryRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryAdjustmentResultDto"];
+                };
+            };
+            /** @description inventory_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_version_conflict or idempotency_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description catalogue_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     AdminProductsController_adjustInventory: {
         parameters: {
             query?: never;
@@ -2905,6 +4509,91 @@ export interface operations {
             };
         };
     };
+    AdminProductsController_setVariantInventory: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Repeating the same key with the same body returns the same result with replayed=true and changes nothing; reusing it with a different body is a conflict. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description Backend-generated variant identifier. Never reused, not even after archiving. */
+                variantId: string;
+                /** @description Backend-generated product identifier. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetInventoryRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantInventoryAdjustmentResultDto"];
+                };
+            };
+            /** @description inventory_invalid or product_variant_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_not_found or product_variant_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description product_version_conflict or idempotency_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description catalogue_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     AdminProductsController_adjustVariantInventory: {
         parameters: {
             query?: never;
@@ -3254,6 +4943,174 @@ export interface operations {
             };
         };
     };
+    PublicOrdersController_lookup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderLookupRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderLookupDto"];
+                };
+            };
+            /** @description order_invalid: the body has an unknown field, a wrong type or a value out of range. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_not_found: the same answer for an unknown publicId, a malformed one and an email that does not match. It never says which. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PublicPaymentsController_createCheckout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WompiCheckoutRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WompiCheckoutDto"];
+                };
+            };
+            /** @description payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_not_found: the same answer for a malformed id, an unknown order and an email that does not match, so the surface cannot be used to enumerate orders */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_checkout_not_allowed, payment_integration_disabled or wompi_live_payments_not_enabled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_provider_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PublicPaymentsController_reconcile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReconcilePaymentRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentResultDto"];
+                };
+            };
+            /** @description payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_context_not_found: the same answer for an unreadable reference and for one that does not exist, so the surface cannot be used to discover which references are real */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_integration_disabled or payment_transaction_mismatch */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_provider_unavailable: timeout, 401, 404 or malformed response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     PublicProductsController_list: {
         parameters: {
             query?: {
@@ -3338,6 +5195,42 @@ export interface operations {
                 };
             };
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    WompiWebhookController_receive: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Checksum sent in the header. When present it MUST match the one in the body: accepting one without checking the other would let a modified payload through any layer that validated only the header. */
+                "X-Event-Checksum"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Wompi event envelope. */
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WompiWebhookAckDto"];
+                };
+            };
+            /** @description webhook_rejected: invalid signature or corrupt body. One single code for every reason, so the response cannot be used to find out which check failed. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

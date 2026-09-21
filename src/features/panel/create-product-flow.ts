@@ -81,6 +81,62 @@ export type UploadInput = {
   readonly entry: QueuedImage;
 };
 
+export type UploadImage = (
+  input: UploadInput,
+) => Promise<MutationResult<{ product: AdminProduct; image: { id: string } }>>;
+
+export type BatchProgress = {
+  /** El producto autoritativo más reciente: el que devolvió la última subida que salió bien. */
+  readonly product: AdminProduct;
+  readonly uploaded: readonly UploadedEntry[];
+  /** La entrada en la que se detuvo el lote, con su código. `null` si terminó entero. */
+  readonly failure: { readonly entryId: string; readonly code: string } | null;
+};
+
+/**
+ * Sube una cola de imágenes **en serie**, cada una con la versión que devolvió la anterior.
+ *
+ * Es la única implementación de lote que hay, y la comparten el alta y la edición. No es una
+ * preferencia de estilo: cada subida incrementa la versión del producto, así que dos subidas
+ * simultáneas partirían de la misma y la segunda chocaría con un `409`. `Promise.all` aquí no es
+ * una optimización, es un error garantizado en cuanto hay dos archivos.
+ *
+ * Si una falla, se **detiene**: lo ya subido se conserva en `uploaded` —para no reenviarlo— y lo
+ * que falta sigue pendiente con su clave de idempotencia intacta, lista para el reintento.
+ */
+export async function uploadQueueSequentially(
+  product: AdminProduct,
+  queue: readonly QueuedImage[],
+  uploadImage: UploadImage,
+  alreadyUploaded: readonly UploadedEntry[] = [],
+  onProgress?: (product: AdminProduct, done: number) => void,
+): Promise<BatchProgress> {
+  let current = product;
+  const uploaded = [...alreadyUploaded];
+
+  for (const entry of queue) {
+    if (uploaded.some((done) => done.entryId === entry.entryId)) {
+      continue;
+    }
+
+    const result = await uploadImage({
+      productId: current.id,
+      expectedVersion: current.version,
+      entry,
+    });
+
+    if (!result.ok) {
+      return { product: current, uploaded, failure: { entryId: entry.entryId, code: result.code } };
+    }
+
+    current = result.data.product;
+    uploaded.push({ entryId: entry.entryId, imageId: result.data.image.id });
+    onProgress?.(current, uploaded.length);
+  }
+
+  return { product: current, uploaded, failure: null };
+}
+
 export type CreateFlowInput = {
   readonly intent: CreateIntent;
   /** Cuerpo de `POST /v1/admin/products`: solo lo que ese endpoint admite. */
@@ -102,9 +158,7 @@ export type CreateFlowDeps = {
     readonly expectedVersion: number;
     readonly enrichment: Record<string, unknown>;
   }) => Promise<MutationResult<AdminProduct>>;
-  readonly uploadImage: (
-    input: UploadInput,
-  ) => Promise<MutationResult<{ product: AdminProduct; image: { id: string } }>>;
+  readonly uploadImage: UploadImage;
   readonly setPrimary: (input: {
     readonly productId: string;
     readonly imageId: string;
@@ -196,24 +250,15 @@ export async function runCreateFlow(
     enriched = true;
   }
 
-  // 3. Subir en serie lo que falte, cada imagen con la versión que devolvió la anterior.
-  for (const entry of input.queue) {
-    if (uploaded.some((done) => done.entryId === entry.entryId)) {
-      continue;
-    }
+  // 3. Subir en serie lo que falte, con el mismo lote que usa la edición.
+  const batch = await uploadQueueSequentially(product, input.queue, deps.uploadImage, uploaded);
 
-    const result = await deps.uploadImage({
-      productId: product.id,
-      expectedVersion: product.version,
-      entry,
-    });
+  product = batch.product;
+  uploaded.length = 0;
+  uploaded.push(...batch.uploaded);
 
-    if (!result.ok) {
-      return stopped('image', entry.entryId, result.code);
-    }
-
-    product = result.data.product;
-    uploaded.push({ entryId: entry.entryId, imageId: result.data.image.id });
+  if (batch.failure !== null) {
+    return stopped('image', batch.failure.entryId, batch.failure.code);
   }
 
   // 4. Aplicar la principal elegida, solo si no es ya la que fijó el backend.

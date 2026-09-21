@@ -1,0 +1,961 @@
+/*
+ * Piezas propias del Dashboard.
+ *
+ * Lo compartido —tarjeta, tabla, botones, badges, estados de vacío y de error, cabecera de
+ * sección— sigue viniendo de `catalog.module.css`, y los badges de pedido y de pago de
+ * `orders.module.css`. Aquí vive **solo** lo que el Dashboard tiene y las otras pantallas no: la
+ * rejilla de métricas, el gráfico, las distribuciones en barras y los paneles de operación y
+ * atención.
+ *
+ * El archivo existe para que `catalog.module.css` no se convierta en el cajón de todo el panel.
+ */
+
+/* ------------------------------------------------- selector de período */
+
+/*
+ * Los botones son **enlaces**, no controles con estado.
+ *
+ * La URL es el estado: cambiar de período navega y vuelve a ejecutar el Server Component. Por eso
+ * el activo se marca con `aria-current`, que es lo que un lector de pantalla anuncia, y el estilo
+ * cuelga de ese atributo en lugar de una clase aparte: así no pueden separarse.
+ */
+.periodGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  padding: 0.25rem;
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-panel-surface);
+}
+
+.periodLink {
+  display: inline-flex;
+  min-height: var(--control-height-sm);
+  align-items: center;
+  padding: 0 0.875rem;
+  border-radius: 0.5rem;
+  color: var(--color-panel-muted);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.periodLink:hover {
+  background-color: var(--color-panel-subtle);
+  color: var(--color-panel-text);
+}
+
+.periodLink:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.periodLink[aria-current='true'] {
+  background-image: var(--gradient-brand);
+  color: var(--color-brand-contrast);
+}
+
+/*
+ * Rango personalizado: un formulario `GET` de verdad.
+ *
+ * Al enviarlo el navegador construye `/panel?period=custom&from=…&to=…` y navega, así que funciona
+ * sin JavaScript y el resultado se puede enlazar. No hay estado de React en juego.
+ */
+.customForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.customField {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.customLabel {
+  color: var(--color-panel-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.customInput {
+  min-height: var(--control-height-sm);
+  padding: 0 0.625rem;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: 0.5rem;
+  background-color: var(--color-panel-surface);
+  color: var(--color-panel-text);
+  font-family: inherit;
+  font-size: 0.875rem;
+}
+
+.customInput:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 1px;
+}
+
+/* La fecha del período resuelto: la que devolvió el backend, no una calculada aquí. */
+.periodResolved {
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.8125rem;
+}
+
+/* ------------------------------------------------- aviso de lectura truncada */
+
+/*
+ * No se puede cerrar y no se puede esconder.
+ *
+ * Cuando el backend dice `truncated`, las cifras del período son un **mínimo**. Presentarlas como
+ * totales sería una cifra falsa, y una advertencia que se descarta con un clic es una advertencia
+ * que nadie vuelve a ver.
+ */
+.truncated {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-state-warning-fg);
+  border-radius: var(--radius-control);
+  background-color: var(--color-state-warning-bg);
+  color: var(--color-state-warning-fg);
+}
+
+.truncatedIcon {
+  flex: none;
+  margin-top: 0.125rem;
+}
+
+.truncatedBody {
+  min-width: 0;
+}
+
+.truncatedTitle {
+  margin: 0 0 0.125rem;
+  font-size: 0.9375rem;
+  font-weight: 800;
+}
+
+.truncatedText {
+  margin: 0;
+  font-size: 0.875rem;
+  text-wrap: pretty;
+}
+
+/* ------------------------------------------------- métricas comerciales */
+
+/*
+ * Cinco tarjetas en una fila mientras quepan.
+ *
+ * El reparto se declara por ancho en vez de con `auto-fit`, y la razón es medida: con un mínimo de
+ * 13rem, a 1280 px el contenido útil —1016 px, porque ahí la barra lateral está en su versión
+ * compacta— solo daba para cuatro, y la quinta caía sola a una segunda fila. Cinco métricas en
+ * «cuatro y una» se leen como dos grupos que no existen.
+ *
+ * Los cortes son los del shell, para que las dos cosas cambien de forma a la vez.
+ */
+.metrics {
+  display: grid;
+  gap: var(--space-md);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 34rem) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 60rem) {
+  .metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/*
+ * Los cortes se escriben en `min-width` y no en `max-width` a propósito: 1280 px son 80rem
+ * **exactos**, y con `max-width: 80rem` ese ancho caía del lado estrecho. Ese píxel de diferencia
+ * es justo el que separa «cinco métricas» de «cuatro y una».
+ */
+@media (min-width: 80rem) {
+  .metrics {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.metric {
+  display: grid;
+  gap: 0.375rem;
+  align-content: start;
+  padding: 1rem;
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-card);
+  background-color: var(--color-panel-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.metricHead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.metricIcon {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  place-items: center;
+  border-radius: 0.5rem;
+  background-image: var(--gradient-brand-soft);
+  color: var(--color-brand-strong);
+}
+
+.metricTitle {
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.metricValue {
+  margin: 0;
+  font-size: clamp(1.25rem, 2.2vw, 1.625rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  /* Importes largos no pueden empujar la tarjeta fuera de la rejilla. */
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * El cambio porcentual.
+ *
+ * Lleva la flecha **y** el signo en el texto, y el color va encima de eso, nunca en lugar de eso:
+ * quien no distingue el verde del rojo lee «↑ 12,5 %» igual de bien.
+ */
+.change {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.0625rem 0.4375rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.changeUp {
+  composes: change;
+  background-color: var(--color-state-success-bg);
+  color: var(--color-state-success-fg);
+}
+
+.changeDown {
+  composes: change;
+  background-color: var(--color-state-danger-bg);
+  color: var(--color-state-danger-fg);
+}
+
+.changeFlat {
+  composes: change;
+  background-color: var(--color-state-neutral-bg);
+  color: var(--color-state-neutral-fg);
+}
+
+/* «Sin base anterior» no es bueno ni malo: no hay comparación, y el color no debe sugerir una. */
+.changeUnknown {
+  composes: change;
+  background-color: var(--color-panel-subtle);
+  color: var(--color-panel-muted);
+}
+
+.metricHint {
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.75rem;
+  text-wrap: pretty;
+}
+
+/* ------------------------------------------------- rejilla principal */
+
+/*
+ * Gráfico ancho y una columna lateral con la operación.
+ *
+ * Por debajo de 75rem el lateral no tiene sitio útil y las dos piezas pasan a apilarse: una columna
+ * de 20rem junto a un gráfico de 300 px deja los dos ilegibles.
+ */
+.mainGrid {
+  display: grid;
+  gap: var(--space-md);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+.secondaryGrid {
+  display: grid;
+  gap: var(--space-md);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  align-items: start;
+}
+
+@media (max-width: 75rem) {
+  .mainGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/*
+ * Por debajo de 60rem los paneles secundarios se apilan.
+ *
+ * `auto-fit` con 22rem los dejaba en dos columnas de 353 px a 768, que es exactamente el ancho en
+ * el que un nombre de producto largo y una barra de distribución empiezan a estorbarse. El corte es
+ * el mismo en el que el shell cambia a cajón.
+ */
+@media (max-width: 60rem) {
+  .secondaryGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.column {
+  display: grid;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+/* ------------------------------------------------- gráfico de ventas */
+
+.chartHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.chartTotal {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Contexto secundario: pedidos aprobados y creados del período.
+ *
+ * Van como texto y **no** como una segunda serie en el mismo eje: son conteos, y el eje de este
+ * gráfico es de pesos. Superponerlos haría comparar dos magnitudes que no se comparan.
+ */
+.chartLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.875rem;
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.8125rem;
+}
+
+.chartLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.chartSwatch {
+  width: 0.625rem;
+  height: 0.625rem;
+  flex: none;
+  border-radius: 3px;
+  background-color: var(--color-brand);
+}
+
+.chartSwatchMuted {
+  composes: chartSwatch;
+  background-color: var(--color-panel-border-strong);
+}
+
+/*
+ * El lienzo.
+ *
+ * `width: 100%` con `height: auto` y un `viewBox` fijo: el SVG se escala con la tarjeta y no se
+ * corta en móvil. La altura mínima evita que en una columna muy estrecha quede una franja
+ * inservible de treinta píxeles.
+ */
+.chartCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 9rem;
+  overflow: visible;
+}
+
+.chartArea {
+  fill: var(--color-brand);
+  opacity: 0.12;
+}
+
+.chartLine {
+  fill: none;
+  stroke: var(--color-brand);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+}
+
+.chartDot {
+  fill: var(--color-brand);
+}
+
+.chartBaseline {
+  stroke: var(--color-panel-border);
+  stroke-width: 1;
+}
+
+.chartTicks {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.375rem 0 0;
+  padding: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.6875rem;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.chartEmpty {
+  margin: 0.625rem 0 0;
+  color: var(--color-panel-muted);
+  font-size: 0.875rem;
+}
+
+/*
+ * La alternativa al gráfico.
+ *
+ * Un `details` con la tabla de valores por día. No es un adorno de accesibilidad: es la única forma
+ * de leer una cifra exacta sin apuntar con un ratón, y por eso está a la vista de todo el mundo en
+ * lugar de escondida en un `sr-only`.
+ */
+.chartTable {
+  width: 100%;
+  margin-top: 0.75rem;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.chartTable th,
+.chartTable td {
+  padding: 0.3125rem 0.5rem;
+  border-bottom: 1px solid var(--color-panel-border);
+  text-align: left;
+}
+
+.chartTable th {
+  color: var(--color-panel-muted);
+  font-weight: 700;
+}
+
+.chartTable td:not(:first-child) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.chartDetails {
+  margin-top: 0.75rem;
+}
+
+.chartSummary {
+  color: var(--color-brand-strong);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.chartSummary:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* La tabla larga se desplaza dentro de su caja, nunca empuja la página. */
+.chartTableScroll {
+  position: relative;
+  max-height: 18rem;
+  overflow: auto;
+}
+
+/* ------------------------------------------------- operación actual */
+
+.operations {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.operationRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4375rem 0;
+  border-bottom: 1px solid var(--color-panel-border);
+}
+
+.operationRow:last-child {
+  border-bottom: 0;
+}
+
+.operationCount {
+  font-size: 1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------- distribuciones en barras */
+
+.distribution {
+  display: grid;
+  gap: 0.625rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.distributionRow {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.distributionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.distributionLabel {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.distributionCount {
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * La barra es decorativa: la cifra ya está escrita al lado.
+ *
+ * Por eso va con `aria-hidden` y no con `role="meter"`: un medidor obligaría a repetir el valor en
+ * atributos, y la fila ya lo dice en texto.
+ */
+.bar {
+  height: 0.5rem;
+  border-radius: 999px;
+  background-color: var(--color-panel-subtle);
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background-image: var(--gradient-brand);
+}
+
+/* Un total en cero no dibuja proporción: no hay ninguna que dibujar. */
+.barEmpty {
+  composes: bar;
+  border: 1px dashed var(--color-panel-border-strong);
+  background-color: transparent;
+}
+
+/* ------------------------------------------------- productos más vendidos */
+
+.topProducts {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.topProduct {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.topProductBody {
+  min-width: 0;
+}
+
+.topProductName {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.topProductName a {
+  color: var(--color-panel-text);
+  text-decoration: none;
+}
+
+.topProductName a:hover {
+  color: var(--color-brand-strong);
+  text-decoration: underline;
+}
+
+.topProductName a:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.topProductMeta {
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.8125rem;
+}
+
+.topProductRevenue {
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------- requieren atención */
+
+.attention {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attentionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-control);
+}
+
+.attentionLabel {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.attentionDetail {
+  margin: 0;
+  grid-column: 1 / -1;
+  color: var(--color-panel-muted);
+  font-size: 0.8125rem;
+  text-wrap: pretty;
+}
+
+/*
+ * El contador.
+ *
+ * Un cero se pinta en gris y un valor mayor con el tono de su fila: el color refuerza, pero la
+ * cifra es lo que informa, y el texto de la fila dice de qué se trata.
+ */
+.attentionCount {
+  display: inline-flex;
+  min-width: 2rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background-color: var(--color-state-neutral-bg);
+  color: var(--color-state-neutral-fg);
+  font-size: 0.9375rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.attentionCountWarning {
+  composes: attentionCount;
+  background-color: var(--color-state-warning-bg);
+  color: var(--color-state-warning-fg);
+}
+
+.attentionCountDanger {
+  composes: attentionCount;
+  background-color: var(--color-state-danger-bg);
+  color: var(--color-state-danger-fg);
+}
+
+.attentionCountBrand {
+  composes: attentionCount;
+  background-color: var(--color-state-brand-bg);
+  color: var(--color-state-brand-fg);
+}
+
+.attentionLink {
+  grid-column: 1 / -1;
+  color: var(--color-brand-strong);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.attentionLink:hover {
+  text-decoration: underline;
+}
+
+.attentionLink:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------- pedidos recientes */
+
+.sectionFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.875rem;
+}
+
+/*
+ * Tabla en escritorio, tarjetas apiladas en cuanto deja de caber.
+ *
+ * El corte es el mismo que el de `.mainGrid` —75rem— y sale de una medición, no de una intuición: a
+ * 1024 px la tabla pedía 781 px dentro de una caja de 713, y el navegador resolvía el exceso
+ * aplastando la columna del cliente hasta 13 px de ancho por 504 de alto. Eso es texto vertical, y
+ * un nombre propio escrito en vertical no se lee.
+ */
+.recentTable {
+  display: block;
+}
+
+.recentCards {
+  display: none;
+  gap: 0.625rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 75rem) {
+  .recentTable {
+    display: none;
+  }
+
+  .recentCards {
+    display: grid;
+  }
+}
+
+.recentCard {
+  display: grid;
+  gap: 0.375rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-control);
+}
+
+.recentCardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.recentCardId {
+  margin: 0;
+  min-width: 0;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  /* El identificador público no lleva espacios: sin esto no hay por dónde partirlo. */
+  overflow-wrap: anywhere;
+}
+
+.recentCardId a {
+  color: var(--color-brand-strong);
+  text-decoration: none;
+}
+
+.recentCardId a:hover {
+  text-decoration: underline;
+}
+
+.recentCardStates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0;
+}
+
+.recentCardCustomer {
+  margin: 0;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.recentCardFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.recentCardTotal {
+  margin: 0;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.recentCustomer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.recentCustomerName {
+  /*
+   * Un nombre propio se parte entre palabras y no entre letras. `anywhere` dejaba que el navegador
+   * lo troceara carácter a carácter para hacer caber la columna, que es como acaba escrito en
+   * vertical; con `normal` la tabla desborda y se desplaza dentro de su caja, que es lo correcto.
+   */
+  min-width: 6rem;
+  overflow-wrap: normal;
+}
+
+/* ------------------------------------------------- ajustes de pantalla estrecha */
+
+/*
+ * Los controles de período envuelven en lugar de encogerse.
+ *
+ * El corte es 40rem porque es donde `catalog.module.css` da a cada acción del encabezado
+ * `flex: 1 1 9rem`: con esa base, el selector y el formulario de fechas se colocaban uno al lado
+ * del otro y el grupo quedaba con «Hoy | 7 días» arriba y «30 días» debajo. Hace falta anular la
+ * base, no solo pedir `width: 100%`, porque una base explícita gana sobre el ancho.
+ */
+@media (max-width: 40rem) {
+  .periodGroup,
+  .customForm {
+    flex: 1 1 100%;
+  }
+
+  .periodLink {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .customField {
+    flex: 1 1 8rem;
+  }
+
+  .customInput {
+    width: 100%;
+  }
+}
+
+/* Objetivos táctiles: la misma regla que el resto del panel. */
+@media (pointer: coarse) {
+  .periodLink,
+  .customInput {
+    min-height: var(--control-height);
+  }
+
+  /*
+   * `Abrir` es **la** acción de su fila, y medía 21 px. Se le da el alto de control del panel, que
+   * es lo que hace el resto de las acciones de fila bajo un puntero grueso.
+   */
+  .attentionLink,
+  .chartSummary {
+    display: inline-flex;
+    min-height: var(--control-height);
+    align-items: center;
+  }
+}
+
+/* ------------------------------------------------- ambiente financiero */
+
+/*
+ * El aviso de ambiente.
+ *
+ * Va **antes** de las cifras y no se puede cerrar. Con datos de prueba, `approvedSales` no es
+ * ingreso, y un panel que enseñara ventas de prueba con el mismo aspecto que las reales haría
+ * cerrar un mes con dinero que nadie pagó.
+ *
+ * El de pruebas lleva borde discontinuo además del color: la diferencia entre «esto es real» y
+ * «esto no lo es» no puede depender de distinguir dos tonos.
+ */
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-control);
+}
+
+.testBanner {
+  composes: banner;
+  border: 1px dashed var(--color-state-warning-fg);
+  background-color: var(--color-state-warning-bg);
+  color: var(--color-state-warning-fg);
+}
+
+.liveBanner {
+  composes: banner;
+  border: 1px solid var(--color-state-success-line);
+  background-color: var(--color-state-success-bg);
+  color: var(--color-state-success-fg);
+}
+
+.bannerBody {
+  min-width: 0;
+}
+
+.bannerTitle {
+  margin: 0 0 0.125rem;
+  font-size: 0.9375rem;
+  font-weight: 800;
+}
+
+.bannerText {
+  margin: 0;
+  font-size: 0.875rem;
+  text-wrap: pretty;
+}
+
+.bannerLink {
+  flex: none;
+  color: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.bannerLink:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .bannerLink {
+    display: inline-flex;
+    min-height: var(--control-height);
+    align-items: center;
+  }
+}

@@ -5,6 +5,7 @@ import { describeBackendFailure } from '@/features/panel/catalog-errors';
 import { ErrorState } from '@/features/panel/panel-states';
 import { PanelHeader } from '@/features/panel/panel-header';
 import { ProductDetailClient } from '@/features/panel/product-detail-client';
+import { ProductGuide } from '@/features/panel/product-guide';
 import { detailPermissions } from '@/features/panel/product-permissions';
 import { resolvePanelSession } from '@/features/panel/session-context';
 import { getProduct } from '@/lib/api/catalog';
@@ -77,6 +78,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
               el backend lo rechaza y podrás recargar. Las variantes se crean una detrás de otra,
               cada una con la versión que devolvió la anterior.
             </p>
+          </div>
+          <div className={styles.pageHeadActions}>
+            <ProductGuide mode="edit" />
           </div>
         </div>
         <ProductDetailClient initial={product} permissions={detailPermissions(role)} role={role} />

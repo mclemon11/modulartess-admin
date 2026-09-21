@@ -5,12 +5,12 @@ import { useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { acquire, createOperationLock, release } from '@/features/auth/operation-lock';
-import type { AdminProduct } from '@/lib/api/catalog';
+import type { AdminProduct, SetInventoryControl } from '@/lib/api/catalog';
 import { DESCRIPTION_MAX_LENGTH, SHORT_DESCRIPTION_MAX_LENGTH } from '@/lib/api/variant-limits';
 
 import styles from './catalog.module.css';
 import {
-  adjustInventory,
+  setProductInventory,
   transitionProduct,
   updateProduct,
   type MutationResult,
@@ -31,6 +31,15 @@ import {
   VisibleContentFields,
 } from './enrichment-fields';
 import { formatDateTime } from './format';
+import {
+  createKeyLedger,
+  inventoryFingerprint,
+  inventoryScope,
+  keyFor,
+  releaseKey,
+} from './operation-key';
+import { ProductInventoryCard, type InventorySubmitResult } from './inventory-card';
+import { readInventory } from './inventory-control';
 import { formatCop, parseCop } from './money';
 import { descriptionProblem, shortDescriptionProblem } from './product-content';
 import {
@@ -81,8 +90,6 @@ export function ProductDetailClient({
   const [shortDescription, setShortDescription] = useState(initial.shortDescription);
   const [description, setDescription] = useState(initial.description);
   const [price, setPrice] = useState(() => String(initial.priceCop));
-  const [delta, setDelta] = useState('');
-  const [reason, setReason] = useState('');
   const [failure, setFailure] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -96,7 +103,7 @@ export function ProductDetailClient({
    * un fallo de red después de que el ajuste se aplicara no lo aplica dos veces. Se descarta al
    * completarse, para que el siguiente ajuste sea una operación distinta.
    */
-  const inventoryKey = useRef<string | null>(null);
+  const inventoryKeys = useRef(createKeyLedger());
 
   /**
    * Problemas del contenido editorial, calculados en cada render.
@@ -115,9 +122,6 @@ export function ProductDetailClient({
 
   const ids = {
     name: useId(),
-    lowStockThreshold: useId(),
-    delta: useId(),
-    reason: useId(),
   };
 
   function begin(): boolean {
@@ -206,7 +210,6 @@ export function ProductDetailClient({
       shortDescription,
       description,
       priceCop: parsedPrice.value,
-      lowStockThreshold: Number(data.get('lowStockThreshold')),
     });
 
     settle(result, (updated) => {
@@ -228,36 +231,56 @@ export function ProductDetailClient({
     });
   }
 
-  async function handleAdjust() {
+  /**
+   * Establece el inventario del producto base.
+   *
+   * Manda el **estado final**, no una diferencia, y con la versión que se está viendo. Si alguien
+   * lo cambió entre medias, el backend responde `409` y `settle` ofrece recargar: reintentar con
+   * la versión nueva escribiría encima de un cambio que no se ha visto.
+   *
+   * Devuelve si el backend lo confirmó. El formulario lo usa para cerrarse —o no—: deducirlo de
+   * que la promesa terminara cerraba el editor encima de un error.
+   */
+  async function handleInventory(inventory: SetInventoryControl): Promise<InventorySubmitResult> {
     if (!begin()) {
-      return;
+      return { applied: false };
     }
 
-    // Una clave por operación, conservada entre reintentos de esa misma operación.
-    inventoryKey.current ??= crypto.randomUUID();
+    /*
+     * La clave va atada a **esta** operación: destino, versión y cuerpo canónico. Reintentar lo
+     * mismo la reutiliza; cambiar la cantidad, el umbral, el modo o la versión estrena clave,
+     * porque ya es otra operación y el backend no debe confundirla con la anterior.
+     */
+    const target = { productId: product.id, variantId: null, expectedVersion: product.version };
+    const key = keyFor(
+      inventoryKeys.current,
+      inventoryScope(target),
+      inventoryFingerprint(target, inventory),
+      () => crypto.randomUUID(),
+    );
 
-    const result = await adjustInventory(product.id, {
+    const result = await setProductInventory(product.id, {
       expectedVersion: product.version,
-      delta: Number(delta),
-      reason: reason.trim(),
-      idempotencyKey: inventoryKey.current,
+      inventory,
+      idempotencyKey: key,
     });
 
-    settle(result, (adjustment) => {
-      applyProduct(adjustment.product);
+    settle(result, (applied) => {
+      applyProduct(applied.product);
       setNotice(
-        adjustment.replayed
-          ? 'El ajuste ya se había aplicado; el inventario no cambió.'
-          : 'Inventario ajustado.',
+        applied.replayed
+          ? 'Ese cambio ya se había aplicado; el inventario quedó como ya estaba.'
+          : 'Inventario actualizado.',
       );
-      // Operación cerrada: el siguiente ajuste necesita su propia clave.
-      inventoryKey.current = null;
-      setDelta('');
-      setReason('');
+      // Operación cerrada: la clave deja de estar viva. Solo aquí, en el camino de éxito: un fallo
+      // la **conserva** para que el reintento del mismo cuerpo sea el mismo cambio.
+      releaseKey(inventoryKeys.current, inventoryScope(target));
     });
+
+    return { applied: result.ok };
   }
 
-  const lowStock = product.stockQuantity <= product.lowStockThreshold;
+  const baseReading = readInventory(product.inventory);
   /**
    * Con la primera variante, el precio y el inventario pasan a gestionarse por variante.
    *
@@ -266,12 +289,6 @@ export function ProductDetailClient({
    */
   const sellsByVariant = product.variants.some((variant) => variant.status === 'active');
   const readiness = product.publicationReadiness;
-  const deltaValue = Number(delta);
-  const canApplyAdjust =
-    delta.trim() !== '' &&
-    Number.isInteger(deltaValue) &&
-    deltaValue !== 0 &&
-    reason.trim().length > 0;
 
   return (
     <>
@@ -408,52 +425,24 @@ export function ProductDetailClient({
                   />
                 </CollapsibleSection>
 
-                <div className={styles.row}>
-                  <section className={styles.card} id={SECTION_IDS.precio}>
-                    <div className={styles.cardPad}>
-                      <SectionHeading icon="precio" title="Precio" />
-                      <CopField
-                        disabled={busy}
-                        hint="Pesos enteros. Al backend viaja el número, no el texto."
-                        label="Precio"
-                        onChange={setPrice}
-                        required
-                        value={price}
-                      />
-                      {sellsByVariant ? (
-                        <p className={styles.hint}>
-                          Se conserva, pero lo que se vende es el precio de cada variante.
-                        </p>
-                      ) : null}
-                    </div>
-                  </section>
-
-                  <section className={styles.card} id={SECTION_IDS.inventario}>
-                    <div className={styles.cardPad}>
-                      <SectionHeading icon="inventario" title="Inventario" />
-                      <dl className={styles.definition}>
-                        <dt>Existencias</dt>
-                        <dd className={lowStock ? styles.lowStock : undefined}>
-                          {product.stockQuantity}
-                        </dd>
-                      </dl>
-                      <div className={styles.field}>
-                        <label className={styles.label} htmlFor={ids.lowStockThreshold}>
-                          Umbral de stock bajo
-                        </label>
-                        <input
-                          className={styles.input}
-                          defaultValue={product.lowStockThreshold}
-                          disabled={busy}
-                          id={ids.lowStockThreshold}
-                          min={0}
-                          name="lowStockThreshold"
-                          type="number"
-                        />
-                      </div>
-                    </div>
-                  </section>
-                </div>
+                <section className={styles.card} id={SECTION_IDS.precio}>
+                  <div className={styles.cardPad}>
+                    <SectionHeading icon="precio" title="Precio" />
+                    <CopField
+                      disabled={busy}
+                      hint="Pesos enteros. Al backend viaja el número, no el texto."
+                      label="Precio"
+                      onChange={setPrice}
+                      required
+                      value={price}
+                    />
+                    {sellsByVariant ? (
+                      <p className={styles.hint}>
+                        Se conserva, pero lo que se vende es el precio de cada variante.
+                      </p>
+                    ) : null}
+                  </div>
+                </section>
 
                 {sellsByVariant ? (
                   <p className={styles.notice}>
@@ -500,72 +489,25 @@ export function ProductDetailClient({
             </section>
           )}
 
-          {permissions.canAdjustInventory ? (
-            <section className={styles.card}>
-              <div className={styles.cardPad}>
-                <SectionHeading icon="inventario" title="Ajustar inventario" />
-                {sellsByVariant ? (
-                  <p className={styles.notice}>
-                    El inventario de este producto se gestiona por variante desde que tiene la
-                    primera. El stock base se queda como estaba —no se borra ni se reparte— y aquí
-                    ya no se ajusta: hazlo en cada variante.
-                  </p>
-                ) : (
-                  <>
-                    <div className={styles.row}>
-                      <div className={styles.field}>
-                        <label className={styles.label} htmlFor={ids.delta}>
-                          Diferencia
-                        </label>
-                        <input
-                          className={styles.input}
-                          disabled={busy}
-                          id={ids.delta}
-                          onChange={(event) => setDelta(event.target.value)}
-                          step={1}
-                          type="number"
-                          value={delta}
-                        />
-                        <span className={styles.hint}>
-                          Entero distinto de cero. Negativo para descontar. El stock nunca baja de
-                          cero.
-                        </span>
-                      </div>
-                      <div className={styles.field}>
-                        <label className={styles.label} htmlFor={ids.reason}>
-                          Motivo
-                        </label>
-                        <input
-                          className={styles.input}
-                          disabled={busy}
-                          id={ids.reason}
-                          onChange={(event) => setReason(event.target.value)}
-                          type="text"
-                          value={reason}
-                        />
-                      </div>
-                    </div>
-                    <div className={styles.actions}>
-                      <button
-                        className={styles.buttonSecondary}
-                        disabled={busy || !canApplyAdjust}
-                        onClick={() => void handleAdjust()}
-                        type="button"
-                      >
-                        {busy ? 'Ajustando…' : 'Aplicar ajuste'}
-                      </button>
-                    </div>
-                    {canApplyAdjust ? null : (
-                      <p className={styles.hint}>
-                        Para aplicar un ajuste hace falta una diferencia distinta de cero y un
-                        motivo.
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-            </section>
-          ) : null}
+          {/*
+            El inventario vive en su **propia** tarjeta, fuera del formulario del producto.
+
+            No es una decisión de maquetación: tiene su propia ruta, su propia clave de
+            idempotencia y su propia confirmación al cambiar de modo. Dentro de «Guardar cambios»,
+            corregir una descripción habría reescrito también las existencias.
+          */}
+          <section className={styles.card} id={SECTION_IDS.inventario}>
+            <div className={styles.cardPad}>
+              <SectionHeading icon="inventario" title="Inventario del producto" />
+              <ProductInventoryCard
+                busy={busy}
+                canEdit={permissions.canAdjustInventory}
+                inventory={product.inventory}
+                onSubmit={handleInventory}
+                sellsByVariant={sellsByVariant}
+              />
+            </div>
+          </section>
 
           <div id={SECTION_IDS.imagenes}>
             <ProductImages
@@ -603,7 +545,10 @@ export function ProductDetailClient({
                 <dt>Precio base</dt>
                 <dd>{formatCop(product.priceCop)}</dd>
                 <dt>Inventario base</dt>
-                <dd className={lowStock ? styles.lowStock : undefined}>{product.stockQuantity}</dd>
+                <dd className={baseReading.tone === 'lowStock' ? styles.lowStock : undefined}>
+                  {/* En modo disponibilidad no hay cantidad: se dice el estado, no un número. */}
+                  {baseReading.quantityLabel ?? baseReading.label}
+                </dd>
                 <dt>Versión</dt>
                 <dd>{product.version}</dd>
                 <dt>Actualizado</dt>

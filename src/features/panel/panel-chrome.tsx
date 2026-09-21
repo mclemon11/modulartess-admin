@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -58,6 +58,37 @@ export function PanelChrome({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const sidebar = useRef<HTMLElement>(null);
+
+  /*
+   * Escape cierra el cajón.
+   *
+   * Es lo que espera cualquiera que lo abra con teclado, y sin esto la única salida era llegar
+   * hasta un enlace o tocar el fondo, que con teclado no se puede. Solo se escucha mientras está
+   * abierto: un oyente permanente interceptaría Escape en el resto de la pantalla.
+   */
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function onKeyDown(event: KeyboardEvent): void {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open]);
+
+  /* Al abrirlo, el foco entra en el cajón: si no, el tabulador seguiría detrás del velo. */
+  useEffect(() => {
+    if (open) {
+      sidebar.current?.focus();
+    }
+  }, [open]);
 
   const context: DrawerContext = {
     open,
@@ -70,16 +101,30 @@ export function PanelChrome({
     <Drawer.Provider value={context}>
       <div className={styles.shell}>
         <div className={open ? styles.layoutOpen : styles.layout}>
-          {/* Fondo que cierra el cajón al tocar fuera. Solo existe en móvil. */}
+          {/*
+            Fondo que cierra el cajón al tocar fuera. Solo existe en móvil.
+
+            Siempre `aria-hidden`: es un atajo de puntero, no un control con significado propio.
+            Antes se anunciaba como un botón sin nombre en cuanto el cajón se abría. Con teclado la
+            salida es Escape, que sí existe.
+          */}
           <button
-            aria-hidden={!open}
+            aria-hidden="true"
             className={styles.scrim}
             onClick={context.close}
             tabIndex={-1}
             type="button"
           />
 
-          <aside className={styles.sidebar} id="panel-sidebar">
+          {/*
+            `tabIndex={-1}` para poder enfocarlo al abrirlo; no entra en el orden del tabulador.
+
+            Que el cajón cerrado desaparezca del orden de foco lo resuelve la hoja de estilos con
+            `visibility`, y no un atributo aquí: la barra solo es un cajón por debajo de 60 rem, y
+            en escritorio `open` no gobierna nada visible. Una condición en el JSX apagaría también
+            la barra de escritorio, donde siempre está a la vista.
+          */}
+          <aside className={styles.sidebar} id="panel-sidebar" ref={sidebar} tabIndex={-1}>
             <div className={styles.brand}>
               <BrandLogo className={styles.brandLogo} height={34} />
             </div>

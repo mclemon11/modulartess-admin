@@ -20,7 +20,12 @@ import type {
 export type MutationResult<T> =
   { readonly ok: true; readonly data: T } | { readonly ok: false; readonly code: string };
 
-async function send<T>(url: string, method: 'POST' | 'PATCH', body: unknown, expected: number) {
+async function send<T>(
+  url: string,
+  method: 'POST' | 'PATCH' | 'PUT',
+  body: unknown,
+  expected: number,
+) {
   let response: Response;
 
   try {
@@ -89,13 +94,24 @@ export function transitionProduct(
   );
 }
 
-export function adjustInventory(
+/**
+ * Establece el inventario del producto base.
+ *
+ * Es un `PUT` y manda el **estado final**. No existe aquí el equivalente por delta: la interfaz
+ * dejó de usarlo cuando el contrato publicó los dos modos, porque una diferencia no se puede
+ * expresar en modo disponibilidad y en modo cantidad hacía creer que se estaban registrando
+ * movimientos de almacén.
+ *
+ * La clave de idempotencia la genera quien inicia la operación y la conserva mientras reintenta
+ * **esa misma** operación. Cambiar la cantidad otra vez es otra operación y lleva otra clave.
+ */
+export function setProductInventory(
   productId: string,
   body: unknown,
 ): Promise<MutationResult<InventoryAdjustmentResult>> {
   return send<InventoryAdjustmentResult>(
-    `/api/admin/products/${encodeURIComponent(productId)}/inventory-adjustments`,
-    'POST',
+    `/api/admin/products/${encodeURIComponent(productId)}/inventory`,
+    'PUT',
     body,
     200,
   );
@@ -215,14 +231,15 @@ export function archiveVariant(
   );
 }
 
-export function adjustVariantInventory(
+/** El inventario de una variante, con las mismas garantías que el del producto base. */
+export function setVariantInventory(
   productId: string,
   variantId: string,
   body: unknown,
 ): Promise<MutationResult<VariantInventoryAdjustmentResult>> {
   return send<VariantInventoryAdjustmentResult>(
-    `${variantPath(productId, variantId)}/inventory-adjustments`,
-    'POST',
+    `${variantPath(productId, variantId)}/inventory`,
+    'PUT',
     body,
     200,
   );

@@ -29,10 +29,15 @@ import type {
   ProductAttributeDefinition,
   ProductTaxonomy,
   ProductVariantAttribute,
+  SetInventoryControl,
+  SetInventoryRequest,
   UpdateProductImageRequest,
   UpdateProductRequest,
   UpdateProductVariantRequest,
 } from '@/lib/api/catalog';
+
+/** Tope de cantidad que publica el contrato. */
+const INVENTORY_QUANTITY_MAX = 1_000_000;
 
 export const SKU_PATTERN = /^[A-Z0-9][A-Z0-9-]{1,63}$/;
 export const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
@@ -77,11 +82,15 @@ export function parseCreateProduct(raw: unknown): CreateProductRequest | null {
 
   if (shortDescription === null || description === null) return null;
 
-  const stockQuantity = raw.stockQuantity === undefined ? 0 : wholeNumber(raw.stockQuantity, 0);
-  const lowStockThreshold =
-    raw.lowStockThreshold === undefined ? 0 : wholeNumber(raw.lowStockThreshold, 0);
+  /*
+   * El inventario es **opcional** en el alta, como en el contrato: omitirlo crea el producto con
+   * cero unidades controladas. Lo que no se admite es mandarlo mal formado, porque eso sí sería
+   * un cuerpo que el backend rechazaría.
+   */
+  const inventory =
+    raw.inventory === undefined ? undefined : parseSetInventoryControl(raw.inventory);
 
-  if (stockQuantity === null || lowStockThreshold === null) return null;
+  if (inventory === null) return null;
 
   // `status` no se acepta: el backend crea siempre en `draft`, y ofrecerlo mentiría.
   return {
@@ -89,8 +98,7 @@ export function parseCreateProduct(raw: unknown): CreateProductRequest | null {
     slug,
     name,
     priceCop: price,
-    stockQuantity,
-    lowStockThreshold,
+    ...(inventory === undefined ? {} : { inventory }),
     ...(shortDescription === undefined ? {} : { shortDescription }),
     ...(description === undefined ? {} : { description }),
   };
@@ -206,14 +214,6 @@ export function parseUpdateProduct(raw: unknown): UpdateProductRequest | null {
     body.priceCop = price;
   }
 
-  if (raw.lowStockThreshold !== undefined) {
-    const threshold = wholeNumber(raw.lowStockThreshold, 0);
-
-    if (threshold === null) return null;
-
-    body.lowStockThreshold = threshold;
-  }
-
   const shortDescription = boundedText(raw.shortDescription, SHORT_DESCRIPTION_MAX_LENGTH);
   const description = boundedText(raw.description, DESCRIPTION_MAX_LENGTH);
 
@@ -288,6 +288,17 @@ export type InventoryAdjustmentInput = InventoryAdjustmentRequest & {
   readonly idempotencyKey: string;
 };
 
+/**
+ * Forma de una clave de idempotencia aceptable.
+ *
+ * No se valida contra un formato concreto —el contrato no publica ninguno— pero sí contra dos
+ * cosas que sí importan: que exista y que no sea un campo de texto libre por el que colar
+ * kilobytes en un encabezado.
+ */
+function isIdempotencyKey(value: unknown): value is string {
+  return typeof value === 'string' && value.length >= 8 && value.length <= 128;
+}
+
 /** La clave de idempotencia la genera el cliente y viaja en el cuerpo; el BFF la pasa al encabezado. */
 export function parseInventoryAdjustment(raw: unknown): InventoryAdjustmentInput | null {
   if (!isRecord(raw)) return null;
@@ -300,15 +311,83 @@ export function parseInventoryAdjustment(raw: unknown): InventoryAdjustmentInput
 
   if (typeof delta !== 'number' || !Number.isInteger(delta) || delta === 0) return null;
   if (typeof reason !== 'string' || reason.trim().length === 0 || reason.length > 280) return null;
-  if (
-    typeof idempotencyKey !== 'string' ||
-    idempotencyKey.length < 8 ||
-    idempotencyKey.length > 128
-  ) {
-    return null;
-  }
+  if (!isIdempotencyKey(idempotencyKey)) return null;
 
   return { expectedVersion, delta, reason, idempotencyKey };
+}
+
+/**
+ * El inventario que viaja en un cuerpo, estrechado **campo a campo desde el modo**.
+ *
+ * Es la pieza que impide mezclar los dos modos. El contrato rechaza los campos del modo contrario
+ * —«fields of one mode are rejected in the other»— y aquí no se copia nada del objeto recibido: se
+ * construye uno nuevo con lo que ese modo admite y nada más. Copiar y borrar después es donde se
+ * olvida uno.
+ */
+export function parseSetInventoryControl(raw: unknown): SetInventoryControl | null {
+  if (!isRecord(raw)) return null;
+
+  if (raw.mode === 'availability') {
+    // `status` es obligatorio aquí, y `quantity`/`lowStockThreshold` ni se miran: no viajan.
+    if (raw.status !== 'in_stock' && raw.status !== 'out_of_stock') return null;
+
+    return { mode: 'availability', status: raw.status };
+  }
+
+  if (raw.mode !== 'tracked') return null;
+
+  const quantity = wholeNumber(raw.quantity, 0);
+
+  if (quantity === null || quantity > INVENTORY_QUANTITY_MAX) return null;
+
+  // El umbral es opcional y su ausencia significa cero: no avisar.
+  const lowStockThreshold =
+    raw.lowStockThreshold === undefined ? 0 : wholeNumber(raw.lowStockThreshold, 0);
+
+  if (lowStockThreshold === null) return null;
+
+  return { mode: 'tracked', quantity, lowStockThreshold };
+}
+
+/**
+ * Cuerpo de las dos operaciones de establecer inventario.
+ *
+ * `expectedVersion` viaja siempre: sin él, dos personas tocando el mismo producto se pisarían y la
+ * última ganaría en silencio. La `Idempotency-Key` no va en el cuerpo —es una cabecera— y la genera
+ * el navegador, que es quien sabe si esto es un reintento de la misma operación o una nueva.
+ */
+export function parseSetInventory(raw: unknown): SetInventoryRequest | null {
+  if (!isRecord(raw)) return null;
+
+  const expectedVersion = wholeNumber(raw.expectedVersion, 1);
+  const inventory = parseSetInventoryControl(raw.inventory);
+
+  if (expectedVersion === null || inventory === null) return null;
+
+  return { expectedVersion, inventory };
+}
+
+export type SetInventoryInput = {
+  readonly idempotencyKey: string;
+  readonly body: SetInventoryRequest;
+};
+
+/**
+ * Cuerpo completo que recibe el BFF: la operación y la clave que la identifica.
+ *
+ * La clave llega **en el cuerpo** y sale **en el encabezado**, igual que en el ajuste por delta.
+ * Que el navegador la mande explícitamente es lo que permite que un reintento de la misma
+ * operación —el mismo botón pulsado dos veces tras un fallo de red— sea reconocible como tal en
+ * lugar de aplicarse dos veces.
+ */
+export function parseSetInventoryInput(raw: unknown): SetInventoryInput | null {
+  if (!isRecord(raw)) return null;
+
+  const body = parseSetInventory(raw);
+
+  if (body === null || !isIdempotencyKey(raw.idempotencyKey)) return null;
+
+  return { idempotencyKey: raw.idempotencyKey, body };
 }
 
 /**
@@ -387,11 +466,19 @@ export function parseCreateVariant(raw: unknown): CreateProductVariantRequest | 
 
   if (attributes === null) return null;
 
-  const stockQuantity = raw.stockQuantity === undefined ? 0 : wholeNumber(raw.stockQuantity, 0);
+  // También opcional aquí: el contrato crea la variante con cero unidades controladas si falta.
+  const inventory =
+    raw.inventory === undefined ? undefined : parseSetInventoryControl(raw.inventory);
 
-  if (stockQuantity === null) return null;
+  if (inventory === null) return null;
 
-  return { expectedVersion, sku, priceCop, stockQuantity, attributes: [...attributes] };
+  return {
+    expectedVersion,
+    sku,
+    priceCop,
+    ...(inventory === undefined ? {} : { inventory }),
+    attributes: [...attributes],
+  };
 }
 
 /**

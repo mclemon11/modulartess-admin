@@ -123,6 +123,20 @@
   font-weight: 600;
 }
 
+/*
+ * La celda de inventario.
+ *
+ * Con los dos modos del contrato deja de ser una columna de números: un producto con variantes
+ * lleva un resumen en palabras. Se le da un ancho mínimo para que la frase no se rompa carácter a
+ * carácter y un máximo para que no se coma las columnas siguientes.
+ */
+.inventoryCell {
+  min-width: 9rem;
+  max-width: 16rem;
+  text-align: left;
+  line-height: 1.35;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -442,17 +456,34 @@
   margin-bottom: var(--space-lg);
 }
 
+/*
+ * Acciones del encabezado.
+ *
+ * Caben varias —«Actualizar» y «Nuevo producto»— y por eso envuelven en lugar de encogerse: dos
+ * botones apretados en una sola línea acaban con el texto cortado antes que con la caja rota.
+ */
+.pageHeadActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
 @media (max-width: 40rem) {
-  /* Móvil: el botón principal se queda arriba, junto al título, como en la referencia. */
-  .pageHead {
-    flex-wrap: nowrap;
-    align-items: center;
+  /* Móvil: las acciones bajan a su propia fila y se reparten el ancho disponible. */
+  .pageHeadActions {
+    width: 100%;
   }
 
-  .pageHead .buttonPrimary {
-    padding: 0.625rem 0.875rem;
-    font-size: 0.875rem;
+  .pageHeadActions > * {
+    flex: 1 1 9rem;
   }
+}
+
+/* Icono dentro de un botón: hereda el color del texto y no roba espacio al aire lateral. */
+.buttonIcon {
+  flex: 0 0 auto;
+  margin-right: -0.125rem;
 }
 
 .thumb {
@@ -497,10 +528,19 @@
 }
 
 /* Tarjetas de móvil: la tabla desaparece por debajo de 60rem. */
+/*
+ * Es una lista de verdad —un lector de pantalla anuncia «3 elementos»— y por eso es un `ul`. Lo
+ * que no debe traer es la presentación que el navegador le da por defecto: el punto de viñeta y la
+ * sangría de 40 px se veían a la izquierda de cada tarjeta y le robaban ancho justo donde menos
+ * sobra. La semántica se queda; el adorno, no.
+ */
 .cardList {
   display: none;
   flex-direction: column;
   gap: var(--space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .productCard {
@@ -1087,11 +1127,20 @@
   overflow-wrap: anywhere;
 }
 
-.variantStock {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+/*
+ * El inventario de una variante, separado de sus atributos y su precio.
+ *
+ * Van por rutas distintas —el precio en el `PATCH` de la variante, el inventario en su propio
+ * `PUT`— y la separación visual lo dice: «Guardar variante» no toca las existencias.
+ */
+.variantInventory {
+  margin-top: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: 1px dashed var(--color-panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
 }
 
 /*
@@ -1122,6 +1171,19 @@
   .checkbox {
     width: 1.5rem;
     height: 1.5rem;
+  }
+
+  /* El radio de cada modo de inventario: se toca con el dedo, y 18 px no se acierta. */
+  .modeRadio {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  /* «Ir a esta sección» dentro de la guía: es un enlace, pero se usa como un botón. */
+  .guideLink {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
   }
 }
 
@@ -1592,75 +1654,6 @@
   white-space: nowrap;
 }
 
-/* ------------------------------------------------- portada */
-
-/*
- * Cuadrícula de secciones.
- *
- * Dos columnas amplias en escritorio, como la referencia; una sola en cuanto la pantalla se
- * estrecha. Las tarjetas son grandes a propósito: son el acceso principal al panel, no una lista.
- */
-.dashboardGrid {
-  display: grid;
-  gap: var(--space-lg);
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
-  align-items: stretch;
-}
-
-.dashboardCard {
-  display: flex;
-  flex-direction: column;
-  padding: clamp(1.25rem, 3vw, 1.75rem);
-  border: 1px solid var(--color-panel-border);
-  border-radius: var(--radius-card);
-  background-color: var(--color-panel-surface);
-  box-shadow: var(--shadow-card);
-  transition: box-shadow 140ms ease;
-}
-
-.dashboardCard:hover {
-  box-shadow: var(--shadow-card-raised);
-}
-
-.dashboardCardHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
-}
-
-.dashboardIcon {
-  display: grid;
-  width: 3rem;
-  height: 3rem;
-  place-items: center;
-  border-radius: var(--radius-control);
-  background-image: var(--gradient-brand-soft);
-  color: var(--color-brand-strong);
-}
-
-.dashboardCardTitle {
-  margin: 0 0 var(--space-xs);
-  font-size: 1.25rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.dashboardCardText {
-  margin: 0 0 var(--space-lg);
-  color: var(--color-panel-muted);
-  font-size: 0.9375rem;
-  text-wrap: pretty;
-}
-
-.dashboardCardActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-top: auto;
-}
-
 /* ------------------------------------------------- sección sin contrato */
 
 .comingSoon {
@@ -1831,4 +1824,270 @@
   color: var(--color-brand);
   font-size: 0.8125rem;
   font-weight: 600;
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Inventario: los dos modos
+ * ---------------------------------------------------------------------------
+ *
+ * Elegir el modo es la decisión importante de este bloque, así que ocupa el espacio de una
+ * decisión: dos tarjetas con su explicación, no un desplegable de dos líneas. La explicación es lo
+ * que se lee para decidir; el nombre del modo, por sí solo, no basta.
+ */
+.inventoryFields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.modeFieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.modeLegend {
+  padding: 0;
+  margin-bottom: var(--space-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.modeOptions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-sm);
+}
+
+.modeOption {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-panel-surface);
+  cursor: pointer;
+}
+
+.modeOptionChecked {
+  composes: modeOption;
+  border-color: var(--color-brand);
+  box-shadow: inset 0 0 0 1px var(--color-brand);
+}
+
+/*
+ * El radio se ve. Esconderlo y pintar la tarjeta seleccionada solo con un borde deja sin pista a
+ * quien amplía la página o no distingue ese color del borde normal.
+ */
+.modeRadio {
+  margin-top: 0.2rem;
+  accent-color: var(--color-brand);
+  /* 44×44 es el área táctil recomendada; el control se dibuja dentro. */
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+}
+
+.modeOption:focus-within,
+.modeOptionChecked:focus-within {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.modeOptionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.modeOptionTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.modeOptionHint {
+  color: var(--color-panel-muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+/*
+ * Cantidad y umbral, uno al lado del otro mientras quepan. Debajo de 34rem se apilan: dos campos
+ * numéricos de 6rem cada uno con su ayuda debajo no se leen en un teléfono.
+ */
+.inventoryRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0 var(--space-md);
+}
+
+.inventoryRow > .field {
+  margin-bottom: var(--space-sm);
+}
+
+/* Una pila corta: la tarjeta de inventario y sus dos o tres piezas. */
+.stackSm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+/*
+ * El formulario de inventario, separado de la lectura por una línea.
+ *
+ * La separación importa: encima está lo que hay guardado y debajo lo que se va a mandar, y
+ * confundirlos es exactamente el error que produce un inventario equivocado.
+ */
+.inventoryEditor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-panel-border);
+  min-width: 0;
+}
+
+/*
+ * Portada y Galería, uno debajo del otro.
+ *
+ * El orden importa y no se invierte en ningún ancho: la portada va antes que la galería porque es
+ * la primera imagen que verá quien entre en la ficha, y verla primero aquí es lo que hace que la
+ * decisión se entienda.
+ */
+.imageSections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+/* La rejilla de imágenes ya activas en el backend, dentro del bloque de Galería. */
+.galleryGrid {
+  composes: imageGrid;
+  margin-top: var(--space-sm);
+}
+
+/* «Subiendo 2 de 5» y el botón del lote. */
+.batchBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.batchProgress {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * La portada, en grande.
+ *
+ * Ocupa más que una miniatura porque es la imagen que decide si alguien entra en la ficha: verla
+ * pequeña, al lado de otras nueve, no permite juzgar si sirve para eso.
+ */
+.coverFigure {
+  position: relative;
+  margin: 0 0 var(--space-sm);
+  border: 1px solid var(--color-panel-border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background-color: var(--color-panel-subtle);
+  max-width: 22rem;
+}
+
+.coverImg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+/*
+ * La guía, en un `<dialog>` nativo.
+ *
+ * El `::backdrop` lo pinta el navegador cuando se abre con `showModal()`; no hay ninguna capa
+ * propia por debajo, y por eso tampoco hay nada que se quede colgado si algo falla.
+ */
+.guideDialog {
+  width: min(44rem, calc(100vw - 2rem));
+  max-height: min(42rem, calc(100vh - 3rem));
+  padding: 0;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: 0.875rem;
+  background-color: var(--color-panel-surface);
+  color: var(--color-panel-text);
+  overflow: auto;
+}
+
+.guideDialog::backdrop {
+  background-color: rgb(0 0 0 / 55%);
+}
+
+.guideHeader {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--color-panel-border);
+  background-color: var(--color-panel-surface);
+}
+
+.guideTitle {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.guideBody {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.guideLead {
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.9375rem;
+}
+
+.guideSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.guideSection p {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.guideSectionTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.guideLink {
+  align-self: flex-start;
+  color: var(--color-brand);
+  font-size: 0.875rem;
+  font-weight: 600;
+  /* Objetivo táctil: el enlace se toca con el dedo, no solo con el ratón. */
+  padding: 0.375rem 0;
 }

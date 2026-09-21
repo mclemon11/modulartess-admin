@@ -1,0 +1,484 @@
+/*
+ * Piezas propias de Configuración → Integraciones.
+ *
+ * Lo compartido —tarjeta, cabecera de sección, tabla, botones, campos, estados de vacío y de
+ * error— sigue viniendo de `catalog.module.css`. Aquí vive **solo** lo que esta superficie tiene y
+ * las otras no: la rejilla de proveedores, el formulario de credenciales, la caja de la URL de
+ * eventos, la zona peligrosa de la revocación y la bandeja de incidencias.
+ */
+
+/* ------------------------------------------------- proveedores */
+
+.providers {
+  display: grid;
+  gap: var(--space-md);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  align-items: start;
+}
+
+/*
+ * Por debajo de 60rem las tarjetas se apilan.
+ *
+ * `auto-fit` con 22rem las dejaba en dos columnas de 353 px a 768, y ahí dentro va una rejilla de
+ * pares etiqueta/valor con fechas largas y una llave enmascarada: a ese ancho cada dato acaba en su
+ * propia línea y la tarjeta se lee peor que a ancho completo. El corte es el mismo en el que el
+ * shell cambia a cajón.
+ */
+@media (max-width: 60rem) {
+  .providers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.provider {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+  padding: clamp(1rem, 2.5vw, 1.25rem);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-card);
+  background-color: var(--color-panel-surface);
+  box-shadow: var(--shadow-card);
+}
+
+/*
+ * El proveedor que todavía no existe.
+ *
+ * Borde discontinuo y sin sombra: se distingue de una tarjeta operativa **por la forma**, no solo
+ * por una pastilla de texto, para que no se lea como una integración apagada.
+ */
+.providerPending {
+  composes: provider;
+  border-style: dashed;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.providerHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.providerIcon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background-image: var(--gradient-brand-soft);
+  color: var(--color-brand-strong);
+}
+
+.providerName {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.providerText {
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.875rem;
+  text-wrap: pretty;
+}
+
+/*
+ * Estado de la integración.
+ *
+ * Pastilla con texto completo. El color acompaña; nunca es el único portador: «Activo» y
+ * «Configurado, apagado» son estados distintos y un verde más pálido no los distingue.
+ */
+.health {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.healthEnabled {
+  composes: health;
+  background-color: var(--color-state-success-bg);
+  color: var(--color-state-success-fg);
+}
+
+.healthConfigured {
+  composes: health;
+  background-color: var(--color-state-info-bg);
+  color: var(--color-state-info-fg);
+}
+
+.healthIncomplete {
+  composes: health;
+  background-color: var(--color-state-warning-bg);
+  color: var(--color-state-warning-fg);
+}
+
+.healthBlocked {
+  composes: health;
+  background-color: var(--color-state-neutral-bg);
+  color: var(--color-state-neutral-fg);
+}
+
+.providerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+/* ------------------------------------------------- resumen operativo */
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 0.875rem;
+  margin: 0;
+}
+
+.fact {
+  display: grid;
+  gap: 0.125rem;
+  align-content: start;
+}
+
+.factLabel {
+  color: var(--color-panel-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.factValue {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * El matiz de cada reloj.
+ *
+ * Va debajo del valor y no en un tooltip: la diferencia entre «llegó algo» y «llegó algo
+ * auténtico» es justo lo que hay que leer sin tener que buscarlo, y un tooltip no existe para
+ * quien navega con teclado.
+ */
+.factHint {
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.75rem;
+  text-wrap: pretty;
+}
+
+/* La llave pública enmascarada: monoespaciada, para poder compararla de un vistazo al rotar. */
+.masked {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------- credenciales */
+
+.form {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-md);
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+  align-content: start;
+}
+
+.fieldLabel {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.fieldState {
+  color: var(--color-panel-muted);
+  font-size: 0.75rem;
+}
+
+.fieldHint {
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.75rem;
+  text-wrap: pretty;
+}
+
+.input {
+  min-height: var(--control-height);
+  padding: 0 0.75rem;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: var(--radius-control);
+  background-color: var(--color-panel-surface);
+  color: var(--color-panel-text);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 1px;
+}
+
+.input:disabled {
+  background-color: var(--color-panel-subtle);
+  color: var(--color-panel-muted);
+}
+
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ------------------------------------------------- URL de eventos */
+
+/*
+ * Solo lectura, y con aspecto de solo lectura.
+ *
+ * La URL la deriva el backend de su propia configuración y el panel no puede cambiarla. Un campo
+ * que se ve editable invita a escribir en él, y lo que se escriba no se guardaría en ninguna parte.
+ */
+.copyRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.copyValue {
+  flex: 1 1 18rem;
+  min-width: 0;
+  min-height: var(--control-height);
+  padding: 0 0.75rem;
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-panel-subtle);
+  color: var(--color-panel-text);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+/* ------------------------------------------------- zona peligrosa */
+
+/*
+ * La revocación inmediata.
+ *
+ * Va en su propia caja, con borde rojo y separada del resto del formulario. No es una casilla más:
+ * corta el periodo de gracia, y con él los reintentos que el proveedor todavía estuviera firmando
+ * con el secreto anterior.
+ */
+.danger {
+  display: grid;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-state-danger-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-state-danger-bg);
+}
+
+.dangerTitle {
+  margin: 0;
+  color: var(--color-state-danger-fg);
+  font-size: 0.9375rem;
+  font-weight: 800;
+}
+
+.dangerText {
+  margin: 0;
+  color: var(--color-state-danger-fg);
+  font-size: 0.875rem;
+  text-wrap: pretty;
+}
+
+/* ------------------------------------------------- confirmación en pantalla */
+
+/*
+ * Bloque de confirmación, no un `confirm()` del navegador.
+ *
+ * Un diálogo nativo bloquea el documento entero y no deja leer con calma qué se va a aplicar, que
+ * es precisamente lo que hay que hacer antes de cortar un periodo de gracia o cerrar una
+ * incidencia.
+ */
+.confirm {
+  display: grid;
+  gap: 0.625rem;
+  margin-top: 0.75rem;
+  padding: 0.875rem;
+  border: 1px solid var(--color-brand-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-brand-soft);
+}
+
+.confirmTitle {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 800;
+}
+
+.confirmText {
+  margin: 0;
+  font-size: 0.875rem;
+  text-wrap: pretty;
+}
+
+.confirmActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* ------------------------------------------------- incidencias */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.625rem;
+  margin-bottom: var(--space-md);
+}
+
+.filterField {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.select {
+  min-height: var(--control-height-sm);
+  padding: 0 0.5rem;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: 0.5rem;
+  background-color: var(--color-panel-surface);
+  color: var(--color-panel-text);
+  font-family: inherit;
+  font-size: 0.875rem;
+}
+
+.select:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 1px;
+}
+
+/* Identificadores técnicos: monoespaciados y partibles, nunca empujan la tabla. */
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.incidentTable {
+  display: block;
+}
+
+.incidentCards {
+  display: none;
+  gap: 0.625rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * La tabla de incidencias pasa a tarjetas antes que las demás.
+ *
+ * Lleva siete columnas, y dos de ellas son identificadores largos que no se parten por palabras.
+ * A 75rem ya no caben sin aplastar alguna, y una columna aplastada acaba escribiendo un
+ * identificador en vertical.
+ */
+@media (max-width: 75rem) {
+  .incidentTable {
+    display: none;
+  }
+
+  .incidentCards {
+    display: grid;
+  }
+}
+
+.incidentCard {
+  display: grid;
+  gap: 0.375rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-control);
+}
+
+.incidentCardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.incidentReason {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.incidentMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.8125rem;
+}
+
+.incidentHint {
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.8125rem;
+  text-wrap: pretty;
+}
+
+/* Abierta o resuelta: pastilla con texto, como el resto del panel. */
+.incidentOpen {
+  composes: health;
+  background-color: var(--color-state-danger-bg);
+  color: var(--color-state-danger-fg);
+}
+
+.incidentResolved {
+  composes: health;
+  background-color: var(--color-state-neutral-bg);
+  color: var(--color-state-neutral-fg);
+}
+
+/* ------------------------------------------------- pantallas estrechas */
+
+@media (max-width: 40rem) {
+  .filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .select,
+  .copyValue {
+    width: 100%;
+  }
+}
+
+@media (pointer: coarse) {
+  .select {
+    min-height: var(--control-height);
+  }
+}

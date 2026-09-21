@@ -336,7 +336,18 @@
     grid-template-columns: 1fr;
   }
 
-  /* La barra lateral pasa a ser un cajón, como en las referencias móviles. */
+  /*
+   * La barra lateral pasa a ser un cajón, como en las referencias móviles.
+   *
+   * `visibility: hidden` mientras está cerrado, y no solo el desplazamiento: un elemento movido
+   * con `transform` **sigue siendo enfocable**, así que el tabulador recorría los cinco enlaces y
+   * el cierre de sesión fuera de la pantalla antes de llegar al contenido. `visibility` lo saca
+   * del orden de foco y del árbol de accesibilidad, y se hace aquí —no en el JSX— porque solo vale
+   * a este ancho: en escritorio la barra siempre está a la vista.
+   *
+   * La transición de `visibility` se retrasa lo que dura el desplazamiento para que el cajón no
+   * desaparezca de golpe mientras se cierra.
+   */
   .sidebar {
     position: fixed;
     z-index: 20;
@@ -344,14 +355,26 @@
     bottom: 0;
     left: 0;
     width: min(17rem, 82vw);
+    overflow-y: auto;
     border-right: 1px solid var(--color-panel-border);
     transform: translateX(-100%);
-    transition: transform 160ms ease;
+    visibility: hidden;
+    transition:
+      transform 160ms ease,
+      visibility 0s linear 160ms;
+  }
+
+  .sidebar:focus-visible {
+    outline: none;
   }
 
   .layoutOpen .sidebar {
     transform: translateX(0);
-    box-shadow: 0 0 0 100vmax rgb(27 24 48 / 0%);
+    visibility: visible;
+    box-shadow: 0 8px 32px rgb(27 24 48 / 18%);
+    transition:
+      transform 160ms ease,
+      visibility 0s;
   }
 
   .layoutOpen .scrim {

@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   LOCKED_MESSAGE,
   addToQueue,
+  coverCandidate,
+  galleryEntries,
   entriesMissingAltText,
   moveInQueue,
   removeFromQueue,
@@ -20,13 +22,16 @@ function file(name: string, type = 'image/jpeg', size = 1024): File {
   return built;
 }
 
-function entry(id: string): QueuedImage {
+function entry(id: string, overrides: Partial<QueuedImage> = {}): QueuedImage {
   return {
     entryId: id,
     file: file(`${id}.jpg`),
     previewUrl: `blob:${id}`,
     altText: `alt ${id}`,
     idempotencyKey: `key-${id}`,
+    intent: 'gallery',
+    uploadedImageId: null,
+    ...overrides,
   };
 }
 
@@ -102,14 +107,30 @@ describe('orden y principal', () => {
     expect(moveInQueue(queue, 'b', 1).queue).toBe(queue);
   });
 
-  it('la primera es principal por defecto', () => {
-    expect(resolvePrimary([entry('a'), entry('b')], null)).toBe('a');
+  /*
+   * La portada sale de la **intención**, no de la posición.
+   *
+   * Esta prueba sustituye a «la primera es principal por defecto», que codificaba el fallo: quien
+   * ponía una imagen en la galería descubría que se había convertido en la portada del producto
+   * solo por haber llegado antes.
+   */
+  it('la primera de la lista NO es la portada si nadie la eligió', () => {
+    expect(resolvePrimary([entry('a'), entry('b')], null)).toBeNull();
   });
 
-  it('si se quita la principal, pasa a serlo la primera restante', () => {
-    const remaining = removeFromQueue([entry('a'), entry('b')], 'a').queue;
+  it('la portada es la entrada con intención de portada, esté donde esté', () => {
+    const queue = [entry('a'), entry('b', { intent: 'cover' }), entry('c')];
 
-    expect(resolvePrimary(remaining, 'a')).toBe('b');
+    expect(resolvePrimary(queue, null)).toBe('b');
+    expect(coverCandidate(queue)?.entryId).toBe('b');
+    expect(galleryEntries(queue).map((item) => item.entryId)).toEqual(['a', 'c']);
+  });
+
+  it('quitar la portada no asciende a ninguna de la galería', () => {
+    const remaining = removeFromQueue([entry('a', { intent: 'cover' }), entry('b')], 'a').queue;
+
+    expect(resolvePrimary(remaining, 'a')).toBeNull();
+    expect(coverCandidate(remaining)).toBeNull();
   });
 
   it('sin imágenes no hay principal', () => {

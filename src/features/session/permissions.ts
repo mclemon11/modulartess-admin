@@ -27,6 +27,29 @@ export const PERMISSIONS = [
   'products.archive',
   'inventory.read',
   'inventory.adjust',
+  /*
+   * Aplicar un resultado de pago simulado en staging. El contrato dice que la ruta «requires the
+   * payments.simulate permission, which only super_admin has», así que aquí se concede a ese rol y
+   * a ninguno más. No se deduce de `orders.update_status`: mover el trabajo del día y decidir el
+   * desenlace de un pago son cosas distintas.
+   */
+  'payments.simulate',
+  /*
+   * Ver la configuración de una integración y la bandeja de incidencias.
+   *
+   * Es **lectura de estado operativo**, no de credenciales: el backend nunca devuelve un secreto,
+   * y la llave pública llega enmascarada. Por eso alcanza a `master_admin`, que dirige la
+   * operación y necesita saber si la pasarela está en pie.
+   */
+  'integrations.read',
+  /*
+   * Editar credenciales, rotar secretos, encender un ambiente y cerrar una incidencia.
+   *
+   * Solo `super_admin`, y el backend lo exige por su cuenta. Cerrar una incidencia es una
+   * **afirmación sobre dinero que no cuadró**, y guardar una credencial decide con qué comercio
+   * cobra la tienda: ninguna de las dos es una tarea de operación.
+   */
+  'integrations.manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -60,6 +83,8 @@ const MASTER_ADMIN: readonly Permission[] = [
   'products.archive',
   'inventory.read',
   'inventory.adjust',
+  // Ve el estado de la pasarela y la bandeja de incidencias; no toca ni una credencial.
+  'integrations.read',
 ];
 
 /** `super_admin` tiene acceso completo a lo que esta fase publica. */

@@ -21,6 +21,14 @@ export const SESSION_ERROR_CODES = [
   'not_found',
   'version_conflict',
   'refund_required',
+  'payment_transition_invalid',
+  'payment_conflict',
+  'simulator_disabled',
+  'integration_invalid',
+  'integration_conflict',
+  'live_payments_not_enabled',
+  'incident_not_found',
+  'provider_unavailable',
   'too_many_requests',
   'service_unavailable',
   'internal_error',
@@ -41,6 +49,19 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
     'Alguien modificó estos datos mientras los editabas. Recarga para ver la versión actual.',
   refund_required:
     'Este pedido ya está pagado y cancelarlo exigiría devolver el dinero. El flujo de reembolso todavía no está disponible.',
+  payment_transition_invalid:
+    'Ese resultado no cabe desde el estado actual del pago. Recarga el pedido para ver en qué punto está.',
+  payment_conflict:
+    'Ese intento de pago ya se registró con otro resultado. No se aplicó nada nuevo.',
+  simulator_disabled: 'El simulador de pagos no está habilitado en este despliegue.',
+  integration_invalid:
+    'La configuración no cumple lo que exige la pasarela. Revisa los campos marcados.',
+  integration_conflict:
+    'La configuración cambió mientras la editabas. Recarga para ver la versión actual.',
+  live_payments_not_enabled:
+    'Los pagos reales están bloqueados en este despliegue. No es una casilla de configuración: se levanta desde la infraestructura.',
+  incident_not_found: 'Esa incidencia ya no existe.',
+  provider_unavailable: 'La pasarela no respondió. Inténtalo de nuevo en unos momentos.',
   session_required: 'No hay una sesión administrativa activa. Vuelve a iniciar sesión.',
   admin_role_required: 'Esta cuenta no tiene permisos administrativos.',
   admin_surface_disabled: 'La superficie administrativa no está disponible en este despliegue.',
@@ -55,6 +76,14 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   not_found: 404,
   version_conflict: 409,
   refund_required: 409,
+  payment_transition_invalid: 409,
+  payment_conflict: 409,
+  simulator_disabled: 404,
+  integration_invalid: 400,
+  integration_conflict: 409,
+  live_payments_not_enabled: 409,
+  incident_not_found: 404,
+  provider_unavailable: 503,
   session_required: 401,
   admin_role_required: 403,
   admin_surface_disabled: 503,
@@ -86,6 +115,26 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'version_conflict';
     case 'backend_refund_required':
       return 'refund_required';
+    case 'backend_payment_transition_invalid':
+      return 'payment_transition_invalid';
+    case 'backend_payment_conflict':
+      return 'payment_conflict';
+    case 'backend_simulator_disabled':
+      return 'simulator_disabled';
+    case 'backend_dashboard_query_invalid':
+      return 'invalid_request';
+    case 'backend_dashboard_unavailable':
+      return 'service_unavailable';
+    case 'backend_payment_integration_invalid':
+      return 'integration_invalid';
+    case 'backend_payment_integration_conflict':
+      return 'integration_conflict';
+    case 'backend_live_payments_not_enabled':
+      return 'live_payments_not_enabled';
+    case 'backend_payment_incident_not_found':
+      return 'incident_not_found';
+    case 'backend_payment_provider_unavailable':
+      return 'provider_unavailable';
     case 'backend_invalid_request':
       return 'invalid_request';
     case 'backend_rate_limited':

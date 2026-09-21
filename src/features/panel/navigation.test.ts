@@ -3,17 +3,19 @@ import { describe, expect, it } from 'vitest';
 import { isActive, NAVIGATION } from './navigation';
 
 /**
- * La navegación es un acuerdo, no una lista que crece sola: cinco entradas, en este orden. Si
- * alguien añade una sexta —o quita una— esta prueba lo dice antes de que llegue a la barra lateral.
+ * La navegación es un acuerdo, no una lista que crece sola: seis entradas, en este orden. Si
+ * alguien añade una séptima —o quita una— esta prueba lo dice antes de que llegue a la barra
+ * lateral.
  */
 describe('navegación del panel', () => {
-  it('tiene exactamente las cinco entradas acordadas, en orden', () => {
+  it('tiene exactamente las seis entradas acordadas, en orden', () => {
     expect(NAVIGATION.map((item) => [item.label, item.href])).toEqual([
       ['Dashboard', '/panel'],
       ['Pedidos', '/panel/pedidos'],
       ['Productos', '/panel/productos'],
       ['Envíos', '/panel/envios'],
       ['Wallet', '/panel/wallet'],
+      ['Configuración', '/panel/configuracion'],
     ]);
   });
 
@@ -28,5 +30,6 @@ describe('navegación del panel', () => {
     expect(isActive('/panel/pedidos', '/panel/pedidos/ord_1')).toBe(true);
     expect(isActive('/panel', '/panel')).toBe(true);
     expect(isActive('/panel', '/panel/envios')).toBe(false);
+    expect(isActive('/panel/configuracion', '/panel/configuracion/integraciones/wompi')).toBe(true);
   });
 });

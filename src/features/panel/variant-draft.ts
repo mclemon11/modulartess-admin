@@ -21,6 +21,13 @@ import {
   VARIANT_MAX_ACTIVE,
 } from '@/lib/api/variant-limits';
 
+import {
+  EMPTY_INVENTORY_DRAFT,
+  inventoryBody,
+  inventoryProblems,
+  describeInventoryProblem,
+  type InventoryDraft,
+} from './inventory-control';
 import { describeCopProblem, parseCop } from './money';
 import { SKU_PATTERN } from './product-input';
 import { toSku, toSlug } from './slug';
@@ -49,18 +56,22 @@ export type VariantAttributeDraft = {
 /**
  * Variante en edición.
  *
- * El precio y el inventario se guardan como texto, igual que el resto de campos numéricos del
- * formulario: se convierten al validar, y así un campo a medio escribir no se convierte en `NaN`.
+ * El precio se guarda como texto, igual que el resto de campos numéricos del formulario: se
+ * convierte al validar, y así un campo a medio escribir no se convierte en `NaN`.
  *
  * El precio se lee con `parseCop`, el mismo conversor que el precio del producto: admite
  * `1.450.000` y `$ 1.450.000`, y rechaza centavos, negativos y agrupaciones ambiguas en lugar de
  * adivinarlas.
+ *
+ * El inventario es un `InventoryDraft` completo, no un número: cada variante elige su **modo**, y
+ * una variante en «Solo disponibilidad» no tiene cantidad que guardar. Reutilizar aquí el mismo
+ * borrador que usa el producto evita que existan dos ideas distintas de qué es un inventario.
  */
 export type VariantDraft = {
   readonly draftId: string;
   readonly sku: string;
   readonly priceCop: string;
-  readonly stockQuantity: string;
+  readonly inventory: InventoryDraft;
   readonly attributes: readonly VariantAttributeDraft[];
 };
 
@@ -157,7 +168,10 @@ export function generateCombinations(
       draftId: options.newId(),
       sku: suggestSku(options.baseSku, attributes),
       priceCop: options.basePriceCop,
-      stockQuantity: '0',
+      // Cantidad controlada y **sin cantidad escrita**: generar combinaciones no sabe cuántas
+      // unidades hay de cada una, y un `0` de partida las daría todas por agotadas sin que nadie
+      // lo haya dicho.
+      inventory: EMPTY_INVENTORY_DRAFT,
       attributes,
     });
   }
@@ -280,7 +294,7 @@ export function validateVariantDrafts(
   for (const draft of drafts) {
     const sku = draft.sku.trim().toUpperCase();
     const price = parseCop(draft.priceCop);
-    const stock = Number(draft.stockQuantity);
+    const inventoryProblem = inventoryProblems(draft.inventory)[0];
     const keys = [...draft.attributes.map((attribute) => attribute.key)].sort();
     const key = combinationKey(draft.attributes);
 
@@ -301,8 +315,8 @@ export function validateVariantDrafts(
     } else if (price.value <= 0) {
       // El contrato pide «Whole pesos, greater than zero» para una variante.
       message = 'Precio: tiene que ser mayor que cero.';
-    } else if (!Number.isInteger(stock) || stock < 0 || draft.stockQuantity.trim() === '') {
-      message = 'Inventario entero y no negativo.';
+    } else if (inventoryProblem !== undefined) {
+      message = `Inventario: ${describeInventoryProblem(inventoryProblem)}`;
     }
 
     if (message !== null) {
@@ -323,6 +337,7 @@ export function variantRequestBody(
   expectedVersion: number,
 ): CreateProductVariantRequest {
   const price = parseCop(draft.priceCop);
+  const inventory = inventoryBody(draft.inventory);
 
   return {
     expectedVersion,
@@ -330,7 +345,13 @@ export function variantRequestBody(
     // Al backend va siempre el entero. Un precio ilegible no llega hasta aquí: `validateVariantDrafts`
     // bloquea el envío antes, y el `0` de respaldo lo rechazaría el backend igualmente.
     priceCop: price.ok ? price.value : 0,
-    stockQuantity: Number(draft.stockQuantity || 0),
+    /*
+     * El inventario se **omite** si el borrador no es válido, nunca se rellena con un cero.
+     * `validateVariantDrafts` ya impide llegar aquí con un borrador roto, y omitirlo significa
+     * exactamente lo que dice el contrato —«cero unidades controladas»—, no una cantidad que
+     * alguien haya escrito.
+     */
+    ...(inventory === null ? {} : { inventory }),
     attributes: draft.attributes.map((attribute) => ({
       key: attribute.key.trim(),
       value: attribute.value.trim(),

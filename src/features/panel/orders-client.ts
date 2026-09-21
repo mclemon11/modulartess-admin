@@ -12,7 +12,29 @@
 import type { AdminOrder } from '@/lib/api/orders';
 
 export type OrderMutationResult =
-  { readonly ok: true; readonly data: AdminOrder } | { readonly ok: false; readonly code: string };
+  | { readonly ok: true; readonly data: AdminOrder }
+  | {
+      readonly ok: false;
+      readonly code: string;
+      /**
+       * La petición pudo haberse aplicado.
+       *
+       * Un corte de red o un fallo sin cuerpo legible no dicen que la operación no ocurriera: dicen
+       * que no se supo. Quien llama tiene que distinguirlo, porque afirmar «falló» sobre algo que
+       * sí se aplicó lleva a repetirlo, y en un pago eso importa. Un rechazo con código del
+       * contrato —400, 401, 403, 404, 409— sí es definitivo.
+       */
+      readonly ambiguous: boolean;
+    };
+
+/** Códigos del BFF que no permiten concluir si la operación llegó a aplicarse. */
+function isAmbiguous(code: string): boolean {
+  return code === 'service_unavailable' || code === 'internal_error';
+}
+
+function failed(code: string): OrderMutationResult {
+  return { ok: false, code, ambiguous: isAmbiguous(code) };
+}
 
 async function post(url: string, body: unknown): Promise<OrderMutationResult> {
   let response: Response;
@@ -26,14 +48,15 @@ async function post(url: string, body: unknown): Promise<OrderMutationResult> {
       cache: 'no-store',
     });
   } catch {
-    return { ok: false, code: 'service_unavailable' };
+    // La petición salió y nunca se supo qué pasó con ella.
+    return failed('service_unavailable');
   }
 
   if (response.status === 200) {
     try {
       return { ok: true, data: (await response.json()) as AdminOrder };
     } catch {
-      return { ok: false, code: 'internal_error' };
+      return failed('internal_error');
     }
   }
 
@@ -44,14 +67,14 @@ async function post(url: string, body: unknown): Promise<OrderMutationResult> {
       const { code } = payload as { code: unknown };
 
       if (typeof code === 'string' && code.length > 0) {
-        return { ok: false, code };
+        return failed(code);
       }
     }
   } catch {
     // Cuerpo ilegible: cae al código genérico.
   }
 
-  return { ok: false, code: 'internal_error' };
+  return failed('internal_error');
 }
 
 export function changeOrderStatus(
@@ -70,4 +93,25 @@ export function cancelOrder(
   expectedVersion: number,
 ): Promise<OrderMutationResult> {
   return post(`/api/admin/orders/${encodeURIComponent(orderId)}/cancel`, { expectedVersion });
+}
+
+/**
+ * Aplica un resultado de pago simulado.
+ *
+ * `eventId` lo elige quien llama y **se reutiliza** si hay que reintentar exactamente la misma
+ * operación: el contrato dice que repetir el mismo `eventId` con el mismo resultado no cambia nada
+ * y no manda un segundo correo, mientras que reutilizarlo con otro resultado es un conflicto. Por
+ * eso no se genera aquí: esta función no sabe si es el primer intento o el segundo.
+ */
+export function simulateOrderPayment(
+  orderId: string,
+  event: string,
+  expectedVersion: number,
+  eventId: string,
+): Promise<OrderMutationResult> {
+  return post(`/api/admin/orders/${encodeURIComponent(orderId)}/payment-simulation`, {
+    event,
+    expectedVersion,
+    eventId,
+  });
 }

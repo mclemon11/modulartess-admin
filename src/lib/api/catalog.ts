@@ -22,9 +22,71 @@ import { ADMIN_SESSION_HEADER } from './session-material';
 
 export type AdminProduct = components['schemas']['AdminProductDto'];
 export type AdminProductPage = components['schemas']['AdminProductPageDto'];
-export type CreateProductRequest = components['schemas']['CreateProductRequestDto'];
+/**
+ * Alta de producto.
+ *
+ * `inventory` se sustituye por la unión discriminada por la misma razón que en
+ * `SetInventoryRequest`: el esquema plano obligaría a mandar `lowStockThreshold` en modo
+ * `availability`, que el backend rechaza.
+ */
+export type CreateProductRequest = Omit<
+  components['schemas']['CreateProductRequestDto'],
+  'inventory'
+> & { inventory?: SetInventoryControl };
 export type UpdateProductRequest = components['schemas']['UpdateProductRequestDto'];
 export type InventoryAdjustmentRequest = components['schemas']['InventoryAdjustmentRequestDto'];
+/**
+ * El inventario tal como lo publica el contrato: un modelo **discriminado** por `mode`.
+ *
+ * `quantity` y `lowStockThreshold` llegan en `null` cuando el modo es `availability`, y ese `null`
+ * significa «no aplica», nunca cero. El panel no lo aplana: ver `inventory-control.ts`.
+ */
+export type InventoryControl = components['schemas']['InventoryControlDto'];
+
+/**
+ * El inventario que se **escribe**, como unión discriminada.
+ *
+ * El esquema generado no sirve tal cual, y no por capricho: `lowStockThreshold` lleva
+ * `default: 0` en OpenAPI, y `openapi-typescript` convierte todo campo con valor por defecto en
+ * **obligatorio**. El resultado es un tipo que exige mandar `lowStockThreshold` incluso en modo
+ * `availability`, que es justo el campo que la descripción del propio contrato declara
+ * «REJECTED with mode=availability».
+ *
+ * Aquí no se escribe un DTO a mano: cada campo conserva **el tipo que generó el contrato**
+ * —`Pick` sobre el esquema— y lo único que se añade es la discriminación por `mode`, que un objeto
+ * plano de OpenAPI no puede expresar. `Extract` sobre el enum es deliberado: si el backend
+ * renombrara un modo, ese lado de la unión se volvería `never` y dejaría de compilar en lugar de
+ * seguir aceptando una cadena que ya no existe.
+ */
+type GeneratedSetInventory = components['schemas']['SetInventoryControlDto'];
+
+export type SetInventoryControl =
+  | ({ mode: Extract<GeneratedSetInventory['mode'], 'tracked'> } & Required<
+      Pick<GeneratedSetInventory, 'quantity'>
+    > &
+      Partial<Pick<GeneratedSetInventory, 'lowStockThreshold'>>)
+  | ({ mode: Extract<GeneratedSetInventory['mode'], 'availability'> } & Required<
+      Pick<GeneratedSetInventory, 'status'>
+    >);
+
+export type SetInventoryRequest = Omit<
+  components['schemas']['SetInventoryRequestDto'],
+  'inventory'
+> & { inventory: SetInventoryControl };
+
+/**
+ * Adapta el cuerpo al tipo plano que exige `openapi-fetch`.
+ *
+ * Es la **única** conversión de este archivo y vive aquí, en la frontera, en lugar de repartirse
+ * por las pantallas. Lo que se manda por el cable es exactamente lo que trae la unión: si el modo
+ * es `availability`, el objeto no tiene `lowStockThreshold` ni `quantity` —no se añaden, no se
+ * ponen a cero— y el `as` solo silencia el campo que el generador marcó obligatorio por el
+ * `default`.
+ */
+function inventoryWireBody<T>(body: unknown): T {
+  return body as T;
+}
+
 export type InventoryAdjustmentResult = components['schemas']['InventoryAdjustmentResultDto'];
 export type AdminProductImage = components['schemas']['AdminProductImageDto'];
 export type UploadProductImageResult = components['schemas']['UploadProductImageResultDto'];
@@ -32,7 +94,15 @@ export type ProductImageResult = components['schemas']['ProductImageResultDto'];
 export type UpdateProductImageRequest = components['schemas']['UpdateProductImageRequestDto'];
 export type AdminProductVariant = components['schemas']['AdminProductVariantDto'];
 export type AdminProductVariantList = components['schemas']['AdminProductVariantListDto'];
-export type CreateProductVariantRequest = components['schemas']['CreateProductVariantRequestDto'];
+/**
+ * El alta de una variante lleva el mismo inventario discriminado que el alta de un producto, y por
+ * la misma razón: sin la unión, el tipo generado exigiría `lowStockThreshold` también en
+ * `availability`.
+ */
+export type CreateProductVariantRequest = Omit<
+  components['schemas']['CreateProductVariantRequestDto'],
+  'inventory'
+> & { inventory?: SetInventoryControl };
 export type UpdateProductVariantRequest = components['schemas']['UpdateProductVariantRequestDto'];
 export type ProductVariantResult = components['schemas']['ProductVariantResultDto'];
 export type VariantInventoryAdjustmentResult =
@@ -145,7 +215,7 @@ export async function createProduct(
 
   try {
     response = await backendClient().POST('/v1/admin/products', {
-      body,
+      body: inventoryWireBody<components['schemas']['CreateProductRequestDto']>(body),
       headers: sessionHeaders(sessionMaterial),
     });
   } catch (error) {
@@ -370,7 +440,7 @@ export async function createProductVariant(
   try {
     response = await backendClient().POST('/v1/admin/products/{productId}/variants', {
       params: { path: { productId } },
-      body,
+      body: inventoryWireBody<components['schemas']['CreateProductVariantRequestDto']>(body),
       headers: sessionHeaders(sessionMaterial),
     });
   } catch (error) {
@@ -474,6 +544,81 @@ export async function adjustVariantInventory(
           header: { 'Idempotency-Key': idempotencyKey },
         },
         body,
+        headers: sessionHeaders(sessionMaterial),
+      },
+    );
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+  }
+
+  return response.data;
+}
+
+/**
+ * Establece el inventario de la opción base: **estado final, nunca una diferencia**.
+ *
+ * El contrato lo dice sin rodeos: calcular un delta contra lo que el navegador cree que había es
+ * hacer aritmética con datos viejos, y el resultado de esa aritmética sería un movimiento de stock
+ * equivocado. Quien llama dice «hay doce» o «está disponible»; el backend deriva la diferencia, y
+ * solo para la auditoría.
+ *
+ * `Idempotency-Key` es obligatoria y **la genera quien inicia la operación**, no este módulo: un
+ * reintento de la misma operación tiene que reutilizar la misma clave para que el backend responda
+ * `replayed` en lugar de volver a aplicarla.
+ */
+export async function setProductInventory(
+  sessionMaterial: string,
+  productId: string,
+  idempotencyKey: string,
+  body: SetInventoryRequest,
+): Promise<InventoryAdjustmentResult> {
+  let response;
+
+  try {
+    response = await backendClient().PUT('/v1/admin/products/{productId}/inventory', {
+      params: { path: { productId }, header: { 'Idempotency-Key': idempotencyKey } },
+      body: inventoryWireBody(body),
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+  }
+
+  return response.data;
+}
+
+/**
+ * Lo mismo para una variante.
+ *
+ * Cada variante elige su propio modo, y el contrato admite que convivan: un acabado puede estar en
+ * bodega mientras otro se fabrica por encargo. Una variante archivada no se modifica.
+ */
+export async function setVariantInventory(
+  sessionMaterial: string,
+  productId: string,
+  variantId: string,
+  idempotencyKey: string,
+  body: SetInventoryRequest,
+): Promise<VariantInventoryAdjustmentResult> {
+  let response;
+
+  try {
+    response = await backendClient().PUT(
+      '/v1/admin/products/{productId}/variants/{variantId}/inventory',
+      {
+        params: {
+          path: { productId, variantId },
+          header: { 'Idempotency-Key': idempotencyKey },
+        },
+        body: inventoryWireBody(body),
         headers: sessionHeaders(sessionMaterial),
       },
     );
