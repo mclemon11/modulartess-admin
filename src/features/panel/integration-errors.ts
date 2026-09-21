@@ -20,6 +20,12 @@ export const INTEGRATION_GENERIC_MESSAGE =
 const MESSAGES: Readonly<Partial<Record<BackendFailureCode, string>>> = {
   backend_payment_integration_invalid:
     'La configuración no cumple lo que exige la pasarela. Revisa el ambiente y los prefijos de las credenciales.',
+  backend_wompi_credentials_environment_mismatch:
+    'Estas llaves son del otro ambiente. Cambia el ambiente y vuelve a guardarlas.',
+  backend_wompi_credential_prefix_invalid:
+    'Estos valores no parecen llaves de Wompi. Cópialos de nuevo desde Wompi.',
+  backend_wompi_credentials_incomplete:
+    'Faltan llaves. Hacen falta las cuatro del ambiente seleccionado.',
   backend_payment_integration_conflict:
     'La configuración cambió mientras la mirabas. Recarga para ver la versión actual.',
   backend_live_payments_not_enabled:

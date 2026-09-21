@@ -18,7 +18,7 @@ import 'server-only';
  */
 
 import { backendClient } from './backend-client';
-import { BackendFailure, failureCodeFromStatus } from './errors';
+import { BackendFailure, failureCodeFromStatus, type BackendFailureCode } from './errors';
 import type { components } from './generated/schema';
 import { ADMIN_SESSION_HEADER } from './session-material';
 
@@ -67,7 +67,23 @@ function backendErrorCode(error: unknown): string | null {
  * arregla desde el panel en absoluto. Confundirlos mandaría a alguien a buscar una casilla que no
  * existe.
  */
+const CREDENTIAL_FAILURES: Readonly<Record<string, BackendFailureCode>> = {
+  wompi_credentials_environment_mismatch: 'backend_wompi_credentials_environment_mismatch',
+  wompi_credential_prefix_invalid: 'backend_wompi_credential_prefix_invalid',
+  wompi_credentials_incomplete: 'backend_wompi_credentials_incomplete',
+};
+
 function integrationFailure(status: number, code: string | null): BackendFailure {
+  /*
+   * Los tres códigos de credencial se distinguen porque llevan a acciones
+   * distintas: cambiar el selector de ambiente, volver a copiar las llaves, o
+   * rellenar lo que falte. Aplanarlos en «configuración inválida» obligaría a
+   * probar las tres cosas.
+   */
+  if (status === 400 && code !== null && Object.hasOwn(CREDENTIAL_FAILURES, code)) {
+    return new BackendFailure(CREDENTIAL_FAILURES[code] as BackendFailureCode);
+  }
+
   if (status === 400 && code === 'payment_integration_invalid') {
     return new BackendFailure('backend_payment_integration_invalid');
   }

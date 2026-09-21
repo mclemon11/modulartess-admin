@@ -5,42 +5,76 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import catalog from './catalog.module.css';
-import { formatDateTime } from './format';
 import styles from './integrations.module.css';
-import { describeOrderFailure, offersReload } from './order-errors';
-import { testWompiConnection, updateWompiIntegration } from './integrations-client';
+import { updateWompiIntegration } from './integrations-client';
+import { describeSaveFailure, requiresReload } from './wompi-credential-check';
 
-import type { WompiConnectionTest, WompiIntegration } from '@/lib/api/integrations';
-
-/**
- * Las tres acciones sobre la integración: encender, probar y revocar.
- *
- * Viven juntas porque comparten el mismo candado y la misma forma de contar un fallo, y separadas
- * de las credenciales porque ninguna de las tres las toca.
- */
+import type { WompiIntegration } from '@/lib/api/integrations';
 
 /**
- * Encender o apagar los checkouts de prueba.
+ * Abrir o cerrar los checkouts de **Pruebas**.
  *
- * Apagar **no borra nada**, y el texto lo dice: ni pedidos, ni intentos, ni eventos, ni secretos.
- * El webhook sigue cerrando los pagos que ya estaban en vuelo, que es justo lo que haría falta si
- * alguien apagara la integración con una transacción a medias. Es la diferencia entre «quitar
- * Wompi» y «dejar de abrir checkouts nuevos», y solo la segunda es reversible.
+ * Está separado de «Guardar llaves», y la separación es de fondo, no de maquetación: guardar una
+ * credencial no mueve dinero —la escribe en el almacén de secretos y mueve un puntero—, mientras
+ * que activar un ambiente es lo que hace posible que se abra un checkout. El backend las trata
+ * como dos operaciones distintas y el panel también, para que nadie active pagos creyendo que solo
+ * estaba pegando unas llaves.
+ *
+ * Desactivar **no borra nada**: ni pedidos, ni intentos, ni eventos, ni secretos. El webhook sigue
+ * cerrando los pagos que ya estaban en vuelo, que es justo lo que haría falta si alguien lo apagara
+ * con una transacción a medias. Es la diferencia entre «quitar Wompi» y «dejar de abrir checkouts
+ * nuevos», y solo la segunda es reversible.
+ *
+ * **Solo Pruebas.** Para Producción no hay control equivalente y no es un olvido: los cobros reales
+ * están bloqueados por una constante del backend, no por una casilla, y un botón que solo puede
+ * devolver `wompi_live_payments_not_enabled` prometería algo que no va a ocurrir. Lo que se enseña
+ * ahí es una línea que explica que las llaves sí quedan guardadas.
+ *
+ * Mientras Sandbox esté incompleto, **no se pinta nada**. Un botón deshabilitado invita a pulsarlo
+ * para averiguar por qué; lo que falta ya lo dice la insignia de credenciales, justo encima.
  */
-export function WompiEnableToggle({
+export function SandboxPaymentsToggle({
   integration,
+  environment,
   canManage,
 }: {
   readonly integration: WompiIntegration;
+  /** El ambiente que está seleccionado en el formulario. */
+  readonly environment: 'sandbox' | 'production';
   readonly canManage: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  /*
+   * Candado síncrono, tomado antes del primer `await`. `busy` es solo para la representación
+   * visual: el estado de React no llega a tiempo de excluir un segundo clic, y dos peticiones con
+   * la misma `expectedVersion` acabarían en un conflicto que nadie provocó a propósito.
+   */
   const running = useRef(false);
 
-  const enabled = integration.sandbox.enabledForNewPayments;
-  const configured = integration.sandbox.configured;
+  const sandbox = integration.sandbox;
+
+  /*
+   * Producción no tiene control, y lo que se dice ahí lo decide el **backend**, no una constante
+   * de esta pantalla: `livePaymentsEnabled` llega en la respuesta. Escribir aquí «están
+   * bloqueados» sin mirarlo haría que el panel siguiera afirmándolo el día que dejara de ser
+   * cierto.
+   */
+  if (environment === 'production') {
+    return (
+      <p className={catalog.hint}>
+        {integration.livePaymentsEnabled
+          ? 'Los cobros reales están habilitados en el backend. Esta pantalla solo guarda las llaves; abrirlos o cerrarlos no se hace desde aquí.'
+          : 'Los cobros reales siguen bloqueados en este despliegue. Las llaves de Producción sí se guardan; activarlos no depende del panel.'}
+      </p>
+    );
+  }
+
+  // Sin las cuatro llaves no hay nada que activar, y el backend lo rechazaría.
+  if (!sandbox.configured) return null;
+
+  const enabled = sandbox.enabledForNewPayments;
 
   async function toggle(): Promise<void> {
     if (running.current) return;
@@ -49,6 +83,11 @@ export function WompiEnableToggle({
     setBusy(true);
     setFailure(null);
 
+    /*
+     * El cuerpo lleva **solo** el interruptor. Ninguna credencial viaja aquí: esta operación no
+     * las toca, y mandarlas «por si acaso» escribiría una versión nueva en el almacén de secretos
+     * cada vez que alguien enciende o apaga.
+     */
     const result = await updateWompiIntegration({
       expectedVersion: integration.version,
       environment: 'sandbox',
@@ -56,297 +95,61 @@ export function WompiEnableToggle({
     });
 
     if (result.ok) {
+      // El estado autoritativo llega releyendo el Server Component: aquí no se guarda copia ni se
+      // adelanta el resultado.
       router.refresh();
     } else {
-      setFailure(result.code);
+      setFailure(describeSaveFailure(result.code));
+      // Un conflicto de versión se resuelve releyendo: la siguiente pulsación parte de la nueva.
+      if (requiresReload(result.code)) router.refresh();
     }
 
     running.current = false;
     setBusy(false);
   }
 
-  if (!canManage) return null;
-
   return (
-    <div className={styles.formActions}>
-      <button
-        className={enabled ? catalog.buttonSecondary : catalog.buttonPrimary}
-        // Encender sin las cuatro credenciales lo rechaza el backend. Deshabilitar el botón evita
-        // gastar una llamada para que diga lo que la pantalla ya sabe.
-        disabled={busy || (!enabled && !configured)}
-        onClick={() => void toggle()}
-        type="button"
-      >
-        {enabled ? 'Deshabilitar checkouts de prueba' : 'Habilitar checkouts de prueba'}
-      </button>
-      {!enabled && !configured ? (
-        <span className={catalog.hint}>Faltan credenciales para poder habilitarlo.</span>
-      ) : null}
-      {failure === null ? null : (
-        <p className={catalog.error} role="alert">
-          {describeOrderFailure(failure)}
-        </p>
-      )}
-    </div>
-  );
-}
+    <div className={styles.paymentsToggle}>
+      <div className={styles.paymentsState}>
+        {enabled ? (
+          <span className={styles.stateActive} data-state="active">
+            Pagos de prueba activos
+          </span>
+        ) : (
+          <span className={styles.statePending} data-state="inactive">
+            Pagos de prueba desactivados
+          </span>
+        )}
 
-/**
- * Prueba de configuración.
- *
- * Lo que puede probar es **una sola cosa**, y la pantalla lo dice: que el proveedor responde a la
- * llave pública. De las otras tres credenciales solo informa si hay una versión guardada, porque
- * Wompi no ofrece ninguna operación segura para verificarlas —verificar la de Integridad exigiría
- * un pago y la de Eventos, un evento real—.
- *
- * Presentar las cuatro como «verificadas» sería la mentira cómoda de esta pantalla: haría creer
- * que la integración está lista cuando el primer cobro puede fallar igual.
- */
-export function WompiConnectionTester({ canManage }: { readonly canManage: boolean }) {
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<WompiConnectionTest | null>(null);
-  const [failure, setFailure] = useState<string | null>(null);
-  const running = useRef(false);
-
-  async function run(): Promise<void> {
-    if (running.current) return;
-
-    running.current = true;
-    setBusy(true);
-    setFailure(null);
-
-    const response = await testWompiConnection();
-
-    if (response.ok) {
-      setResult(response.data);
-    } else {
-      setResult(null);
-      setFailure(response.code);
-    }
-
-    running.current = false;
-    setBusy(false);
-  }
-
-  if (!canManage) {
-    return (
-      <p className={catalog.hint}>
-        Probar la conexión hace una llamada saliente al proveedor, así que requiere permiso de
-        administración de integraciones.
-      </p>
-    );
-  }
-
-  return (
-    <>
-      <div className={styles.formActions}>
-        <button
-          className={catalog.buttonSecondary}
-          disabled={busy}
-          onClick={() => void run()}
-          type="button"
-        >
-          {busy ? 'Probando…' : 'Probar configuración'}
-        </button>
-        <span aria-live="polite" className={catalog.hint}>
-          {busy ? 'Consultando al proveedor…' : ''}
-        </span>
-      </div>
-
-      {result === null ? null : (
-        <dl className={styles.facts}>
-          <TestFact
-            hint="Es lo único que una prueba puede demostrar sin mover dinero."
-            label="Llave pública"
-            value={
-              result.publicKeyVerified ? 'El proveedor respondió' : 'El proveedor no respondió'
-            }
-          />
-          <TestFact
-            hint="Hay una versión guardada. No se comprobó que sea correcta."
-            label="Llave privada"
-            value={result.privateKeyConfigured ? 'Configurada' : 'Sin configurar'}
-          />
-          <TestFact
-            hint="Verificarlo exigiría un evento real del proveedor."
-            label="Secreto de Eventos"
-            value={result.eventsSecretConfigured ? 'Configurado' : 'Sin configurar'}
-          />
-          <TestFact
-            hint="Verificarlo exigiría un pago real."
-            label="Secreto de Integridad"
-            value={result.integritySecretConfigured ? 'Configurado' : 'Sin configurar'}
-          />
-          <TestFact label="Ambiente probado" value="Pruebas (sandbox)" />
-          <TestFact label="Fecha de la prueba" value={formatDateTime(result.testedAt)} />
-        </dl>
-      )}
-
-      {result?.errorCode == null ? null : (
-        <p className={catalog.error} role="alert">
-          La prueba no pudo completarse. El panel no muestra la respuesta del proveedor, solo que el
-          intento falló.
-        </p>
-      )}
-
-      {failure === null ? null : (
-        <p className={catalog.error} role="alert">
-          {describeOrderFailure(failure)}
-        </p>
-      )}
-    </>
-  );
-}
-
-function TestFact({
-  label,
-  value,
-  hint,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly hint?: string | undefined;
-}) {
-  return (
-    <div className={styles.fact}>
-      <dt className={styles.factLabel}>{label}</dt>
-      <dd className={styles.factValue}>{value}</dd>
-      {hint === undefined ? null : <dd className={styles.factHint}>{hint}</dd>}
-    </div>
-  );
-}
-
-/**
- * Revocación inmediata de los secretos de Eventos retirados.
- *
- * Es la acción peligrosa de esta pantalla, y el contrato explica por qué existe el periodo de
- * gracia que corta: el proveedor reintenta durante horas, así que una rotación rutinaria que
- * invalidara el secreto anterior perdería desenlaces de pago reales. La gracia es lo que evita eso.
- *
- * Y también explica cuándo hay que cortarla: si el secreto se filtró, esa misma gracia es una
- * ventana en la que quien lo tenga puede seguir firmando eventos que aceptaríamos.
- *
- * Por eso va en su propia caja, con confirmación que dice el precio con todas las letras. La
- * confirmación es un bloque en la pantalla y no un `confirm()` del navegador, que bloquea el
- * documento y no deja leer.
- */
-export function WompiRevokeRetiredSecrets({
-  integration,
-  canManage,
-}: {
-  readonly integration: WompiIntegration;
-  readonly canManage: boolean;
-}) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
-  const running = useRef(false);
-
-  const retired = integration.sandbox.retiredEventsSecretCount;
-
-  async function revoke(): Promise<void> {
-    if (running.current) return;
-
-    running.current = true;
-    setBusy(true);
-    setFailure(null);
-    setConfirming(false);
-
-    const result = await updateWompiIntegration({
-      expectedVersion: integration.version,
-      environment: 'sandbox',
-      revokeRetiredEventsSecrets: true,
-    });
-
-    if (result.ok) {
-      router.refresh();
-    } else {
-      setFailure(result.code);
-    }
-
-    running.current = false;
-    setBusy(false);
-  }
-
-  if (!canManage) return null;
-
-  return (
-    <div className={styles.danger}>
-      <h3 className={styles.dangerTitle}>Revocación inmediata</h3>
-      <p className={styles.dangerText}>
-        Hay {retired} versión{retired === 1 ? '' : 'es'} del secreto de Eventos retirada
-        {retired === 1 ? '' : 's'} que todavía se aceptan durante{' '}
-        {integration.sandbox.eventsSecretGraceHours} horas. Esa gracia existe para no perder los
-        reintentos que el proveedor firmó antes de la rotación.
-      </p>
-
-      {confirming ? (
-        <div className={styles.confirm}>
-          <h4 className={styles.confirmTitle}>Cortar el periodo de gracia</h4>
-          <p className={styles.confirmText}>
-            A partir de ahora se rechazarán los eventos firmados con las versiones anteriores,
-            incluidos los que el proveedor siga reintentando. Esos pagos tendrán que cerrarse por
-            reconciliación. Es lo correcto justo después de una filtración y es un error como
-            rutina.
-          </p>
-          <div className={styles.confirmActions}>
-            <button
-              className={catalog.buttonDanger}
-              disabled={busy}
-              onClick={() => void revoke()}
-              type="button"
-            >
-              Revocar ahora
-            </button>
-            <button
-              className={catalog.buttonSecondary}
-              disabled={busy}
-              onClick={() => {
-                setConfirming(false);
-              }}
-              type="button"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className={styles.formActions}>
+        {canManage ? (
           <button
-            className={catalog.buttonDanger}
-            disabled={busy || retired === 0}
-            onClick={() => {
-              setConfirming(true);
-            }}
+            className={enabled ? catalog.buttonSecondary : catalog.buttonPrimary}
+            disabled={busy}
+            onClick={() => void toggle()}
             type="button"
           >
-            Revocar versiones retiradas
+            {busy
+              ? 'Aplicando…'
+              : enabled
+                ? 'Desactivar pagos de prueba'
+                : 'Activar pagos de prueba'}
           </button>
-          {retired === 0 ? (
-            <span className={catalog.hint}>No hay versiones retiradas que revocar.</span>
-          ) : null}
-        </div>
-      )}
+        ) : null}
+      </div>
 
-      {failure === null ? null : (
-        <p className={catalog.error} role="alert">
-          {describeOrderFailure(failure)}
-          {offersReload(failure) ? (
-            <span className={styles.confirmActions}>
-              <button
-                className={catalog.buttonSecondary}
-                onClick={() => {
-                  router.refresh();
-                }}
-                type="button"
-              >
-                Recargar
-              </button>
-            </span>
-          ) : null}
-        </p>
-      )}
+      <p className={catalog.hint}>
+        {enabled
+          ? 'Se pueden abrir checkouts de prueba. Desactivarlo no borra nada: los pagos en vuelo se siguen cerrando.'
+          : 'Las llaves están guardadas. Activar es una decisión aparte de guardarlas.'}
+      </p>
+
+      <div aria-live="assertive">
+        {failure === null ? null : (
+          <p className={catalog.error} role="alert">
+            {failure}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

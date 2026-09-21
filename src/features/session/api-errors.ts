@@ -25,6 +25,9 @@ export const SESSION_ERROR_CODES = [
   'payment_conflict',
   'simulator_disabled',
   'integration_invalid',
+  'credentials_environment_mismatch',
+  'credential_prefix_invalid',
+  'credentials_incomplete',
   'integration_conflict',
   'live_payments_not_enabled',
   'incident_not_found',
@@ -56,6 +59,11 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
   simulator_disabled: 'El simulador de pagos no está habilitado en este despliegue.',
   integration_invalid:
     'La configuración no cumple lo que exige la pasarela. Revisa los campos marcados.',
+  credentials_environment_mismatch:
+    'Estas llaves son del otro ambiente. Cambia el ambiente y vuelve a guardarlas.',
+  credential_prefix_invalid:
+    'Estos valores no parecen llaves de Wompi. Cópialos de nuevo desde Wompi.',
+  credentials_incomplete: 'Faltan llaves. Hacen falta las cuatro del ambiente seleccionado.',
   integration_conflict:
     'La configuración cambió mientras la editabas. Recarga para ver la versión actual.',
   live_payments_not_enabled:
@@ -80,6 +88,9 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   payment_conflict: 409,
   simulator_disabled: 404,
   integration_invalid: 400,
+  credentials_environment_mismatch: 400,
+  credential_prefix_invalid: 400,
+  credentials_incomplete: 400,
   integration_conflict: 409,
   live_payments_not_enabled: 409,
   incident_not_found: 404,
@@ -127,6 +138,12 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'service_unavailable';
     case 'backend_payment_integration_invalid':
       return 'integration_invalid';
+    case 'backend_wompi_credentials_environment_mismatch':
+      return 'credentials_environment_mismatch';
+    case 'backend_wompi_credential_prefix_invalid':
+      return 'credential_prefix_invalid';
+    case 'backend_wompi_credentials_incomplete':
+      return 'credentials_incomplete';
     case 'backend_payment_integration_conflict':
       return 'integration_conflict';
     case 'backend_live_payments_not_enabled':

@@ -5,52 +5,53 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import catalog from './catalog.module.css';
-import { describeOrderFailure } from './order-errors';
+import { CopyableValue } from './copyable-value';
 import styles from './integrations.module.css';
-import { CREDENTIAL_LABELS } from './integration-labels';
 import { updateWompiIntegration } from './integrations-client';
+import { SandboxPaymentsToggle } from './wompi-operations';
+import {
+  checkCredentials,
+  CREDENTIAL_FIELD_LABELS,
+  credentialPrefix,
+  describeSaveFailure,
+  EMPTY_CREDENTIALS,
+  ENVIRONMENT_LABELS,
+  requiresReload,
+  WOMPI_CREDENTIAL_FIELDS,
+  WOMPI_ENVIRONMENTS,
+  type CredentialCheck,
+  type CredentialValues,
+  type WompiCredentialEnvironment,
+  type WompiCredentialField,
+} from './wompi-credential-check';
 
 import type { WompiEnvironmentConfig, WompiIntegration } from '@/lib/api/integrations';
 
 /**
- * Formulario de credenciales de Wompi.
+ * Configurar Wompi: ambiente, cuatro llaves, guardar.
  *
  * Es la pantalla del panel donde más fácil se filtra algo, así que las reglas son explícitas:
  *
- * - **Los cuatro campos nacen vacíos y vuelven a vaciarse al guardar.** Nunca se precargan con un
- *   valor guardado, porque el backend no los devuelve y porque precargarlos los dejaría en el DOM.
- * - **Un campo vacío no borra nada**: significa «conserva la actual», que es la semántica que
- *   declara el contrato para los campos `writeOnly`. El texto de ayuda lo dice con esas palabras.
+ * - **Los cuatro campos nacen vacíos.** Nunca se precargan con un valor guardado, porque el
+ *   backend no los devuelve y porque precargarlos los dejaría en el DOM.
+ * - **Se vacían solo al guardar bien.** Si el guardado falla, lo escrito se conserva: pegar cuatro
+ *   credenciales cuesta, y un fallo de red no es motivo para obligar a repetirlo.
  * - **Los valores viven en el estado de este componente y en ningún sitio más.** No hay estado
- *   global, no hay `localStorage`, no hay query string y no hay cookie. Al desmontarse la pantalla
- *   desaparecen.
+ *   global, no hay `localStorage`, no hay `sessionStorage`, no hay cookie y no hay query string.
+ *   Al desmontarse la pantalla desaparecen.
  * - **Ningún valor entra en un mensaje de error.** Lo que se enseña es el código traducido que
- *   devolvió el BFF, nunca lo que se escribió ni lo que respondió el proveedor.
+ *   devolvió el BFF, o la comprobación local de prefijos, nunca lo que se escribió.
+ * - **El navegador no habla con Wompi.** Guardar pasa por la ruta BFF del panel.
  *
- * La llave pública se trata igual que los secretos al escribirla —`type="password"`— aunque no lo
- * sea: se escribe pegándola junto a las otras tres, y un campo en claro en medio de tres ocultos
- * invita a pegar la equivocada en el visible.
+ * La llave pública se escribe en un campo `type="password"` aunque no sea un secreto: se pega
+ * junto a las otras tres, y un campo en claro en medio de tres ocultos invita a pegar la
+ * equivocada en el visible.
+ *
+ * El **ambiente seleccionado decide qué conjunto se actualiza**, y antes de enviar se comprueba que
+ * los prefijos correspondan. El panel de Wompi enseña las llaves de producción por omisión, así que
+ * pegarlas con el selector en Pruebas es el error más frecuente: aquí se detecta y se dice qué
+ * hacer en lugar de gastar una llamada y recibir un rechazo genérico.
  */
-
-type CredentialKey = 'publicKey' | 'privateKey' | 'eventsSecret' | 'integritySecret';
-
-const CREDENTIAL_FIELDS: readonly {
-  readonly key: CredentialKey;
-  readonly hint: string;
-}[] = [
-  { key: 'publicKey', hint: 'Empieza por pub_test_ en pruebas.' },
-  { key: 'privateKey', hint: 'Empieza por prv_test_. Se guarda cifrada y no vuelve nunca.' },
-  { key: 'eventsSecret', hint: 'Empieza por test_events_. Verifica la firma de cada evento.' },
-  { key: 'integritySecret', hint: 'Empieza por test_integrity_. Firma el checkout.' },
-];
-
-const EMPTY: Readonly<Record<CredentialKey, string>> = {
-  publicKey: '',
-  privateKey: '',
-  eventsSecret: '',
-  integritySecret: '',
-};
-
 export function WompiCredentialsForm({
   integration,
   canManage,
@@ -59,9 +60,13 @@ export function WompiCredentialsForm({
   readonly canManage: boolean;
 }) {
   const router = useRouter();
-  const [values, setValues] = useState<Record<CredentialKey, string>>({ ...EMPTY });
+  const [environment, setEnvironment] = useState<WompiCredentialEnvironment>('sandbox');
+  const [values, setValues] = useState<CredentialValues>({ ...EMPTY_CREDENTIALS });
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [invalidFields, setInvalidFields] = useState<readonly WompiCredentialField[]>([]);
+  /** Texto que se pinta debajo de cada campo señalado. Nunca lleva el valor escrito. */
+  const [fieldMessage, setFieldMessage] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   /*
    * Candado síncrono: se toma antes del primer `await`. `busy` es solo para la representación
@@ -69,47 +74,70 @@ export function WompiCredentialsForm({
    * versiones del mismo secreto.
    */
   const running = useRef(false);
+  /*
+   * Los cuatro `input`, para poder llevar el foco al primero que falle.
+   *
+   * Es la diferencia entre un error que se lee y uno que se corrige: con cuatro campos ocultos,
+   * un mensaje al pie no dice en cuál está el problema ni deja el cursor donde hay que escribir.
+   */
+  const inputs = useRef<Partial<Record<WompiCredentialField, HTMLInputElement | null>>>({});
 
-  const config = integration.sandbox;
+  /** Señala los campos, lleva el foco al primero y no toca lo escrito. */
+  function reject(check: Extract<CredentialCheck, { ok: false }>): void {
+    setFailure(check.message);
+    setInvalidFields(check.fields);
+    setFieldMessage(check.fieldMessage);
+    inputs.current[check.fields[0] ?? 'publicKey']?.focus();
+  }
+
+  const config = integration[environment];
 
   async function save(): Promise<void> {
     if (running.current) return;
 
-    running.current = true;
-    setBusy(true);
     setFailure(null);
     setSaved(false);
+    setFieldMessage(null);
 
     /*
-     * Solo viajan los campos que se escribieron. Mandar los vacíos guardaría una versión sin valor
-     * en el almacén de secretos, que es peor que no guardar nada: la configuración parecería
-     * completa y el checkout fallaría al firmar.
+     * Comprobación local **antes** de la llamada: recorte de extremos y ambiente de cada prefijo.
+     * No sustituye al backend, que vuelve a validarlo todo; evita el viaje y permite decir qué
+     * pasa en el sitio donde se pegó.
      */
+    const checked = checkCredentials(environment, values);
+
+    if (!checked.ok) {
+      reject(checked);
+      return;
+    }
+
+    running.current = true;
+    setBusy(true);
+    setInvalidFields([]);
+    setFieldMessage(null);
+
     const result = await updateWompiIntegration({
       expectedVersion: integration.version,
-      environment: 'sandbox',
-      ...(values.publicKey.length > 0 ? { publicKey: values.publicKey } : {}),
-      ...(values.privateKey.length > 0 ? { privateKey: values.privateKey } : {}),
-      ...(values.eventsSecret.length > 0 ? { eventsSecret: values.eventsSecret } : {}),
-      ...(values.integritySecret.length > 0 ? { integritySecret: values.integritySecret } : {}),
+      environment,
+      publicKey: checked.values.publicKey,
+      privateKey: checked.values.privateKey,
+      eventsSecret: checked.values.eventsSecret,
+      integritySecret: checked.values.integritySecret,
     });
 
-    /*
-     * Los campos se vacían **pasara lo que pasara**, incluso con error.
-     *
-     * Conservarlos para «no perder lo escrito» dejaría cuatro credenciales en el DOM hasta que
-     * alguien cambiara de pantalla, y un error de red no es motivo suficiente para eso. Volver a
-     * pegarlas cuesta segundos.
-     */
-    setValues({ ...EMPTY });
-
     if (result.ok) {
+      /*
+       * Los campos se vacían **solo aquí**. Ya están guardados, así que conservarlos dejaría
+       * cuatro credenciales en el DOM sin ninguna razón.
+       */
+      setValues({ ...EMPTY_CREDENTIALS });
       setSaved(true);
-      // La respuesta autoritativa llega recargando el Server Component: la pantalla no guarda una
-      // copia propia de la configuración.
+      // El estado autoritativo llega recargando el Server Component: la pantalla no guarda copia.
       router.refresh();
     } else {
-      setFailure(result.code);
+      setFailure(describeSaveFailure(result.code));
+      // Un conflicto de versión se resuelve releyendo; lo escrito se conserva para reintentar.
+      if (requiresReload(result.code)) router.refresh();
     }
 
     running.current = false;
@@ -124,126 +152,212 @@ export function WompiCredentialsForm({
         void save();
       }}
     >
-      <div className={styles.fields}>
-        {CREDENTIAL_FIELDS.map((field) => (
-          <CredentialField
-            config={config}
+      <div className={styles.environmentRow}>
+        <div className={styles.filterField}>
+          <label className={styles.fieldLabel} htmlFor="wompi-environment">
+            Ambiente
+          </label>
+          <select
+            className={styles.select}
             disabled={!canManage || busy}
-            field={field}
-            key={field.key}
-            onChange={(value) => {
-              setValues((current) => ({ ...current, [field.key]: value }));
+            id="wompi-environment"
+            name="wompi-environment"
+            onChange={(event) => {
+              setEnvironment(event.target.value as WompiCredentialEnvironment);
+              setFailure(null);
+              setInvalidFields([]);
+              setFieldMessage(null);
+              setSaved(false);
             }}
-            value={values[field.key]}
+            value={environment}
+          >
+            {WOMPI_ENVIRONMENTS.map((value) => (
+              <option key={value} value={value}>
+                {ENVIRONMENT_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <ConfiguredBadge config={config} />
+      </div>
+
+      {/*
+        Debajo del estado de credenciales, no junto a «Guardar llaves».
+        Guardar y activar son dos decisiones, y el sitio lo dice.
+      */}
+      <SandboxPaymentsToggle
+        canManage={canManage}
+        environment={environment}
+        integration={integration}
+      />
+
+      <div className={styles.fields}>
+        {WOMPI_CREDENTIAL_FIELDS.map((field) => (
+          <CredentialField
+            disabled={!canManage || busy}
+            environment={environment}
+            error={invalidFields.includes(field) ? fieldMessage : null}
+            field={field}
+            key={field}
+            onChange={(value) => {
+              setValues((current) => ({ ...current, [field]: value }));
+            }}
+            register={(element) => {
+              inputs.current[field] = element;
+            }}
+            value={values[field]}
           />
         ))}
       </div>
 
-      <p className={catalog.hint} id="wompi-credentials-help">
-        Deja un campo vacío para conservar el valor actual. Guardar una credencial crea una versión
-        nueva y no borra la anterior. Ninguna se devuelve después de guardarse: si necesitas
-        comprobar una, vuelve a pegarla.
-      </p>
-
       {canManage ? (
         <div className={styles.formActions}>
           <button className={catalog.buttonPrimary} disabled={busy} type="submit">
-            {busy ? 'Guardando…' : 'Guardar credenciales'}
+            {busy ? 'Guardando…' : 'Guardar llaves'}
           </button>
-          {saved ? (
-            <span aria-live="polite" className={catalog.hint}>
-              Credenciales guardadas. Los campos se vaciaron.
-            </span>
-          ) : null}
         </div>
       ) : (
         <p className={catalog.hint}>
-          Tu rol puede consultar el estado de la integración, pero no editar sus credenciales.
+          Tu rol puede consultar el estado de la integración, pero no editar sus llaves.
         </p>
       )}
 
+      <p aria-live="polite" className={styles.formStatus}>
+        {saved ? 'Las llaves de Wompi quedaron guardadas correctamente.' : ''}
+      </p>
+
       {failure === null ? null : (
         <p className={catalog.error} role="alert">
-          {describeOrderFailure(failure)}
+          {failure}
         </p>
       )}
+
+      <AdvancedSettings config={config} environment={environment} />
     </form>
   );
 }
 
+/** `Sin configurar` o `Configurado`, del ambiente que está seleccionado. */
+function ConfiguredBadge({ config }: { readonly config: WompiEnvironmentConfig }) {
+  return (
+    <span
+      className={config.configured ? styles.stateConfigured : styles.statePending}
+      data-state={config.configured ? 'configured' : 'pending'}
+    >
+      {config.configured ? 'Configurado' : 'Sin configurar'}
+    </span>
+  );
+}
+
 /**
- * Un campo de credencial.
+ * Un campo de llave.
  *
- * `type="password"` en los cuatro, `autoComplete="new-password"` para que el navegador no ofrezca
- * rellenarlo con nada, y `spellCheck` apagado: un corrector ortográfico sobre una credencial la
- * manda a un servicio de terceros en algunos navegadores.
+ * `type="password"` en los cuatro, `autoComplete="off"` para que el navegador no ofrezca
+ * rellenarlo ni guardarlo, y `spellCheck` apagado: un corrector ortográfico sobre una credencial
+ * la manda a un servicio de terceros en algunos navegadores.
  *
- * El estado actual se enseña **al lado de la etiqueta** y sale del contrato: la llave pública,
- * enmascarada; las otras tres, solo si hay una versión guardada. «Configurado» no dice
- * «verificado», y el texto lo respeta.
+ * La ayuda dice el prefijo que toca **según el ambiente seleccionado**, así que cambiar el selector
+ * cambia lo que la pantalla pide.
  */
 function CredentialField({
   field,
+  environment,
   value,
   onChange,
   disabled,
-  config,
+  error,
+  register,
 }: {
-  readonly field: { readonly key: CredentialKey; readonly hint: string };
+  readonly field: WompiCredentialField;
+  readonly environment: WompiCredentialEnvironment;
   readonly value: string;
   readonly onChange: (value: string) => void;
   readonly disabled: boolean;
-  readonly config: WompiEnvironmentConfig;
+  /** Qué le pasa a **este** campo. `null` si no le pasa nada. */
+  readonly error: string | null;
+  readonly register: (element: HTMLInputElement | null) => void;
 }) {
-  const inputId = `wompi-${field.key}`;
+  const inputId = `wompi-${field}`;
   const hintId = `${inputId}-hint`;
+  const errorId = `${inputId}-error`;
 
   return (
     <div className={styles.field}>
       <label className={styles.fieldLabel} htmlFor={inputId}>
-        {CREDENTIAL_LABELS[field.key]}{' '}
-        <span className={styles.fieldState}>{currentState(field.key, config)}</span>
+        {CREDENTIAL_FIELD_LABELS[field]}
       </label>
       <input
-        aria-describedby={hintId}
+        // La ayuda y el error se anuncian los dos: el error primero, que es lo que hay que
+        // corregir, y la ayuda después, que dice con qué prefijo se corrige.
+        aria-describedby={error === null ? hintId : `${errorId} ${hintId}`}
+        aria-invalid={error !== null}
+        /*
+         * `new-password`, no `off`.
+         *
+         * Los navegadores ignoran `off` en campos de contraseña desde hace años y ofrecen
+         * autocompletar de todas formas; `new-password` es la señal que sí respetan para no
+         * rellenar ni guardar. Es lo que evita que un gestor de contraseñas se quede una llave
+         * privada de la pasarela.
+         */
         autoComplete="new-password"
-        className={styles.input}
+        className={error === null ? styles.input : styles.inputInvalid}
+        data-1p-ignore=""
         disabled={disabled}
         id={inputId}
         name={inputId}
         onChange={(event) => {
           onChange(event.target.value);
         }}
-        placeholder="Sin cambios"
+        ref={register}
         spellCheck={false}
         type="password"
         value={value}
       />
+      {error === null ? null : (
+        <p className={styles.fieldError} id={errorId} role="alert">
+          {error}
+        </p>
+      )}
       <p className={styles.fieldHint} id={hintId}>
-        {field.hint}
+        Empieza por {credentialPrefix(environment, field)}
       </p>
     </div>
   );
 }
 
 /**
- * Qué sabe el panel del valor guardado.
+ * Lo que no hace falta para configurar, pero sí para terminar en el panel de Wompi.
  *
- * De la llave pública, su versión enmascarada —es lo único que el contrato devuelve—. De las otras
- * tres, **solo si hay una versión guardada**: el contrato es explícito en que eso no significa que
- * sea correcta, y el texto dice «Configurado» y no «Verificado» por esa razón exacta.
+ * Wompi pide la URL de eventos **por ambiente**, en su propia configuración, así que tiene que
+ * poder copiarse desde aquí. Va plegada porque no se toca cada vez, y no en una columna propia
+ * porque no compite con las llaves.
+ *
+ * La URL la deriva el backend de su propia configuración. **No se construye aquí**: componerla con
+ * el origen del navegador la ataría a desde dónde se abrió el panel, y un panel abierto por un
+ * túnel local acabaría configurando en Wompi una URL que no existe fuera de esa máquina.
  */
-function currentState(key: CredentialKey, config: WompiEnvironmentConfig): string {
-  if (key === 'publicKey') {
-    return config.publicKeyMasked === null ? '· Sin configurar' : `· ${config.publicKeyMasked}`;
-  }
-
-  const configured =
-    key === 'privateKey'
-      ? config.privateKeyConfigured
-      : key === 'eventsSecret'
-        ? config.eventsSecretConfigured
-        : config.integritySecretConfigured;
-
-  return configured ? '· Configurado' : '· Sin configurar';
+function AdvancedSettings({
+  config,
+  environment,
+}: {
+  readonly config: WompiEnvironmentConfig;
+  readonly environment: WompiCredentialEnvironment;
+}) {
+  return (
+    <details className={styles.advanced}>
+      <summary className={styles.advancedSummary}>Configuración avanzada</summary>
+      <div className={styles.advancedBody}>
+        <CopyableValue
+          hint={`Solo lectura: la deriva el backend. Pégala en Wompi, en la configuración de eventos de ${ENVIRONMENT_LABELS[environment]}.`}
+          label="URL de eventos"
+          value={config.webhookUrl}
+        />
+        <CopyableValue
+          hint="A donde el proveedor devuelve el navegador al terminar. También la deriva el backend."
+          label="URL de retorno"
+          value={config.redirectUrl}
+        />
+      </div>
+    </details>
+  );
 }

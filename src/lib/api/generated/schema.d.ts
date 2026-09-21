@@ -84,7 +84,7 @@ export interface paths {
         head?: never;
         /**
          * Configure or rotate the Wompi credentials
-         * @description Every secret field is WRITE-ONLY: sending a value stores a NEW version in Secret Manager, omitting it leaves the current one, and no operation ever returns them. A rotation writes the new versions first and only then moves the pointer, so a partial failure leaves orphan versions nobody uses instead of a pointer to something that does not exist. Sandbox keys must carry the sandbox prefixes and production keys the production ones; mixing environments is rejected. Turning the environment on requires the complete configuration. Turning it off stops new checkouts and DELETES NOTHING: orders, attempts, events and secrets stay, and the webhook keeps closing payments already in flight. environment=production is always rejected with wompi_live_payments_not_enabled: the block is a constant in the binary, not a setting. Requires expectedVersion and integrations.manage, which only super_admin has.
+         * @description Every secret field is WRITE-ONLY: sending a value stores a NEW version in Secret Manager, omitting it leaves the current one, and no operation ever returns them. A rotation writes the new versions first and only then moves the pointer, so a partial failure leaves orphan versions nobody uses instead of a pointer to something that does not exist. SAVING KEYS AND ENABLING CHARGES ARE TWO DIFFERENT OPERATIONS. Saving credentials for EITHER environment is valid, including production, and never turns charges on by itself. Sandbox keys must carry the sandbox prefixes and production keys the production ones. The four are validated TOGETHER and nothing is written unless all of them pass, so mixing environments is rejected with wompi_credentials_environment_mismatch even when each prefix is valid on its own; an unknown prefix answers wompi_credential_prefix_invalid and a blank field wompi_credentials_incomplete. Each error names the offending fields in issues[].path, and never the value. Leading and trailing whitespace is trimmed before validating; whitespace inside a value is never altered and is rejected. enabledForNewPayments is what enables charges: it requires the complete configuration for that environment, and on production it is always refused with wompi_live_payments_not_enabled because the block is a constant in the binary, not a setting. Turning an environment off stops new checkouts and DELETES NOTHING: orders, attempts, events and secrets stay, and the webhook keeps closing payments already in flight. Requires expectedVersion and integrations.manage, which only super_admin has.
          */
         patch: operations["AdminIntegrationsController_update"];
         trace?: never;
@@ -2257,10 +2257,10 @@ export interface components {
             priceCop?: number;
         };
         UpdateWompiIntegrationRequestDto: {
-            /** @description Turning it on requires the complete configuration. Turning it off stops new checkouts and deletes nothing: orders, attempts, events and secrets stay, and the webhook keeps closing payments already in flight. */
+            /** @description THIS is what enables charges, and it is a separate decision from saving keys. Turning it on requires the complete configuration for that environment, otherwise wompi_credentials_incomplete names the missing fields. On production it is always refused with wompi_live_payments_not_enabled while the block stands; turning production OFF is always allowed. Turning it off stops new checkouts and deletes nothing: orders, attempts, events and secrets stay, and the webhook keeps closing payments already in flight. */
             enabledForNewPayments?: boolean;
             /**
-             * @description Which environment to configure. Declared explicitly instead of inferred from the key prefixes, so pasting a key from the wrong environment is rejected instead of silently switching environments. production is always rejected while live payments are blocked.
+             * @description Which environment to configure. Declared explicitly instead of inferred from the key prefixes, so pasting a key from the wrong environment is rejected instead of silently switching environments. BOTH environments accept credentials: saving production keys is valid and does NOT enable real charges. What stays blocked while LIVE_PAYMENTS_ENABLED is false is enabledForNewPayments=true on production, which answers wompi_live_payments_not_enabled.
              * @enum {string}
              */
             environment: "sandbox" | "production";
@@ -2273,7 +2273,7 @@ export interface components {
             /** @description Write-only. Stored in Secret Manager and never returned by any operation. */
             privateKey?: string;
             /**
-             * @description Sandbox keys must start with pub_test_, prv_test_, test_events_ and test_integrity_; production with pub_prod_, prv_prod_, prod_events_ and prod_integrity_. Mixing environments is rejected.
+             * @description Sandbox keys must start with pub_test_, prv_test_, test_events_ and test_integrity_; production with pub_prod_, prv_prod_, prod_events_ and prod_integrity_. The four submitted keys are validated TOGETHER: mixing environments is rejected with wompi_credentials_environment_mismatch even when each prefix is valid on its own. Leading and trailing whitespace is trimmed before validating, because copying from the Wompi dashboard drags it constantly; whitespace INSIDE the value is never touched and is rejected.
              * @example pub_test_…
              */
             publicKey?: string;
@@ -2787,7 +2787,7 @@ export interface operations {
                     "application/json": components["schemas"]["WompiIntegrationDto"];
                 };
             };
-            /** @description payment_integration_invalid */
+            /** @description wompi_credentials_environment_mismatch, wompi_credential_prefix_invalid, wompi_credentials_incomplete or payment_integration_invalid. issues[].path names the offending fields; no response ever carries a key, a fragment of one or its length */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -2814,7 +2814,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponseDto"];
                 };
             };
-            /** @description payment_integration_conflict or wompi_live_payments_not_enabled */
+            /** @description payment_integration_conflict, or wompi_live_payments_not_enabled when enabledForNewPayments=true is sent for production */
             409: {
                 headers: {
                     [name: string]: unknown;

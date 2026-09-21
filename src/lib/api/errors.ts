@@ -92,6 +92,19 @@ export const BACKEND_FAILURE_CODES = [
    * tratarlo como un conflicto normal lo mandaría a buscarla.
    */
   'backend_live_payments_not_enabled',
+  /**
+   * 400 `wompi_credentials_environment_mismatch`.
+   *
+   * Las llaves son válidas pero del otro ambiente, o están mezcladas entre sí.
+   * Es **el error frecuente**: el panel de Wompi enseña las de producción por
+   * omisión. Merece un texto propio porque se arregla cambiando el selector, no
+   * volviendo a copiar nada.
+   */
+  'backend_wompi_credentials_environment_mismatch',
+  /** 400 `wompi_credential_prefix_invalid`: no son llaves de Wompi. */
+  'backend_wompi_credential_prefix_invalid',
+  /** 400 `wompi_credentials_incomplete`: falta alguna de las cuatro, o llegó en blanco. */
+  'backend_wompi_credentials_incomplete',
   /** 404 `payment_incident_not_found`: esa incidencia ya no existe. */
   'backend_payment_incident_not_found',
   /**

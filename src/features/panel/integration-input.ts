@@ -3,7 +3,9 @@
  *
  * Estrecha lo que llega del navegador antes de tocar el backend. **No duplica la validación de
  * credenciales**: qué prefijo tiene que llevar una llave, qué mezcla de ambientes se rechaza y qué
- * pasa al encender un ambiente incompleto lo decide el backend, que es quien las guarda. Una
+ * pasa al encender un ambiente incompleto lo decide el backend, que es quien las guarda. El
+ * formulario comprueba los prefijos antes de enviar para poder explicarlos donde se pegaron, pero
+ * eso es ayuda, no autoridad: una petición fabricada a mano la sigue juzgando el backend. Una
  * segunda implementación aquí acabaría discrepando, y lo haría en el sitio donde discrepar
  * significa rechazar una credencial buena o aceptar una mala.
  *
@@ -50,13 +52,18 @@ const CREDENTIAL_MAX_LENGTH = 400;
  * declara el contrato para los campos `writeOnly`. Por eso devuelve `undefined` y no una cadena
  * vacía; mandarla vacía guardaría una versión sin valor en el almacén de secretos.
  *
- * No se recorta el valor. El backend rechaza los espacios exteriores en lugar de limpiarlos, y
- * limpiarlos aquí ocultaría el error hasta la siguiente rotación.
+ * Se recortan **solo los extremos**, igual que hace el backend antes de validar: copiar una llave
+ * del panel de Wompi arrastra un espacio o un salto de línea con muchísima frecuencia. El interior
+ * no se toca nunca —un espacio en medio es otra cadena, no un descuido del portapapeles— y el
+ * backend, que es la autoridad, lo rechaza.
  */
 function credential(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined;
-  if (raw.length === 0 || raw.length > CREDENTIAL_MAX_LENGTH) return undefined;
-  return raw;
+  if (raw.length > CREDENTIAL_MAX_LENGTH) return undefined;
+
+  const value = raw.trim();
+
+  return value.length === 0 ? undefined : value;
 }
 
 function boolean(raw: unknown): boolean | undefined {

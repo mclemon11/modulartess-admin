@@ -127,7 +127,7 @@ Implementado en el repositorio y comprobado con dobles locales.
 | Precio en pesos           | Listo      | Se escribe y se lee `$ 1.450.000`; viaja el entero `1450000`.                  |
 | Navegación                | Listo      | Cinco secciones, marca real y bloque de sesión en el shell.                    |
 | Dashboard comercial       | Listo      | `GET /v1/admin/dashboard/summary`; período en la URL; sin cifras propias.      |
-| Integraciones (Wompi)     | Listo      | Configuración, prueba, rotación e incidencias. Secretos write-only.            |
+| Integraciones (Wompi)     | Listo      | Ambiente, cuatro llaves y guardar. Secretos write-only. Incidencias aparte.    |
 | Envíos y Wallet           | Anunciadas | Pantallas «Próximamente»: su contrato no existe todavía.                       |
 | Catálogo enriquecido      | Listo      | Clasificación, contenido visible y detalles adicionales, separados.            |
 | Editor editorial          | Listo      | Topes de 180, 3000, 5 × 60; contadores, «Opcional» y orden real.               |
@@ -183,7 +183,7 @@ Elementos que forman parte del diseño acordado, pero que aún no existen en el 
 | Búsqueda y filtros del catálogo | Pendiente     | Solo hay `pageToken` y `pageSize`: filtrar una página mentiría.       |
 | Listado de la outbox            | Pendiente     | `failedNotifications` se cuenta; no hay pantalla que lo liste.        |
 | Addi                            | Pendiente     | Sin contrato: se anuncia como pendiente y no ejecuta ninguna llamada. |
-| Producción de Wompi             | Bloqueada     | El backend lo bloquea por código; el panel lo refleja y no lo salta.  |
+| Producción de Wompi             | Bloqueada     | Sus llaves sí se guardan; habilitar cobros lo bloquea el backend.     |
 | Catálogo de categorías          | Pendiente     | No hay endpoint que las liste: se escriben nombre y slug.             |
 | Colecciones, SEO, envío, dtos.  | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.                |
 | Lectura aparte de variantes     | Pendiente     | Viajan dentro del producto; un `GET` propio no tendría uso.           |
@@ -557,76 +557,175 @@ La diferencia no es de grado: leer el estado de la pasarela es operación, y dec
 credencial cobra la tienda o afirmar que un descuadre está resuelto, no. El backend exige lo mismo
 por su cuenta; **la UI oculta, no autoriza**.
 
+#### La pantalla: ambiente, cuatro llaves, guardar
+
+La pantalla se llama **Configurar Wompi** y hace una cosa. Antes explicaba la arquitectura entera
+—resumen operativo, tres relojes, versión de la configuración, rotación, prueba de conexión y una
+tarjeta grande sobre producción— y enterraba lo único que alguien viene a hacer aquí. Nada de
+aquello era falso; simplemente no era el trabajo de esta pantalla.
+
+Lo que muestra:
+
+1. Título **Configurar Wompi** y una línea: «Selecciona el ambiente y pega las cuatro llaves que
+   aparecen en Desarrolladores dentro de Wompi.»
+2. Un selector con **Pruebas (Sandbox)** y **Producción**.
+3. Los cuatro campos: Llave pública, Llave privada, Secreto de Eventos, Secreto de Integridad.
+4. El botón **Guardar llaves**.
+5. Un estado pequeño junto al selector: **Sin configurar** o **Configurado**, del ambiente elegido.
+6. Debajo de ese estado, el interruptor de **pagos de prueba** (ver más abajo).
+7. Al guardar bien: «Las llaves de Wompi quedaron guardadas correctamente.»
+8. Un bloque plegado, **Configuración avanzada**, con la URL de eventos y la de retorno del
+   ambiente seleccionado.
+
+#### Activar pagos de prueba
+
+Es el único control de encendido que queda, y vive **debajo del estado de credenciales**, no junto
+a «Guardar llaves». El sitio es parte de lo que dice: guardar una credencial no mueve dinero
+—la escribe en el almacén de secretos y mueve un puntero—, mientras que activar un ambiente es lo
+que hace posible que se abra un checkout. El backend las trata como dos operaciones distintas y el
+panel también.
+
+| Estado de Sandbox       | Qué se ve                                                             |
+| ----------------------- | --------------------------------------------------------------------- |
+| Sin configurar          | **Nada.** No se pinta el control                                      |
+| Configurado y apagado   | «Pagos de prueba desactivados» y el botón **Activar pagos de prueba** |
+| Configurado y encendido | «Pagos de prueba activos» en verde y **Desactivar pagos de prueba**   |
+
+Con Sandbox incompleto no se pinta un botón deshabilitado: invitaría a pulsarlo para averiguar por
+qué, y lo que falta ya lo dice la insignia justo encima. El verde nunca va solo —lleva su texto—,
+así que quien no lo distingue lee lo mismo.
+
+El cuerpo lleva `environment: "sandbox"` **escrito, no tomado del selector**: si saliera del
+selector, tener Producción elegido y pulsar aquí mandaría `environment: "production"`. Va con la
+`expectedVersion` vigente y con `enabledForNewPayments` y nada más: ninguna credencial viaja en
+esta operación, porque no las toca y mandarlas escribiría una versión nueva en el almacén de
+secretos cada vez que alguien enciende o apaga. Un conflicto se traduce y relee; nunca se
+reintenta solo con la versión vieja, y el resultado sale de releer el Server Component, no de
+adelantarlo aquí.
+
+Para **Producción no hay control equivalente**, y no es un olvido: los cobros reales están
+bloqueados por una constante del backend, no por una casilla, y un botón que solo puede devolver
+`wompi_live_payments_not_enabled` prometería algo que no va a ocurrir. Con Producción seleccionado
+se enseña una línea que lo explica y recuerda que las llaves sí quedan guardadas.
+
+Sin `integrations.manage` se ve el estado pero no el botón.
+
+Medida en los componentes reales con su CSS real a 1440, 1280, 1024, 768, 390 y 360 px: sin
+desbordamiento horizontal, sin texto vertical, tarjeta centrada y acotada en 44rem, cuatro campos
+en dos columnas hasta 768 px y en una a partir de 390, «Guardar llaves» a 44 px de alto y de ancho
+completo por debajo de 40rem, el interruptor de pagos de prueba a 44 px con su estado envolviendo
+a su lado, y «Configuración avanzada» cerrada de partida en las seis.
+
+La URL de eventos se queda porque Wompi la pide **por ambiente** en su propio panel y hay que poder
+copiarla. Va plegada y no en una columna propia: no se toca cada vez, y no compite con las llaves.
+
+El **interruptor de habilitar cobros** también está ahí, y no junto al botón de guardar, porque son
+dos decisiones distintas: guardar una llave la escribe en el almacén de secretos y no mueve dinero;
+encender un ambiente es lo que hace posible un cobro. El backend las separa desde esta fase, y el
+panel lo refleja. En **Producción** el interruptor no se ofrece mientras el bloqueo siga puesto: un
+botón que solo produce un error prometería algo que no va a ocurrir.
+
+#### Los dos ambientes, y el error que se corrigió
+
+El panel de Wompi enseña las llaves de **Producción** por omisión. El panel administrativo, en
+cambio, mandaba siempre `environment: "sandbox"`, así que pegar esas llaves —lo más natural del
+mundo— producía un `payment_integration_invalid` que no decía ni que las llaves eran de producción
+ni que producción estuviera bloqueada.
+
+Ahora el **ambiente seleccionado decide qué conjunto se actualiza**, y antes de enviar se comprueban
+los prefijos contra ese ambiente:
+
+| Selector   | Llaves pegadas           | Mensaje                                                                            |
+| ---------- | ------------------------ | ---------------------------------------------------------------------------------- |
+| Sandbox    | Las cuatro de Producción | «Estas llaves son de Producción. Cambia el ambiente a Producción para guardarlas.» |
+| Producción | Las cuatro de Sandbox    | «Estas llaves son de Pruebas. Cambia el ambiente a Pruebas para guardarlas.»       |
+| Cualquiera | Unas de cada ambiente    | «Las cuatro llaves deben pertenecer al mismo ambiente.»                            |
+| Cualquiera | Algo que no lo es        | «Estos valores no parecen llaves de Wompi. Cópialos de nuevo desde Wompi.»         |
+| Cualquiera | Falta alguna             | «Faltan llaves: …. Hacen falta las cuatro del ambiente seleccionado.»              |
+
+La **mezcla** tiene mensaje propio porque es el único caso en el que mover el selector no arregla
+nada: con dos llaves de cada ambiente, cualquiera que se elija deja dos fuera. Decir «cambia a
+Producción» ahí mandaría a dar vueltas.
+
+Cada fallo trae además un texto corto que se pinta **debajo del campo señalado** —«Es una llave de
+Producción», «Esta llave es obligatoria»— y el foco salta al primero. Con cuatro campos
+`type="password"`, idénticos en pantalla y sin enseñar su contenido, un único mensaje al pie no
+dice en cuál está el problema. El error va en `role="alert"`, y el `aria-describedby` del campo
+nombra **el error primero y la ayuda después**: primero qué hay que corregir, luego con qué
+prefijo se corrige.
+
+Esa comprobación es **ayuda, no autoridad**: vive en `wompi-credential-check.ts`, es pura, y el
+backend vuelve a validarlo todo. Existe para no gastar una llamada y para poder explicar el error
+donde se pegó. Los ocho prefijos están duplicados ahí a propósito: son un dato público y estable
+del proveedor, no una regla de negocio.
+
+El backend, por su parte, distingue tres códigos que el BFF traduce a mensajes propios:
+`wompi_credentials_environment_mismatch`, `wompi_credential_prefix_invalid` y
+`wompi_credentials_incomplete`. Ninguno lleva un valor, un fragmento ni una longitud.
+
+**Guardar llaves de Producción es válido y no habilita cobros reales.** La pantalla nunca afirma lo
+contrario.
+
 #### Las credenciales, campo a campo
 
-Los cuatro campos son `type="password"` con `autoComplete="new-password"`, nacen vacíos y **se
-vacían al guardar, pase lo que pase** —también con error—. Conservarlos «para no perder lo escrito»
-dejaría cuatro credenciales en el DOM hasta que alguien cambiara de pantalla.
+Los cuatro campos son `type="password"` con `autoComplete="new-password"` y `spellCheck` apagado, y
+nacen vacíos.
 
-- **Un campo vacío conserva el valor actual.** Es la semántica que declara el contrato, y el texto
-  de ayuda lo dice con esas palabras. Un vacío **no se manda**: guardaría una versión sin valor en
-  el almacén y la configuración parecería completa mientras el checkout falla al firmar.
-- **«Configurado» nunca es «Verificado».** El contrato solo puede probar la llave pública; de las
-  otras tres sabe únicamente que hay una versión guardada.
+`new-password`, no `off`: los navegadores llevan años ignorando `off` en campos de contraseña y
+ofreciendo autocompletar igualmente, y `new-password` es la señal que sí respetan para no rellenar
+ni guardar. Con `off`, un gestor de contraseñas podía quedarse la llave privada de la pasarela.
+
+- **Se vacían solo al guardar correctamente.** Si el guardado falla, lo escrito se conserva: pegar
+  cuatro credenciales cuesta, y un fallo de red no es motivo para obligar a repetirlo. Una vez
+  guardadas, en cambio, no hay ninguna razón para dejarlas en el DOM.
+- **`trim()` antes de enviar, y solo en los extremos.** Copiar del panel de Wompi arrastra un
+  espacio o un salto de línea constantemente. El interior no se toca nunca: un espacio en medio es
+  otra cadena, y el backend —que es la autoridad— lo rechaza.
+- **Se exigen las cuatro.** El contrato admite mandar solo algunas —omitir una conserva la actual—,
+  pero esta pantalla existe para pegar el juego completo de un ambiente, y aceptar tres dejaría una
+  configuración a medias que no abre ningún checkout y parece guardada.
 - Los valores viven en el estado del componente y en ningún sitio más: sin estado global, sin
-  `localStorage`, sin cookie y sin query string.
-- **Ningún valor entra en un mensaje de error.** Lo que se enseña es el código traducido del BFF.
+  `localStorage`, sin `sessionStorage`, sin cookie y sin query string.
+- **Ningún valor entra en un mensaje de error**, ni en un registro. Lo que se enseña es el texto
+  traducido del código del BFF, o la comprobación local de prefijos.
 - La llave pública se escribe también como contraseña aunque no lo sea: se pega junto a las otras
   tres, y un campo en claro en medio de tres ocultos invita a pegar la equivocada en el visible.
-
-#### Los tres relojes, y por qué se llaman distinto
-
-| Campo                   | Etiqueta                  | Qué afirma                                          |
-| ----------------------- | ------------------------- | --------------------------------------------------- |
-| `lastWebhookAttemptAt`  | Último intento de webhook | Algo llegó a la ruta. **No** que fuera auténtico    |
-| `lastVerifiedWebhookAt` | Último webhook verificado | Llegó con firma válida. Es la que dice que funciona |
-| `lastReconciledAt`      | Última reconciliación     | **Nosotros** preguntamos. No es un webhook          |
-
-Si las tres compartieran etiqueta, una integración con la firma rota se leería como sana: algo llega
-a la ruta, la fecha se mueve, y nadie se entera de que ningún evento pasó la verificación. El matiz
-va escrito bajo cada fecha, no en un tooltip: un tooltip no existe para quien navega con teclado.
+- `expectedVersion` viaja siempre. Ante un conflicto se relee la configuración y se muestra «La
+  configuración cambió. Revisa el estado y vuelve a guardar.», conservando lo escrito.
 
 #### URL de eventos
 
-Se muestra de **solo lectura**, con botón de copiar, y la deriva el backend de su propia
-configuración. No se construye en el panel: componerla con el origen del navegador la ataría a desde
-dónde se abrió, y un panel abierto por un túnel local configuraría en Wompi una URL que no existe
-fuera de esa máquina. Se muestra también la URL de retorno, por el mismo motivo.
+Se muestra de **solo lectura**, con botón de copiar, dentro de «Configuración avanzada», y la deriva
+el backend de su propia configuración. No se construye en el panel: componerla con el origen del
+navegador la ataría a desde dónde se abrió, y un panel abierto por un túnel local configuraría en
+Wompi una URL que no existe fuera de esa máquina. Se muestra también la URL de retorno, por el mismo
+motivo.
 
-La ruta se publicará mediante **API Gateway**; Cloud Run sigue privado por IAM. Hasta entonces Wompi
-no puede alcanzarla y los pagos se cierran por reconciliación.
+La ruta se publicará mediante **API Gateway**; Cloud Run sigue privado por IAM.
 
-#### Prueba de conexión
+#### Lo que se retiró de la pantalla
 
-Llama al endpoint administrativo, que consulta al proveedor con la llave pública guardada. Prueba
-**una sola cosa**, y la pantalla lo dice: que el proveedor responde a esa llave. De las otras tres
-informa si hay una versión guardada, nunca que se hayan verificado —Wompi no ofrece operación segura
-para ello: verificar la de Integridad exigiría un pago y la de Eventos, un evento real—. No mueve
-dinero y no muestra la respuesta remota.
+El resumen operativo, los tres relojes, el contador de secretos retirados, la versión de la
+configuración, la tarjeta de rotación, la de prueba de conexión, la tarjeta grande sobre producción
+y los textos sobre API Gateway y reconciliación. La tarjeta de resumen de **Configuración →
+Integraciones** sigue enseñando el estado general, y las incidencias tienen su propia pantalla; el
+resto está documentado en el backend, que es donde ocurre.
 
-#### Rotación y periodo de gracia
+La prueba de conexión sigue existiendo como ruta BFF y como endpoint del backend; lo que se quitó es
+su tarjeta.
 
-Rotar es pegar el secreto nuevo en su campo y guardar: se crea una versión y la anterior **sigue
-aceptándose** durante `eventsSecretGraceHours` (hoy, lo que fije el backend). Esa gracia existe
-porque el proveedor reintenta durante horas, y sin ella una rotación rutinaria perdería desenlaces
-de pago reales.
-
-`eventsSecretGraceHours` se **muestra y no se configura**: el contrato lo publica en la respuesta y
-no lo admite en el `PATCH`. Ofrecer un campo para cambiarlo prometería algo que el backend no
-guardaría.
-
-La **revocación inmediata** vive en su propia caja roja, con confirmación en pantalla —no un
-`confirm()`, que bloquea el documento— y el precio escrito: se rechazarán los eventos firmados con
-las versiones anteriores, incluidos los que el proveedor siga reintentando, y esos pagos tendrán que
-cerrarse por reconciliación. Correcto justo después de una filtración; un error como rutina.
+**Rotar un solo secreto ya no se puede desde aquí.** La pantalla exige las cuatro llaves del
+ambiente, así que rotar el secreto de Eventos significa volver a pegar las cuatro. Es el precio de
+que un formulario de cuatro campos no pueda dejar una configuración a medias, y el backend sigue
+admitiendo el `PATCH` parcial: si hiciera falta una pantalla de rotación fina, se añadiría aparte.
 
 #### Producción
 
-Tiene su sección y está cerrada. `livePaymentsEnabled` llega en `false` y el panel lo refleja; el
-bloqueo es una **constante del backend**, no una variable de entorno, así que ningún cambio de
-configuración lo levanta. **No hay formulario de producción**: el contrato rechaza cualquier `PATCH`
-con `environment=production` mientras el bloqueo esté puesto, y un formulario solo podría producir
-un error.
+`livePaymentsEnabled` llega en `false` y el panel lo refleja; el bloqueo es una **constante del
+backend**, no una variable de entorno, así que ningún cambio de configuración lo levanta. Lo que sí
+cambió: **sus llaves se pueden guardar**. El contrato ya no rechaza un `PATCH` con
+`environment=production`; lo que rechaza es `enabledForNewPayments: true` en producción, con
+`wompi_live_payments_not_enabled`. Por eso hay formulario para producción y no hay interruptor.
 
 #### Addi
 

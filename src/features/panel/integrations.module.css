@@ -184,6 +184,122 @@
   overflow-wrap: anywhere;
 }
 
+/* ------------------------------------------------- configurar Wompi */
+
+/*
+ * Una sola tarjeta, y estrecha.
+ *
+ * La pantalla hace una cosa. Dejarla a todo lo ancho de un monitor de 1440 pondría cuatro campos
+ * de credencial en una fila de 320 px cada uno, que se lee peor y da la impresión de un formulario
+ * mayor del que es. El tope la centra sin que a 360 px sobre nada.
+ */
+.settingsCard {
+  display: grid;
+  gap: var(--space-md);
+  max-width: 44rem;
+  /* Centrado: el formulario es lo único de la pantalla y pegado a la izquierda parece recortado. */
+  margin-inline: auto;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-card);
+  background-color: var(--color-panel-surface);
+  box-shadow: var(--shadow-card);
+}
+
+/* Selector de ambiente y estado, en la misma línea mientras quepan. */
+.environmentRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.stateConfigured,
+.statePending {
+  align-self: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.stateConfigured {
+  background-color: var(--color-panel-subtle);
+  color: var(--color-panel-text);
+}
+
+.statePending {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-panel-border-strong);
+  color: var(--color-panel-muted);
+}
+
+/* Verde solo cuando de verdad se pueden abrir checkouts. Va con su texto, nunca solo con color. */
+.stateActive {
+  composes: stateConfigured;
+  background-color: var(--color-state-success-bg);
+  color: var(--color-state-success-fg);
+}
+
+/*
+ * El interruptor de pagos de prueba, debajo del estado de credenciales.
+ *
+ * Separado por una línea de las cuatro llaves: son dos decisiones distintas, y pegarlas al botón
+ * de guardar es lo que haría creer que guardar activa cobros.
+ */
+.paymentsToggle {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-panel-border);
+  min-width: 0;
+}
+
+.paymentsState {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/*
+ * El mensaje de éxito ocupa sitio **siempre**.
+ *
+ * Es una región `aria-live` vacía hasta que hay algo que decir: si apareciera y desapareciera del
+ * árbol, el contenido de debajo saltaría al guardar, y algunos lectores de pantalla no anuncian
+ * una región que acaba de insertarse.
+ */
+.formStatus {
+  min-height: 1.25rem;
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.875rem;
+}
+
+/* Lo que no hace falta para configurar: plegado, y sin columna propia. */
+.advanced {
+  border-top: 1px solid var(--color-panel-border);
+  padding-top: 0.75rem;
+}
+
+.advancedSummary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.advancedSummary:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.advancedBody {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+}
+
 /* ------------------------------------------------- credenciales */
 
 .form {
@@ -220,6 +336,20 @@
   text-wrap: pretty;
 }
 
+/*
+ * Lo que le pasa a **este** campo, debajo de él.
+ *
+ * Con cuatro campos de tipo `password`, un mensaje único al pie del formulario no dice en cuál
+ * está el problema: los cuatro se ven iguales y ninguno enseña su contenido.
+ */
+.fieldError {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-wrap: pretty;
+}
+
 .input {
   min-height: var(--control-height);
   padding: 0 0.75rem;
@@ -229,6 +359,12 @@
   color: var(--color-panel-text);
   font-family: var(--font-mono);
   font-size: 0.875rem;
+}
+
+/* El borde acompaña al texto; nunca va solo, que no lo distinguiría quien no ve el rojo. */
+.inputInvalid {
+  composes: input;
+  border-color: var(--color-danger);
 }
 
 .input:focus-visible {
@@ -246,6 +382,23 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+}
+
+/*
+ * En móvil, «Guardar llaves» ocupa el ancho.
+ *
+ * Es la única acción de la pantalla y se pulsa con el pulgar: un botón de 143 px alineado a la
+ * izquierda obliga a apuntar. A partir de 40rem vuelve a su ancho natural, donde se pulsa con el
+ * ratón y un botón de borde a borde parecería un banner.
+ */
+@media (max-width: 40rem) {
+  .formActions {
+    display: grid;
+  }
+
+  .formActions > button {
+    width: 100%;
+  }
 }
 
 /* ------------------------------------------------- URL de eventos */
@@ -473,6 +626,20 @@
 
   .select,
   .copyValue {
+    width: 100%;
+  }
+
+  /*
+   * A 390 y 360 px el selector y la pastilla de estado no caben en una línea sin apretarse, y la
+   * pastilla acabaría empujando al selector por debajo de su ancho útil. Se apilan.
+   */
+  .environmentRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
+
+  .environmentRow .select {
     width: 100%;
   }
 }

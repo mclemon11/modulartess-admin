@@ -760,18 +760,52 @@ describe('integraciones', () => {
    * una URL que no existe fuera de esa máquina.
    */
   it('la URL de eventos viene del backend y no se construye', () => {
-    expect(rendered(WOMPI_PAGE)).toContain('sandbox.webhookUrl');
-    expect(rendered(WOMPI_PAGE)).not.toContain('window.location');
-    expect(rendered(WOMPI_PAGE)).not.toContain('NEXT_PUBLIC');
+    expect(rendered(CREDENTIALS_FORM)).toContain('config.webhookUrl');
+
+    for (const source of [WOMPI_PAGE, CREDENTIALS_FORM]) {
+      expect(rendered(source)).not.toContain('window.location');
+      expect(rendered(source)).not.toContain('NEXT_PUBLIC');
+    }
   });
 
-  /* Producción tiene sección, y no tiene formulario: el backend rechazaría cualquier PATCH suyo. */
-  it('producción se muestra bloqueada y sin formulario', () => {
-    const wompi = rendered(WOMPI_PAGE);
+  /*
+   * Producción **sí** tiene formulario: guardar sus llaves es válido y no habilita ningún cobro.
+   * Lo que no puede existir es un ambiente escrito a mano en el cuerpo: el selector es quien lo
+   * decide, y fijarlo en el código haría que la pantalla guardara en un ambiente distinto del que
+   * se ve seleccionado.
+   */
+  it('ofrece los dos ambientes sin fijar ninguno en el cuerpo', () => {
+    const form = rendered(CREDENTIALS_FORM);
 
-    expect(wompi).toContain('Producción');
-    expect(wompi).toContain('livePaymentsEnabled');
-    expect(wompi).not.toContain("environment: 'production'");
+    expect(form).toContain('WOMPI_ENVIRONMENTS');
+    expect(form).toContain('environment,');
+    expect(form).not.toContain("environment: 'production'");
+    expect(form).not.toContain("environment: 'sandbox'");
+  });
+
+  /*
+   * Guardar llaves de producción no puede anunciarse como cobros reales habilitados, y lo que se
+   * dice ahí sale de `livePaymentsEnabled`, no de una constante de la pantalla.
+   */
+  it('no afirma que guardar producción habilite cobros reales', () => {
+    const toggle = rendered(read('src/features/panel/wompi-operations.tsx'));
+
+    expect(toggle).toContain('livePaymentsEnabled');
+    expect(toggle).toContain('bloqueados en este despliegue');
+  });
+
+  /*
+   * El único interruptor es el de Pruebas, y su ambiente va escrito. Si lo tomara del selector,
+   * tener Producción elegido y pulsarlo mandaría `environment: "production"`.
+   */
+  it('el interruptor es solo de Sandbox y no lo toma del selector', () => {
+    const toggle = rendered(read('src/features/panel/wompi-operations.tsx'));
+
+    expect(toggle).toContain("environment: 'sandbox'");
+    expect(toggle).not.toContain("environment: 'production'");
+    expect(toggle).toContain('Activar pagos de prueba');
+    // Producción sale antes de llegar a ningún botón.
+    expect(toggle).toMatch(/environment === 'production'[\s\S]*?return \(/);
   });
 
   /* Addi se anuncia y no ejecuta nada. */
@@ -790,9 +824,13 @@ describe('integraciones', () => {
   });
 
   /* Ni el panel ni el contrato guardan la llave entera: solo la versión enmascarada. */
-  it('la llave pública solo se lee enmascarada', () => {
-    expect(rendered(WOMPI_PAGE)).toContain('publicKeyMasked');
+  it('la llave pública nunca vuelve entera', () => {
+    // El contrato no publica la llave en la respuesta, solo su versión enmascarada.
     expect(publishes('WompiEnvironmentConfigDto', 'publicKey')).toBe(false);
+    expect(publishes('WompiEnvironmentConfigDto', 'publicKeyMasked')).toBe(true);
+    // Y la pantalla no precarga ningún valor de credencial en un campo.
+    expect(rendered(CREDENTIALS_FORM)).toContain('EMPTY_CREDENTIALS');
+    expect(rendered(CREDENTIALS_FORM)).not.toContain('config.publicKeyMasked');
   });
 
   /* Los tres campos secretos son writeOnly en el contrato: si dejaran de serlo, esto lo dice. */
