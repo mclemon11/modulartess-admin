@@ -784,28 +784,33 @@ describe('integraciones', () => {
   });
 
   /*
-   * Guardar llaves de producción no puede anunciarse como cobros reales habilitados, y lo que se
-   * dice ahí sale de `livePaymentsEnabled`, no de una constante de la pantalla.
+   * Guardar llaves de producción no puede anunciarse como cobros reales habilitados. Lo que se
+   * dice en Producción sale de `livePaymentsEnabled` y de `production.enabledForNewPayments`, no
+   * de una constante de la pantalla, y activar exige confirmación escrita.
    */
   it('no afirma que guardar producción habilite cobros reales', () => {
-    const toggle = rendered(read('src/features/panel/wompi-operations.tsx'));
+    const state = rendered(read('src/features/panel/wompi-live-payments.ts'));
+    const control = rendered(read('src/features/panel/wompi-production-payments.tsx'));
 
-    expect(toggle).toContain('livePaymentsEnabled');
-    expect(toggle).toContain('bloqueados en este despliegue');
+    expect(state).toContain('integration.livePaymentsEnabled');
+    expect(state).toContain('production.enabledForNewPayments');
+    expect(control).toContain('este despliegue todavía bloquea los cobros');
+    expect(control).toContain('LivePaymentsConfirmation');
   });
 
   /*
-   * El único interruptor es el de Pruebas, y su ambiente va escrito. Si lo tomara del selector,
-   * tener Producción elegido y pulsarlo mandaría `environment: "production"`.
+   * Cada interruptor lleva su ambiente escrito. Si lo tomara del selector, tener Producción
+   * elegido y pulsar «Activar pagos de prueba» mandaría `environment: "production"`.
    */
-  it('el interruptor es solo de Sandbox y no lo toma del selector', () => {
+  it('cada interruptor lleva su ambiente escrito y no lo toma del selector', () => {
     const toggle = rendered(read('src/features/panel/wompi-operations.tsx'));
+    const live = rendered(read('src/features/panel/wompi-live-payments.ts'));
 
     expect(toggle).toContain("environment: 'sandbox'");
     expect(toggle).not.toContain("environment: 'production'");
     expect(toggle).toContain('Activar pagos de prueba');
-    // Producción sale antes de llegar a ningún botón.
-    expect(toggle).toMatch(/environment === 'production'[\s\S]*?return \(/);
+    expect(live).toContain("environment: 'production'");
+    expect(live).not.toContain("environment: 'sandbox'");
   });
 
   /* Addi se anuncia y no ejecuta nada. */

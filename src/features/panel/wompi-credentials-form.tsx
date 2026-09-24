@@ -9,6 +9,7 @@ import { CopyableValue } from './copyable-value';
 import styles from './integrations.module.css';
 import { updateWompiIntegration } from './integrations-client';
 import { SandboxPaymentsToggle } from './wompi-operations';
+import { ProductionPaymentsControl } from './wompi-production-payments';
 import {
   checkCredentials,
   CREDENTIAL_FIELD_LABELS,
@@ -144,14 +145,13 @@ export function WompiCredentialsForm({
     setBusy(false);
   }
 
+  /*
+   * El `<form>` envuelve **solo** las llaves. El selector y los interruptores de cobro quedan
+   * fuera: la confirmación de cobros reales es un formulario propio, y anidarla aquí haría que
+   * pulsar Intro en ella enviara las llaves —además de ser HTML inválido—.
+   */
   return (
-    <form
-      className={styles.form}
-      onSubmit={(event) => {
-        event.preventDefault();
-        void save();
-      }}
-    >
+    <div className={styles.form}>
       <div className={styles.environmentRow}>
         <div className={styles.filterField}>
           <label className={styles.fieldLabel} htmlFor="wompi-environment">
@@ -184,56 +184,65 @@ export function WompiCredentialsForm({
       {/*
         Debajo del estado de credenciales, no junto a «Guardar llaves».
         Guardar y activar son dos decisiones, y el sitio lo dice.
+        Cada ambiente tiene su control, con su ambiente escrito: ninguno lo toma del selector.
       */}
-      <SandboxPaymentsToggle
-        canManage={canManage}
-        environment={environment}
-        integration={integration}
-      />
-
-      <div className={styles.fields}>
-        {WOMPI_CREDENTIAL_FIELDS.map((field) => (
-          <CredentialField
-            disabled={!canManage || busy}
-            environment={environment}
-            error={invalidFields.includes(field) ? fieldMessage : null}
-            field={field}
-            key={field}
-            onChange={(value) => {
-              setValues((current) => ({ ...current, [field]: value }));
-            }}
-            register={(element) => {
-              inputs.current[field] = element;
-            }}
-            value={values[field]}
-          />
-        ))}
-      </div>
-
-      {canManage ? (
-        <div className={styles.formActions}>
-          <button className={catalog.buttonPrimary} disabled={busy} type="submit">
-            {busy ? 'Guardando…' : 'Guardar llaves'}
-          </button>
-        </div>
+      {environment === 'sandbox' ? (
+        <SandboxPaymentsToggle canManage={canManage} integration={integration} />
       ) : (
-        <p className={catalog.hint}>
-          Tu rol puede consultar el estado de la integración, pero no editar sus llaves.
-        </p>
+        <ProductionPaymentsControl canManage={canManage} integration={integration} />
       )}
 
-      <p aria-live="polite" className={styles.formStatus}>
-        {saved ? 'Las llaves de Wompi quedaron guardadas correctamente.' : ''}
-      </p>
+      <form
+        className={styles.form}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
+        <div className={styles.fields}>
+          {WOMPI_CREDENTIAL_FIELDS.map((field) => (
+            <CredentialField
+              disabled={!canManage || busy}
+              environment={environment}
+              error={invalidFields.includes(field) ? fieldMessage : null}
+              field={field}
+              key={field}
+              onChange={(value) => {
+                setValues((current) => ({ ...current, [field]: value }));
+              }}
+              register={(element) => {
+                inputs.current[field] = element;
+              }}
+              value={values[field]}
+            />
+          ))}
+        </div>
 
-      {failure === null ? null : (
-        <p className={catalog.error} role="alert">
-          {failure}
+        {canManage ? (
+          <div className={styles.formActions}>
+            <button className={catalog.buttonPrimary} disabled={busy} type="submit">
+              {busy ? 'Guardando…' : 'Guardar llaves'}
+            </button>
+          </div>
+        ) : (
+          <p className={catalog.hint}>
+            Tu rol puede consultar el estado de la integración, pero no editar sus llaves.
+          </p>
+        )}
+
+        <p aria-live="polite" className={styles.formStatus}>
+          {saved ? 'Las llaves de Wompi quedaron guardadas correctamente.' : ''}
         </p>
-      )}
+
+        {failure === null ? null : (
+          <p className={catalog.error} role="alert">
+            {failure}
+          </p>
+        )}
+      </form>
 
       <AdvancedSettings config={config} environment={environment} />
-    </form>
+    </div>
   );
 }
 

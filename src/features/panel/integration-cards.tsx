@@ -16,6 +16,21 @@ import { Icon, SectionHeading } from './section-icon';
 
 import type { WompiEnvironmentConfig, WompiIntegration } from '@/lib/api/integrations';
 
+/**
+ * Los cobros reales en dos palabras.
+ *
+ * «Bloqueados» es del despliegue; «Desactivados» y «Activos», de una decisión tomada en Configurar
+ * Wompi. Antes la tarjeta decía «Habilitados» en cuanto el despliegue los permitía, y eso se leía
+ * como «ya se cobra» cuando nadie los había encendido.
+ */
+function describeLivePayments(integration: WompiIntegration): string {
+  if (integration.production.enabledForNewPayments) return 'Activos';
+  if (!integration.livePaymentsEnabled) return 'Bloqueados';
+  if (!integration.production.configured) return 'Sin llaves de Producción';
+
+  return 'Desactivados';
+}
+
 const HEALTH_CLASS = {
   enabled: styles.healthEnabled,
   configured: styles.healthConfigured,
@@ -83,9 +98,13 @@ export function WompiProviderCard({
           value={integration.sandbox.enabledForNewPayments ? 'Habilitados' : 'Deshabilitados'}
         />
         <Fact
-          hint="Es una constante del backend, no una casilla de configuración."
+          hint={
+            integration.livePaymentsEnabled
+              ? 'El despliegue los permite. Se activan o desactivan en Configurar Wompi, con confirmación.'
+              : 'Los bloquea el despliegue del backend, no una casilla de configuración.'
+          }
           label="Pagos reales"
-          value={integration.livePaymentsEnabled ? 'Habilitados' : 'Bloqueados'}
+          value={describeLivePayments(integration)}
         />
         {OPERATIONAL_CLOCKS.map((clock) => (
           <Fact

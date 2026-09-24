@@ -264,6 +264,34 @@
 }
 
 /*
+ * La confirmación de cobros reales.
+ *
+ * Con el fondo de aviso para que no se lea como un bloque más del formulario: lo que se confirma
+ * aquí mueve dinero. El aviso va en texto; el color solo lo acompaña.
+ */
+.liveConfirm {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-card);
+  background-color: var(--color-state-warning-bg);
+  color: var(--color-state-warning-fg);
+  min-width: 0;
+}
+
+.liveConfirmTitle {
+  margin: 0;
+  font-weight: 700;
+}
+
+.liveConfirmText {
+  margin: 0;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+/*
  * El mensaje de éxito ocupa sitio **siempre**.
  *
  * Es una región `aria-live` vacía hasta que hay algo que decir: si apareciera y desapareciera del

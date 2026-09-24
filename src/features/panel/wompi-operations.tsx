@@ -25,22 +25,19 @@ import type { WompiIntegration } from '@/lib/api/integrations';
  * con una transacción a medias. Es la diferencia entre «quitar Wompi» y «dejar de abrir checkouts
  * nuevos», y solo la segunda es reversible.
  *
- * **Solo Pruebas.** Para Producción no hay control equivalente y no es un olvido: los cobros reales
- * están bloqueados por una constante del backend, no por una casilla, y un botón que solo puede
- * devolver `wompi_live_payments_not_enabled` prometería algo que no va a ocurrir. Lo que se enseña
- * ahí es una línea que explica que las llaves sí quedan guardadas.
+ * **Solo Pruebas.** Los cobros reales tienen su propio control, `ProductionPaymentsControl`, con
+ * confirmación escrita: encender Producción cobra dinero de verdad y no puede costar un clic. Este
+ * componente no se pinta con Producción seleccionada y manda `environment: 'sandbox'` escrito, no
+ * tomado del selector.
  *
  * Mientras Sandbox esté incompleto, **no se pinta nada**. Un botón deshabilitado invita a pulsarlo
  * para averiguar por qué; lo que falta ya lo dice la insignia de credenciales, justo encima.
  */
 export function SandboxPaymentsToggle({
   integration,
-  environment,
   canManage,
 }: {
   readonly integration: WompiIntegration;
-  /** El ambiente que está seleccionado en el formulario. */
-  readonly environment: 'sandbox' | 'production';
   readonly canManage: boolean;
 }) {
   const router = useRouter();
@@ -54,22 +51,6 @@ export function SandboxPaymentsToggle({
   const running = useRef(false);
 
   const sandbox = integration.sandbox;
-
-  /*
-   * Producción no tiene control, y lo que se dice ahí lo decide el **backend**, no una constante
-   * de esta pantalla: `livePaymentsEnabled` llega en la respuesta. Escribir aquí «están
-   * bloqueados» sin mirarlo haría que el panel siguiera afirmándolo el día que dejara de ser
-   * cierto.
-   */
-  if (environment === 'production') {
-    return (
-      <p className={catalog.hint}>
-        {integration.livePaymentsEnabled
-          ? 'Los cobros reales están habilitados en el backend. Esta pantalla solo guarda las llaves; abrirlos o cerrarlos no se hace desde aquí.'
-          : 'Los cobros reales siguen bloqueados en este despliegue. Las llaves de Producción sí se guardan; activarlos no depende del panel.'}
-      </p>
-    );
-  }
 
   // Sin las cuatro llaves no hay nada que activar, y el backend lo rechazaría.
   if (!sandbox.configured) return null;

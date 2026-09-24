@@ -360,35 +360,42 @@ describe('comprobación de llaves antes de enviar', () => {
   });
 });
 
-describe('producción bloqueada', () => {
-  it('la tarjeta dice que los pagos reales están bloqueados', () => {
-    const html = renderToStaticMarkup(
+describe('la tarjeta de Wompi y los pagos reales', () => {
+  const card = (overrides: Partial<WompiIntegration>) =>
+    renderToStaticMarkup(
       <WompiProviderCard
         canManage
-        integration={integration()}
+        integration={integration(overrides)}
         openIncidents={{ kind: 'exact', value: 0 }}
       />,
     );
+  /** El valor del dato «Pagos reales», y solo ese: «Checkouts de prueba» tiene los suyos. */
+  const livePayments = (html: string) => /Pagos reales<\/dt><dd[^>]*>([^<]*)</.exec(html)?.[1];
+  const productionKeys = (enabled: boolean) =>
+    environmentConfig({ publicKeyMasked: 'pub_prod_…c3d4', enabledForNewPayments: enabled });
 
-    expect(html).toContain('Bloqueados');
-    expect(html).toContain('constante del backend');
+  it('con el despliegue bloqueando, dice «Bloqueados» y que no es una casilla', () => {
+    const html = card({ livePaymentsEnabled: false, production: productionKeys(false) });
+
+    expect(livePayments(html)).toBe('Bloqueados');
+    expect(html).toContain('Los bloquea el despliegue del backend');
   });
 
   /*
-   * El bloqueo lo reporta el backend y la pantalla lo refleja. Si algún día
-   * `livePaymentsEnabled` llegara en `true`, esta prueba deja de exigir «Bloqueados» y pide lo
-   * contrario: es el contrato el que manda, no una constante escrita en el panel.
+   * Que el despliegue permita cobrar no significa que se cobre. Antes la tarjeta decía
+   * «Habilitados» en ese caso, y se leía como dinero real en marcha.
    */
-  it('refleja lo que dice el backend, no una constante propia', () => {
-    const html = renderToStaticMarkup(
-      <WompiProviderCard
-        canManage
-        integration={integration({ livePaymentsEnabled: true })}
-        openIncidents={{ kind: 'exact', value: 0 }}
-      />,
-    );
+  it('permitidos pero apagados se dicen «Desactivados», nunca «Habilitados»', () => {
+    const html = card({ livePaymentsEnabled: true, production: productionKeys(false) });
 
-    expect(html).toContain('Habilitados');
+    expect(livePayments(html)).toBe('Desactivados');
+    expect(html).toContain('Se activan o desactivan en Configurar Wompi');
+  });
+
+  it('encendidos se dicen «Activos», lo que sale de production.enabledForNewPayments', () => {
+    const html = card({ livePaymentsEnabled: true, production: productionKeys(true) });
+
+    expect(livePayments(html)).toBe('Activos');
   });
 });
 
@@ -402,7 +409,7 @@ describe('activar pagos de prueba es otra decisión', () => {
    */
   it('con Sandbox incompleto el control no existe', () => {
     const html = renderToStaticMarkup(
-      <SandboxPaymentsToggle canManage environment="sandbox" integration={sandbox(false, false)} />,
+      <SandboxPaymentsToggle canManage integration={sandbox(false, false)} />,
     );
 
     expect(html).toBe('');
@@ -410,7 +417,7 @@ describe('activar pagos de prueba es otra decisión', () => {
 
   it('configurado y apagado ofrece activarlo', () => {
     const html = renderToStaticMarkup(
-      <SandboxPaymentsToggle canManage environment="sandbox" integration={sandbox(true, false)} />,
+      <SandboxPaymentsToggle canManage integration={sandbox(true, false)} />,
     );
 
     expect(html).toContain('Activar pagos de prueba');
@@ -422,7 +429,7 @@ describe('activar pagos de prueba es otra decisión', () => {
 
   it('configurado y encendido enseña el estado y ofrece desactivarlo', () => {
     const html = renderToStaticMarkup(
-      <SandboxPaymentsToggle canManage environment="sandbox" integration={sandbox(true, true)} />,
+      <SandboxPaymentsToggle canManage integration={sandbox(true, true)} />,
     );
 
     expect(html).toContain('Pagos de prueba activos');
@@ -434,7 +441,7 @@ describe('activar pagos de prueba es otra decisión', () => {
 
   it('desactivar no promete borrar nada', () => {
     const html = renderToStaticMarkup(
-      <SandboxPaymentsToggle canManage environment="sandbox" integration={sandbox(true, true)} />,
+      <SandboxPaymentsToggle canManage integration={sandbox(true, true)} />,
     );
 
     expect(html).toContain('no borra nada');
@@ -473,24 +480,22 @@ describe('activar pagos de prueba es otra decisión', () => {
     expect(source).toContain("environment: 'sandbox'");
   });
 
-  it('en Producción no hay control, y se dice por qué', () => {
-    const html = renderToStaticMarkup(
-      <SandboxPaymentsToggle canManage environment="production" integration={integration()} />,
-    );
+  /*
+   * El interruptor de Pruebas no tiene rama de Producción: el formulario decide cuál de los dos
+   * controles pinta, y cada uno lleva su ambiente escrito.
+   */
+  it('el formulario pinta el control de cada ambiente, no uno que dependa del selector', () => {
+    const form = executable(readFileSync('src/features/panel/wompi-credentials-form.tsx', 'utf8'));
 
-    expect(html).not.toContain('<button');
-    expect(html).not.toContain('Activar pagos');
-    expect(html).toContain('bloqueados en este despliegue');
-    expect(html).toContain('Las llaves de Producción sí se guardan');
+    expect(form).toMatch(
+      /environment === 'sandbox' \?[\s\S]*?<SandboxPaymentsToggle[\s\S]*?<ProductionPaymentsControl/,
+    );
+    expect(form).not.toMatch(/<SandboxPaymentsToggle[^>]*environment=/);
   });
 
   it('sin integrations.manage se ve el estado pero no el botón', () => {
     const html = renderToStaticMarkup(
-      <SandboxPaymentsToggle
-        canManage={false}
-        environment="sandbox"
-        integration={sandbox(true, true)}
-      />,
+      <SandboxPaymentsToggle canManage={false} integration={sandbox(true, true)} />,
     );
 
     expect(html).toContain('Pagos de prueba activos');
@@ -511,7 +516,7 @@ describe('activar pagos de prueba es otra decisión', () => {
 
   it('ninguna credencial aparece en el HTML del control, ni en sus errores', () => {
     const html = renderToStaticMarkup(
-      <SandboxPaymentsToggle canManage environment="sandbox" integration={sandbox(true, true)} />,
+      <SandboxPaymentsToggle canManage integration={sandbox(true, true)} />,
     );
 
     for (const needle of [
@@ -534,7 +539,7 @@ describe('activar pagos de prueba es otra decisión', () => {
   /* La simplificación no se deshace: el control es uno, y no vuelve nada de lo retirado. */
   it('no reintroduce las tarjetas retiradas', () => {
     const html = renderToStaticMarkup(
-      <SandboxPaymentsToggle canManage environment="sandbox" integration={sandbox(true, true)} />,
+      <SandboxPaymentsToggle canManage integration={sandbox(true, true)} />,
     );
 
     for (const needle of ['Probar conexión', 'Revocar', 'Resumen operativo', 'Versión']) {

@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-09-20.
+Última actualización: 2026-09-23.
 
 ## Fase
 
@@ -48,7 +48,9 @@ cifra se calcula en el panel.
 
 Fase 10 — Wompi e integraciones. Una sección nueva, **Configuración → Integraciones**, con la
 configuración de la pasarela, la bandeja de incidencias de pago y el ambiente financiero del
-Dashboard. Las credenciales se escriben y no vuelven; producción sigue bloqueada por el backend.
+Dashboard. Las credenciales se escriben y no vuelven. Los cobros reales de Producción tienen control
+propio con confirmación escrita (ver [0006](../decisions/0006-wompi-live-payments-activation.md)),
+y **no se han activado**: queda para que una persona lo confirme desde el panel.
 
 ## Estado real del entorno
 
@@ -183,7 +185,7 @@ Elementos que forman parte del diseño acordado, pero que aún no existen en el 
 | Búsqueda y filtros del catálogo | Pendiente     | Solo hay `pageToken` y `pageSize`: filtrar una página mentiría.       |
 | Listado de la outbox            | Pendiente     | `failedNotifications` se cuenta; no hay pantalla que lo liste.        |
 | Addi                            | Pendiente     | Sin contrato: se anuncia como pendiente y no ejecuta ninguna llamada. |
-| Producción de Wompi             | Bloqueada     | Sus llaves sí se guardan; habilitar cobros lo bloquea el backend.     |
+| Cobros reales de Wompi          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR PRODUCCIÓN».     |
 | Catálogo de categorías          | Pendiente     | No hay endpoint que las liste: se escriben nombre y slug.             |
 | Colecciones, SEO, envío, dtos.  | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.                |
 | Lectura aparte de variantes     | Pendiente     | Viajan dentro del producto; un `GET` propio no tendría uso.           |
@@ -603,10 +605,9 @@ secretos cada vez que alguien enciende o apaga. Un conflicto se traduce y relee;
 reintenta solo con la versión vieja, y el resultado sale de releer el Server Component, no de
 adelantarlo aquí.
 
-Para **Producción no hay control equivalente**, y no es un olvido: los cobros reales están
-bloqueados por una constante del backend, no por una casilla, y un botón que solo puede devolver
-`wompi_live_payments_not_enabled` prometería algo que no va a ocurrir. Con Producción seleccionado
-se enseña una línea que lo explica y recuerda que las llaves sí quedan guardadas.
+Producción tiene **su propio control**, `ProductionPaymentsControl`, descrito en «Cobros reales de
+Producción» más abajo. El de Pruebas no tiene rama de Producción: el formulario pinta uno u otro
+según el ambiente seleccionado, y cada uno lleva su ambiente escrito.
 
 Sin `integrations.manage` se ve el estado pero no el botón.
 
@@ -622,8 +623,8 @@ copiarla. Va plegada y no en una columna propia: no se toca cada vez, y no compi
 El **interruptor de habilitar cobros** también está ahí, y no junto al botón de guardar, porque son
 dos decisiones distintas: guardar una llave la escribe en el almacén de secretos y no mueve dinero;
 encender un ambiente es lo que hace posible un cobro. El backend las separa desde esta fase, y el
-panel lo refleja. En **Producción** el interruptor no se ofrece mientras el bloqueo siga puesto: un
-botón que solo produce un error prometería algo que no va a ocurrir.
+panel lo refleja. En **Producción** el interruptor no se ofrece mientras el despliegue bloquee los
+cobros; cuando los permite, activarlos exige confirmación escrita.
 
 #### Los dos ambientes, y el error que se corrigió
 
@@ -719,13 +720,32 @@ ambiente, así que rotar el secreto de Eventos significa volver a pegar las cuat
 que un formulario de cuatro campos no pueda dejar una configuración a medias, y el backend sigue
 admitiendo el `PATCH` parcial: si hiciera falta una pantalla de rotación fina, se añadiría aparte.
 
-#### Producción
+#### Cobros reales de Producción
 
-`livePaymentsEnabled` llega en `false` y el panel lo refleja; el bloqueo es una **constante del
-backend**, no una variable de entorno, así que ningún cambio de configuración lo levanta. Lo que sí
-cambió: **sus llaves se pueden guardar**. El contrato ya no rechaza un `PATCH` con
-`environment=production`; lo que rechaza es `enabledForNewPayments: true` en producción, con
-`wompi_live_payments_not_enabled`. Por eso hay formulario para producción y no hay interruptor.
+El backend levantó el bloqueo de su despliegue y responde `livePaymentsEnabled: true`. Eso **no
+cobra nada**: `production.enabledForNewPayments` sigue en `false` hasta que una persona lo active
+aquí. La decisión completa está en
+[`0006-wompi-live-payments-activation.md`](../decisions/0006-wompi-live-payments-activation.md).
+
+| Estado de Producción                           | Qué se ve                                                                 |
+| ---------------------------------------------- | ------------------------------------------------------------------------- |
+| Sin las cuatro llaves                          | **Nada**: solo el formulario de llaves                                    |
+| Llaves guardadas y `livePaymentsEnabled=false` | «Este despliegue todavía bloquea los cobros reales». Sin botón            |
+| Permitido y apagado                            | «Cobros reales desactivados» y el botón visible **Activar cobros reales** |
+| `production.enabledForNewPayments=true`        | «Cobros reales activos» y **Desactivar cobros reales**                    |
+
+- **Activar** abre una confirmación que dice que desde ese momento se cobra dinero real y pide
+  escribir `ACTIVAR PRODUCCIÓN`. Es un `<form>` propio: el de llaves ya no envuelve el selector ni
+  los interruptores, para que Intro en la frase no envíe las llaves.
+- **El cuerpo** es `expectedVersion`, `environment: "production"` y `enabledForNewPayments`. Ninguna
+  credencial ni campo vacío.
+- **Después** se relee el estado con `router.refresh()`, se cierra la confirmación y la frase se
+  vacía tras cualquier intento. Conflicto, permisos y `live_payments_not_enabled` tienen mensaje
+  propio; el conflicto y el bloqueo releen.
+- **Desactivar** no pide frase: no borra nada y los pagos en vuelo se siguen cerrando.
+- Si Producción está encendida y el backend informa otro `activeEnvironment`, se dice.
+- La tarjeta de Integraciones dice **Bloqueados**, **Sin llaves de Producción**, **Desactivados** o
+  **Activos**, y ya no «Habilitados» por el solo hecho de que el despliegue lo permita.
 
 #### Addi
 
@@ -832,7 +852,8 @@ Nada de esto está en el repositorio del panel, y sin ello la integración no re
 2. Publicar **solo** la ruta del webhook mediante API Gateway, manteniendo Cloud Run privado.
 3. Configurar esa URL en el comercio de Wompi (sandbox).
 4. Probar eventos reales de sandbox.
-5. Mantener producción desactivada.
+5. Activar Producción desde el panel **solo** cuando se decida cobrar, escribiendo la frase de
+   confirmación. Este paso no lo ejecuta nadie más que la persona que lo decide.
 
 Ninguno de esos pasos se hace desde el panel, y ninguno necesita un valor secreto en este
 repositorio.
