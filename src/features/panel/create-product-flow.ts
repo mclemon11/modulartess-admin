@@ -59,6 +59,8 @@ export type FlowFailure = {
   /** Entrada local afectada: una imagen o una variante. `null` en los pasos del producto. */
   readonly entryId: string | null;
   readonly code: string;
+  /** Código original del backend cuando el panel no lo reconoce. Solo para diagnóstico. */
+  readonly reference?: string;
 };
 
 export type CreateFlowProgress = {
@@ -90,7 +92,11 @@ export type BatchProgress = {
   readonly product: AdminProduct;
   readonly uploaded: readonly UploadedEntry[];
   /** La entrada en la que se detuvo el lote, con su código. `null` si terminó entero. */
-  readonly failure: { readonly entryId: string; readonly code: string } | null;
+  readonly failure: {
+    readonly entryId: string;
+    readonly code: string;
+    readonly reference?: string;
+  } | null;
 };
 
 /**
@@ -126,7 +132,15 @@ export async function uploadQueueSequentially(
     });
 
     if (!result.ok) {
-      return { product: current, uploaded, failure: { entryId: entry.entryId, code: result.code } };
+      return {
+        product: current,
+        uploaded,
+        failure: {
+          entryId: entry.entryId,
+          code: result.code,
+          ...(result.reference === undefined ? {} : { reference: result.reference }),
+        },
+      };
     }
 
     current = result.data.product;
@@ -208,7 +222,11 @@ export async function runCreateFlow(
   const variants = [...previous.variants];
 
   /** Progreso alcanzado hasta este punto, con el fallo que lo detuvo. */
-  function stopped(step: FlowStep, entryId: string | null, code: string): CreateFlowProgress {
+  function stopped(
+    step: FlowStep,
+    entryId: string | null,
+    failed: { readonly code: string; readonly reference?: string | undefined },
+  ): CreateFlowProgress {
     return {
       product,
       enriched,
@@ -216,7 +234,12 @@ export async function runCreateFlow(
       primaryApplied: false,
       variants,
       published,
-      failure: { step, entryId, code },
+      failure: {
+        step,
+        entryId,
+        code: failed.code,
+        ...(failed.reference === undefined ? {} : { reference: failed.reference }),
+      },
     };
   }
 
@@ -225,7 +248,16 @@ export async function runCreateFlow(
     const created = await deps.createProduct(input.fields);
 
     if (!created.ok) {
-      return { ...EMPTY_PROGRESS, failure: { step: 'create', entryId: null, code: created.code } };
+      // Sin producto no hay nada que recuperar: la pantalla no ofrece «Abrir producto».
+      return {
+        ...EMPTY_PROGRESS,
+        failure: {
+          step: 'create',
+          entryId: null,
+          code: created.code,
+          ...(created.reference === undefined ? {} : { reference: created.reference }),
+        },
+      };
     }
 
     product = created.data;
@@ -243,7 +275,7 @@ export async function runCreateFlow(
     });
 
     if (!applied.ok) {
-      return stopped('enrich', null, applied.code);
+      return stopped('enrich', null, applied);
     }
 
     product = applied.data;
@@ -258,7 +290,7 @@ export async function runCreateFlow(
   uploaded.push(...batch.uploaded);
 
   if (batch.failure !== null) {
-    return stopped('image', batch.failure.entryId, batch.failure.code);
+    return stopped('image', batch.failure.entryId, batch.failure);
   }
 
   // 4. Aplicar la principal elegida, solo si no es ya la que fijó el backend.
@@ -277,7 +309,7 @@ export async function runCreateFlow(
     });
 
     if (!applied.ok) {
-      return stopped('primary', chosen.entryId, applied.code);
+      return stopped('primary', chosen.entryId, applied);
     }
 
     product = applied.data.product;
@@ -296,7 +328,7 @@ export async function runCreateFlow(
     });
 
     if (!result.ok) {
-      return stopped('variant', draft.draftId, result.code);
+      return stopped('variant', draft.draftId, result);
     }
 
     product = result.data.product;
@@ -316,7 +348,7 @@ export async function runCreateFlow(
     });
 
     if (!result.ok) {
-      return stopped('publish', null, result.code);
+      return stopped('publish', null, result);
     }
 
     product = result.data;
@@ -372,4 +404,54 @@ export function describeProgress(
     totalVariants: input.variants.length,
     pendingVariants,
   };
+}
+
+/**
+ * Qué paso falló, en una frase, para decirlo junto a «El producto fue creado como borrador».
+ *
+ * Nombra la imagen por su archivo y la variante por su SKU: con tres imágenes en cola, «falló una
+ * imagen» no dice cuál reintentar.
+ */
+export function describeFailedStep(
+  failure: FlowFailure,
+  input: { readonly queue: readonly QueuedImage[]; readonly variants: readonly VariantDraft[] },
+): string {
+  switch (failure.step) {
+    case 'create':
+      return 'Crear el producto.';
+    case 'enrich':
+      return 'Guardar la clasificación, la categoría y el contenido.';
+    case 'image': {
+      const entry = input.queue.find((item) => item.entryId === failure.entryId);
+
+      return entry === undefined ? 'Subir una imagen.' : `Subir la imagen «${entry.file.name}».`;
+    }
+    case 'primary':
+      return 'Fijar la imagen de portada.';
+    case 'variant': {
+      const draft = input.variants.find((item) => item.draftId === failure.entryId);
+
+      return draft === undefined || draft.sku.trim() === ''
+        ? 'Crear una variante.'
+        : `Crear la variante «${draft.sku.trim()}».`;
+    }
+    case 'publish':
+      return 'Publicar el producto.';
+  }
+}
+
+/**
+ * Sustituye el producto del progreso por uno **releído** del backend tras un conflicto de versión.
+ *
+ * Solo cambia el producto: lo que ya se sabe que llegó —subidas, variantes creadas, el `PATCH`— se
+ * conserva, para que el reintento siga sin repetir nada. El fallo se mantiene: releer no es
+ * reintentar, y lo que haya cambiado otra persona tiene que verse antes de volver a enviar.
+ */
+export function withRereadProduct(
+  progress: CreateFlowProgress,
+  product: AdminProduct,
+): CreateFlowProgress {
+  return progress.product === null || progress.product.id !== product.id
+    ? progress
+    : { ...progress, product };
 }

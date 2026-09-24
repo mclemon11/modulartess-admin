@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import styles from '@/features/panel/catalog.module.css';
+import { loadCategoryCatalog } from '@/features/panel/category-catalog';
 import { describeBackendFailure } from '@/features/panel/catalog-errors';
 import { ErrorState } from '@/features/panel/panel-states';
 import { PanelHeader } from '@/features/panel/panel-header';
@@ -60,6 +61,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
     );
   }
 
+  // Las dos listas de estado: la categoría de un producto histórico puede estar archivada.
+  const categories = await loadCategoryCatalog(session.session.sessionMaterial);
+
   return (
     <>
       <PanelHeader
@@ -83,7 +87,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
             <ProductGuide mode="edit" />
           </div>
         </div>
-        <ProductDetailClient initial={product} permissions={detailPermissions(role)} role={role} />
+        <ProductDetailClient
+          categories={categories.options}
+          categoryProblem={categories.problem}
+          initial={product}
+          permissions={detailPermissions(role)}
+          role={role}
+        />
       </div>
     </>
   );

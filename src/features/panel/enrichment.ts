@@ -24,6 +24,12 @@ import {
 } from '@/lib/api/variant-limits';
 
 import {
+  categoryPatch,
+  choiceFromProduct,
+  NO_CATEGORY,
+  type CategoryChoice,
+} from './category-selection';
+import {
   featureProblems,
   hasFeatureProblems,
   submittedFeatures,
@@ -43,8 +49,11 @@ export const SPECIFICATION_KEYS: readonly SpecificationKey[] = [
 
 /** Los mismos campos del formulario, todos como texto salvo el destacado y las características. */
 export type EnrichmentFields = {
-  categoryName: string;
-  categorySlug: string;
+  /**
+   * La categoría, **elegida del catálogo**. Ya no se escriben su nombre ni su slug: salen de la
+   * categoría elegida, o se conserva la que el producto ya tenía. Ver `category-selection.ts`.
+   */
+  category: CategoryChoice;
   productTypeName: string;
   productTypeSlug: string;
   featured: boolean;
@@ -62,8 +71,7 @@ export type EnrichmentFields = {
 };
 
 export const EMPTY_ENRICHMENT: EnrichmentFields = {
-  categoryName: '',
-  categorySlug: '',
+  category: NO_CATEGORY,
   productTypeName: '',
   productTypeSlug: '',
   featured: false,
@@ -94,11 +102,12 @@ export function enrichmentBody(
   mode: 'create' | 'edit',
 ): Record<string, unknown> | null {
   const body: Record<string, unknown> = {};
-  const category = taxonomy(fields.categoryName, fields.categorySlug);
+  const category = categoryPatch(fields.category, mode);
   const productType = taxonomy(fields.productTypeName, fields.productTypeSlug);
   const features = submittedFeatures(fields.features);
 
-  if (category !== null || mode === 'edit') body.category = category;
+  // `undefined` es «no se envía»: la categoría que el producto ya tenía no se reenvía sola.
+  if (category !== undefined) body.category = category;
   if (productType !== null || mode === 'edit') body.productType = productType;
   if (fields.featured || mode === 'edit') body.featured = fields.featured;
   if (features.length > 0 || mode === 'edit') body.features = features;
@@ -130,8 +139,7 @@ export function enrichmentFromProduct(product: {
   };
 }): EnrichmentFields {
   return {
-    categoryName: product.category?.name ?? '',
-    categorySlug: product.category?.slug ?? '',
+    category: choiceFromProduct(product.category),
     productTypeName: product.productType?.name ?? '',
     productTypeSlug: product.productType?.slug ?? '',
     featured: product.featured,
@@ -144,30 +152,25 @@ export function enrichmentFromProduct(product: {
 }
 
 /**
- * Escribe el nombre de una taxonomía y, **solo si el slug no se ha tocado a mano**, lo vuelve a
+ * Escribe el nombre del tipo de producto y, **solo si el slug no se ha tocado a mano**, lo vuelve a
  * sugerir desde el nombre.
  *
  * El slug es parte de la URL pública: proponerlo ahorra trabajo, pero pisar uno corregido a
- * propósito cambiaría una dirección sin avisar.
+ * propósito cambiaría una dirección sin avisar. La categoría ya no pasa por aquí: se elige del
+ * catálogo.
  */
-export function withTaxonomyName(
-  fields: EnrichmentFields,
-  which: 'category' | 'productType',
-  name: string,
-): EnrichmentFields {
-  const nameKey = which === 'category' ? 'categoryName' : 'productTypeName';
-  const slugKey = which === 'category' ? 'categorySlug' : 'productTypeSlug';
-  const untouched = fields[slugKey] === toSlug(fields[nameKey]);
+export function withProductTypeName(fields: EnrichmentFields, name: string): EnrichmentFields {
+  const untouched = fields.productTypeSlug === toSlug(fields.productTypeName);
 
   return {
     ...fields,
-    [nameKey]: name,
-    ...(untouched ? { [slugKey]: toSlug(name) } : {}),
+    productTypeName: name,
+    ...(untouched ? { productTypeSlug: toSlug(name) } : {}),
   };
 }
 
 export type EnrichmentProblems = {
-  /** Problemas de la categoría y el tipo de producto, que se pintan juntos. */
+  /** Problemas del tipo de producto. La categoría sale del catálogo y no tiene forma que validar. */
   readonly classification: readonly string[];
   /** Problemas de las características, separados por fila. */
   readonly features: FeatureProblems;
@@ -186,7 +189,7 @@ const SPECIFICATION_LABELS: Readonly<Record<SpecificationKey, string>> = {
  * Problemas de la clasificación y el contenido, antes de gastar una llamada.
  *
  * Replica lo que publica el contrato: el slug tiene forma de kebab-case y un máximo de caracteres,
- * la categoría necesita nombre **y** slug —media categoría no es una categoría—, las
+ * el tipo de producto necesita nombre **y** slug —medio tipo no es un tipo—, las
  * características tienen su tope de filas y de longitud, y los detalles adicionales el suyo. Que
  * un detalle adicional esté vacío **no** es un problema: el contrato los publica como opcionales.
  * El backend lo vuelve a validar.
@@ -195,7 +198,6 @@ export function enrichmentProblems(fields: EnrichmentFields): EnrichmentProblems
   const classification: string[] = [];
 
   for (const [label, name, slug] of [
-    ['La categoría', fields.categoryName, fields.categorySlug],
     ['El tipo de producto', fields.productTypeName, fields.productTypeSlug],
   ] as const) {
     const hasName = name.trim() !== '';

@@ -16,7 +16,7 @@ import 'server-only';
  */
 
 import { backendClient } from './backend-client';
-import { BackendFailure, failureCodeFromStatus } from './errors';
+import { BackendFailure, catalogFailure } from './errors';
 import type { components } from './generated/schema';
 import { ADMIN_SESSION_HEADER } from './session-material';
 
@@ -175,7 +175,7 @@ export async function listProducts(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -197,7 +197,7 @@ export async function getProduct(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -223,7 +223,7 @@ export async function createProduct(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -248,7 +248,7 @@ export async function updateProduct(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -281,7 +281,7 @@ export async function transitionProduct(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -313,7 +313,7 @@ export async function adjustInventory(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -349,7 +349,7 @@ export async function uploadProductImage(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -380,7 +380,7 @@ export async function updateProductImage(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -414,7 +414,7 @@ export async function archiveProductImage(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -448,7 +448,7 @@ export async function createProductVariant(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -479,7 +479,7 @@ export async function updateProductVariant(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -514,7 +514,7 @@ export async function archiveProductVariant(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -552,7 +552,7 @@ export async function adjustVariantInventory(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -589,7 +589,7 @@ export async function setProductInventory(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;
@@ -627,7 +627,7 @@ export async function setVariantInventory(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
   }
 
   return response.data;

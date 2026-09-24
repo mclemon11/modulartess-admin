@@ -163,7 +163,7 @@ export function ProductImages({
     }
 
     setConflict(result.code === 'version_conflict');
-    setFailure(describeCatalogFailure(result.code));
+    setFailure(describeCatalogFailure(result.code, result.reference));
   }
 
   /** Aplica un cambio de la cola, revocando lo que haya quedado huérfano. */

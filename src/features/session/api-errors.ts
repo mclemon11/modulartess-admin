@@ -20,6 +20,19 @@ export const SESSION_ERROR_CODES = [
   'admin_surface_disabled',
   'not_found',
   'version_conflict',
+  'sku_conflict',
+  'slug_conflict',
+  'variant_sku_conflict',
+  'variant_combination_conflict',
+  'image_limit',
+  'idempotency_conflict',
+  'category_not_found',
+  'category_archived',
+  'category_name_conflict',
+  'category_slug_conflict',
+  'category_version_conflict',
+  'category_invalid',
+  'conflict_unrecognized',
   'refund_required',
   'payment_transition_invalid',
   'payment_conflict',
@@ -42,6 +55,11 @@ export type SessionErrorCode = (typeof SESSION_ERROR_CODES)[number];
 export type SessionErrorBody = {
   readonly code: SessionErrorCode;
   readonly message: string;
+  /**
+   * El código original del backend cuando el panel no lo reconoce. Es un identificador validado
+   * con `safeErrorReference`, nunca un mensaje: sirve para diagnosticar, no para explicar.
+   */
+  readonly reference?: string;
 };
 
 const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
@@ -50,6 +68,19 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
   not_found: 'No encontramos ese recurso.',
   version_conflict:
     'Alguien modificó estos datos mientras los editabas. Recarga para ver la versión actual.',
+  sku_conflict: 'Ese SKU ya está reservado, incluso si pertenece a un producto archivado.',
+  slug_conflict: 'Esa URL ya está reservada, incluso si pertenece a un producto archivado.',
+  variant_sku_conflict: 'Ese SKU de variante ya está reservado.',
+  variant_combination_conflict: 'Ya existe una variante con esa combinación.',
+  image_limit: 'El producto ya tiene el máximo de imágenes activas.',
+  idempotency_conflict: 'Esa operación ya se envió con otros datos.',
+  category_not_found: 'Esa categoría no existe.',
+  category_archived: 'Esa categoría está archivada.',
+  category_name_conflict: 'Ya existe una categoría con ese nombre.',
+  category_slug_conflict: 'Ya existe una categoría con ese slug.',
+  category_version_conflict: 'La categoría cambió mientras la editabas.',
+  category_invalid: 'El nombre o el slug de la categoría no tienen una forma válida.',
+  conflict_unrecognized: 'El backend rechazó la operación por un conflicto.',
   refund_required:
     'Este pedido ya está pagado y cancelarlo exigiría devolver el dinero. El flujo de reembolso todavía no está disponible.',
   payment_transition_invalid:
@@ -83,6 +114,19 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   invalid_request: 400,
   not_found: 404,
   version_conflict: 409,
+  sku_conflict: 409,
+  slug_conflict: 409,
+  variant_sku_conflict: 409,
+  variant_combination_conflict: 409,
+  image_limit: 409,
+  idempotency_conflict: 409,
+  category_not_found: 404,
+  category_archived: 409,
+  category_name_conflict: 409,
+  category_slug_conflict: 409,
+  category_version_conflict: 409,
+  category_invalid: 400,
+  conflict_unrecognized: 409,
   refund_required: 409,
   payment_transition_invalid: 409,
   payment_conflict: 409,
@@ -103,8 +147,13 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   internal_error: 500,
 };
 
-export function sessionErrorBody(code: SessionErrorCode): SessionErrorBody {
-  return { code, message: MESSAGES[code] };
+export function sessionErrorBody(
+  code: SessionErrorCode,
+  reference: string | null = null,
+): SessionErrorBody {
+  return reference === null
+    ? { code, message: MESSAGES[code] }
+    : { code, message: MESSAGES[code], reference };
 }
 
 export function sessionErrorStatus(code: SessionErrorCode): number {
@@ -124,6 +173,32 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'not_found';
     case 'backend_conflict':
       return 'version_conflict';
+    case 'backend_product_sku_conflict':
+      return 'sku_conflict';
+    case 'backend_product_slug_conflict':
+      return 'slug_conflict';
+    case 'backend_product_variant_sku_conflict':
+      return 'variant_sku_conflict';
+    case 'backend_product_variant_combination_conflict':
+      return 'variant_combination_conflict';
+    case 'backend_product_image_limit':
+      return 'image_limit';
+    case 'backend_idempotency_conflict':
+      return 'idempotency_conflict';
+    case 'backend_product_category_not_found':
+      return 'category_not_found';
+    case 'backend_product_category_archived':
+      return 'category_archived';
+    case 'backend_product_category_name_conflict':
+      return 'category_name_conflict';
+    case 'backend_product_category_slug_conflict':
+      return 'category_slug_conflict';
+    case 'backend_product_category_version_conflict':
+      return 'category_version_conflict';
+    case 'backend_product_category_invalid':
+      return 'category_invalid';
+    case 'backend_conflict_unrecognized':
+      return 'conflict_unrecognized';
     case 'backend_refund_required':
       return 'refund_required';
     case 'backend_payment_transition_invalid':

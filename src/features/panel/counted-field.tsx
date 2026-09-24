@@ -33,6 +33,7 @@ export function CountedTextarea({
   rows,
   name,
   onChange,
+  id: givenId,
 }: {
   readonly label: string;
   readonly value: string;
@@ -46,8 +47,11 @@ export function CountedTextarea({
   /** Nombre del campo cuando el formulario también se lee como `FormData`. */
   readonly name?: string | undefined;
   readonly onChange: (value: string) => void;
+  /** Id del campo, para que el formulario pueda llevar el foco aquí tras un error. */
+  readonly id?: string | undefined;
 }) {
-  const id = useId();
+  const generatedId = useId();
+  const id = givenId ?? generatedId;
   const hintId = `${id}-hint`;
   const counterId = `${id}-contador`;
   const errorId = `${id}-error`;

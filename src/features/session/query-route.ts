@@ -22,8 +22,8 @@ import { isBackendFailure } from '@/lib/api/errors';
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 
-export function queryError(code: SessionErrorCode): NextResponse {
-  return NextResponse.json(sessionErrorBody(code), {
+export function queryError(code: SessionErrorCode, reference: string | null = null): NextResponse {
+  return NextResponse.json(sessionErrorBody(code, reference), {
     status: sessionErrorStatus(code),
     headers: NO_STORE,
   });
@@ -49,7 +49,7 @@ export async function handleQuery<TResult>(
     return NextResponse.json(await run(sessionMaterial), { headers: NO_STORE });
   } catch (error) {
     if (isBackendFailure(error)) {
-      return queryError(sessionErrorFromBackendFailure(error.code));
+      return queryError(sessionErrorFromBackendFailure(error.code), error.reference);
     }
 
     return queryError('internal_error');

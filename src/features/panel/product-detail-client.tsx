@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
@@ -15,9 +15,10 @@ import {
   updateProduct,
   type MutationResult,
 } from './catalog-client';
-import { describeCatalogFailure } from './catalog-errors';
+import { describeCatalogFailure, productFailureField } from './catalog-errors';
+import { CategoryPicker } from './category-picker';
+import { withCreatedCategory, type CategoryOption } from './category-selection';
 import { CopField } from './cop-field';
-import { CollapsibleSection } from './collapsible-section';
 import { CountedTextarea } from './counted-field';
 import {
   enrichmentBody,
@@ -41,6 +42,8 @@ import {
 import { ProductInventoryCard, type InventorySubmitResult } from './inventory-card';
 import { readInventory } from './inventory-control';
 import { formatCop, parseCop } from './money';
+import { PreviewDialog } from './preview-dialog';
+import { ProductDataTabs } from './product-data-tabs';
 import { descriptionProblem, shortDescriptionProblem } from './product-content';
 import {
   canPublishNow,
@@ -72,14 +75,26 @@ export function ProductDetailClient({
   initial,
   permissions,
   role,
+  categories: initialCategories,
+  categoryProblem,
 }: {
   readonly initial: AdminProduct;
   readonly permissions: DetailPermissions;
   /** Rol verificado por el servidor. Decide qué acciones de variante se pintan. */
   readonly role: string;
+  /** El catálogo de categorías, en los dos estados: las archivadas se reconocen, no se ofrecen. */
+  readonly categories: readonly CategoryOption[];
+  readonly categoryProblem: string | null;
 }) {
   const router = useRouter();
   const [product, setProduct] = useState(initial);
+  const [categories, setCategories] = useState<readonly CategoryOption[]>(initialCategories);
+  /** El nombre también es estado: el guardado ya no lee `FormData`, que no llega a la barra lateral. */
+  const [name, setName] = useState(initial.name);
+  const [tab, setTab] = useState('general');
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const categoryInput = useRef<HTMLInputElement | null>(null);
+  const onTabChange = useCallback((key: string) => setTab(key), []);
   const [enrichment, setEnrichment] = useState(() => enrichmentFromProduct(initial));
   /**
    * Los dos textos editoriales se controlan desde React, no desde `FormData`.
@@ -122,6 +137,7 @@ export function ProductDetailClient({
 
   const ids = {
     name: useId(),
+    form: useId(),
   };
 
   function begin(): boolean {
@@ -148,7 +164,13 @@ export function ProductDetailClient({
     }
 
     setConflict(result.code === 'version_conflict');
-    setFailure(describeCatalogFailure(result.code));
+    setFailure(describeCatalogFailure(result.code, result.reference));
+
+    // Una categoría inexistente o archivada se marca en el propio selector, con el foco allí.
+    if (productFailureField(result.code) === 'category') {
+      setCategoryError(describeCatalogFailure(result.code));
+      requestAnimationFrame(() => categoryInput.current?.focus());
+    }
   }
 
   /**
@@ -160,6 +182,8 @@ export function ProductDetailClient({
    */
   function applyProduct(next: AdminProduct) {
     setProduct(next);
+    setName(next.name);
+    setCategoryError(null);
     setEnrichment(enrichmentFromProduct(next));
     setShortDescription(next.shortDescription);
     setDescription(next.description);
@@ -199,14 +223,12 @@ export function ProductDetailClient({
       return;
     }
 
-    const data = new FormData(event.currentTarget);
-
     // Los ejes no viajan aquí: se declaran en la sección de variantes, que es donde se ven sus
     // consecuencias. Enviarlos desde dos formularios distintos invitaría a pisarlos sin querer.
     const result = await updateProduct(product.id, {
       ...enrichmentBody(enrichment, product.attributes, 'edit'),
       expectedVersion: product.version,
-      name: String(data.get('name') ?? '').trim(),
+      name: name.trim(),
       shortDescription,
       description,
       priceCop: parsedPrice.value,
@@ -289,7 +311,19 @@ export function ProductDetailClient({
    */
   const sellsByVariant = product.variants.some((variant) => variant.status === 'active');
   const readiness = product.publicationReadiness;
+  const readOnly = !permissions.canUpdate;
+  const primaryImage = product.images.find((image) => image.isPrimary && image.status === 'active');
 
+  /*
+   * La misma estructura que el alta: nombre arriba, contenido y «Datos del producto» a un lado, y
+   * estado, categoría e imágenes en la barra lateral.
+   *
+   * El `<form>` envuelve **solo** el nombre y la descripción. El inventario, las imágenes y las
+   * variantes tienen sus propias rutas, claves de idempotencia y confirmaciones: dentro de
+   * «Actualizar», corregir una descripción habría reescrito también las existencias. Lo que sí
+   * guarda «Actualizar» —precio, clasificación, detalles y categoría— es estado de React, así que
+   * el botón puede vivir en la barra lateral con `form`.
+   */
   return (
     <>
       <div aria-live="assertive">
@@ -313,265 +347,198 @@ export function ProductDetailClient({
         {notice === null ? null : <p className={styles.notice}>{notice}</p>}
       </div>
 
-      <div className={styles.detailGrid}>
-        <div className={styles.stack}>
-          {permissions.canUpdate ? (
-            <form noValidate onSubmit={handleSave}>
-              <div className={styles.stack}>
-                <section className={styles.card} id={SECTION_IDS.basica}>
-                  <div className={styles.cardPad}>
-                    <SectionHeading
-                      hint="Nombre, descripción corta e identificadores."
-                      icon="basica"
-                      title="Información básica"
-                    />
-                    <div className={styles.field}>
-                      <label className={styles.label} htmlFor={ids.name}>
-                        Nombre *
-                      </label>
-                      <input
-                        className={styles.input}
-                        defaultValue={product.name}
-                        disabled={busy}
-                        id={ids.name}
-                        name="name"
+      <div className={styles.editor}>
+        <form className={styles.editor} id={ids.form} noValidate onSubmit={handleSave}>
+          <div className={`${styles.editorTitle} ${styles.anchorTarget}`} id={SECTION_IDS.basica}>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor={ids.name}>
+                Nombre del producto *
+              </label>
+              <input
+                className={styles.titleInput}
+                disabled={busy || readOnly}
+                id={ids.name}
+                name="name"
+                onChange={(event) => setName(event.target.value)}
+                required
+                type="text"
+                value={name}
+              />
+            </div>
+            <dl className={styles.definition}>
+              <dt>SKU</dt>
+              <dd className={styles.immutable}>{product.sku}</dd>
+              <dt>URL (slug)</dt>
+              <dd className={styles.immutable}>{product.slug}</dd>
+            </dl>
+            <p className={styles.hint}>
+              SKU y slug son inmutables: el backend no los deja cambiar.
+            </p>
+          </div>
+        </form>
+
+        <div className={styles.editorBody}>
+          <div className={styles.editorMain}>
+            <section className={`${styles.card} ${styles.anchorTarget}`} id={SECTION_IDS.contenido}>
+              <div className={styles.cardPad}>
+                <SectionHeading
+                  hint="Lo que se lee en la ficha pública."
+                  icon="contenido"
+                  title="Descripción"
+                />
+                <CountedTextarea
+                  disabled={busy || readOnly}
+                  error={shortDescriptionIssue}
+                  hint="Resumen visible junto al precio. Escribe 1 o 2 frases claras; evita repetir el nombre."
+                  label="Descripción corta"
+                  max={SHORT_DESCRIPTION_MAX_LENGTH}
+                  onChange={setShortDescription}
+                  requirement="necesaria"
+                  rows={2}
+                  value={shortDescription}
+                />
+                <CountedTextarea
+                  disabled={busy || readOnly}
+                  error={descriptionIssue}
+                  hint="Se muestra dentro de Descripción en la ficha. Explica el uso y los beneficios sin repetir materiales, medidas, garantía o cuidados."
+                  label="Descripción detallada"
+                  max={DESCRIPTION_MAX_LENGTH}
+                  onChange={setDescription}
+                  requirement="opcional"
+                  rows={6}
+                  value={description}
+                />
+                <VisibleContentFields
+                  disabled={busy || readOnly}
+                  fields={enrichment}
+                  onChange={setEnrichment}
+                  problems={enrichmentIssues}
+                />
+              </div>
+            </section>
+
+            <ProductDataTabs
+              active={tab}
+              onChange={onTabChange}
+              tabs={[
+                {
+                  key: 'general',
+                  label: 'General',
+                  anchor: SECTION_IDS.precio,
+                  content: (
+                    <>
+                      <CopField
+                        disabled={busy || readOnly}
+                        hint="Pesos enteros. Al backend viaja el número, no el texto."
+                        label="Precio"
+                        onChange={setPrice}
                         required
-                        type="text"
+                        value={price}
                       />
-                    </div>
-                    <CountedTextarea
-                      disabled={busy}
-                      error={shortDescriptionIssue}
-                      hint="Resumen visible junto al precio. Escribe 1 o 2 frases claras; evita repetir el nombre."
-                      label="Descripción corta"
-                      max={SHORT_DESCRIPTION_MAX_LENGTH}
-                      onChange={setShortDescription}
-                      requirement="necesaria"
-                      rows={2}
-                      value={shortDescription}
-                    />
-
-                    <h3 className={styles.subTitle}>Identificadores</h3>
-                    <dl className={styles.definition}>
-                      <dt>SKU</dt>
-                      <dd className={styles.immutable}>{product.sku}</dd>
-                      <dt>Slug</dt>
-                      <dd className={styles.immutable}>{product.slug}</dd>
-                    </dl>
-                    <p className={styles.hint}>
-                      SKU y slug son inmutables: el backend no los deja cambiar.
-                    </p>
-                  </div>
-                </section>
-
-                <section className={styles.card} id={SECTION_IDS.clasificacion}>
-                  <div className={styles.cardPad}>
-                    <SectionHeading
-                      hint="Dónde vive el producto dentro del catálogo."
-                      icon="clasificacion"
-                      title="Clasificación"
-                    />
+                      {sellsByVariant ? (
+                        <p className={styles.notice}>
+                          Este producto se vende por variantes: el precio y el inventario que valen
+                          son los de cada variante. Estos valores base se conservan tal cual, pero
+                          ya no son lo que se compra.
+                        </p>
+                      ) : null}
+                    </>
+                  ),
+                },
+                {
+                  key: 'inventario',
+                  label: 'Inventario',
+                  anchor: SECTION_IDS.inventario,
+                  content: (
+                    <>
+                      {/*
+                        El inventario tiene su **propia** ruta, su clave de idempotencia y su
+                        confirmación al cambiar de modo. No lo guarda «Actualizar».
+                      */}
+                      <ProductInventoryCard
+                        busy={busy}
+                        canEdit={permissions.canAdjustInventory}
+                        inventory={product.inventory}
+                        onSubmit={handleInventory}
+                        sellsByVariant={sellsByVariant}
+                      />
+                    </>
+                  ),
+                },
+                {
+                  key: 'clasificacion',
+                  label: 'Clasificación',
+                  anchor: SECTION_IDS.clasificacion,
+                  hasProblem: enrichmentIssues.classification.length > 0,
+                  content: (
                     <ClassificationFields
-                      disabled={busy}
+                      disabled={busy || readOnly}
                       fields={enrichment}
                       mode="edit"
                       onChange={setEnrichment}
                       problems={enrichmentIssues.classification}
                     />
-                  </div>
-                </section>
-
-                <section className={styles.card} id={SECTION_IDS.contenido}>
-                  <div className={styles.cardPad}>
-                    <SectionHeading
-                      hint="Lo que se lee en la ficha pública."
-                      icon="contenido"
-                      title="Contenido visible"
-                    />
-                    <CountedTextarea
-                      disabled={busy}
-                      error={descriptionIssue}
-                      hint="Se muestra dentro de Descripción en la ficha. Explica el uso y los beneficios sin repetir materiales, medidas, garantía o cuidados."
-                      label="Descripción detallada"
-                      max={DESCRIPTION_MAX_LENGTH}
-                      onChange={setDescription}
-                      requirement="opcional"
-                      rows={8}
-                      value={description}
-                    />
-                    <VisibleContentFields
-                      disabled={busy}
+                  ),
+                },
+                {
+                  key: 'variantes',
+                  label: 'Variantes',
+                  anchor: SECTION_IDS.variantes,
+                  content: (
+                    <div className={styles.flatCards}>
+                      <ProductVariants
+                        onProduct={applyProduct}
+                        permissions={variantPermissions(role)}
+                        product={product}
+                      />
+                    </div>
+                  ),
+                },
+                {
+                  key: 'detalles',
+                  label: 'Detalles',
+                  anchor: SECTION_IDS.detalles,
+                  hasProblem: Object.keys(enrichmentIssues.specifications).length > 0,
+                  content: (
+                    <AdditionalDetailsFields
+                      disabled={busy || readOnly}
                       fields={enrichment}
+                      mode="edit"
                       onChange={setEnrichment}
                       problems={enrichmentIssues}
                     />
-                  </div>
-                </section>
+                  ),
+                },
+              ]}
+            />
+          </div>
 
-                <CollapsibleSection
-                  defaultOpen={false}
-                  forceOpen={Object.keys(enrichmentIssues.specifications).length > 0}
-                  hint="Materiales, medidas, garantía y cuidados. Todos opcionales."
-                  icon="detalles"
-                  id={SECTION_IDS.detalles}
-                  title="Detalles adicionales"
-                >
-                  <AdditionalDetailsFields
-                    disabled={busy}
-                    fields={enrichment}
-                    mode="edit"
-                    onChange={setEnrichment}
-                    problems={enrichmentIssues}
-                  />
-                </CollapsibleSection>
-
-                <section className={styles.card} id={SECTION_IDS.precio}>
-                  <div className={styles.cardPad}>
-                    <SectionHeading icon="precio" title="Precio" />
-                    <CopField
-                      disabled={busy}
-                      hint="Pesos enteros. Al backend viaja el número, no el texto."
-                      label="Precio"
-                      onChange={setPrice}
-                      required
-                      value={price}
-                    />
-                    {sellsByVariant ? (
-                      <p className={styles.hint}>
-                        Se conserva, pero lo que se vende es el precio de cada variante.
-                      </p>
-                    ) : null}
-                  </div>
-                </section>
-
-                {sellsByVariant ? (
-                  <p className={styles.notice}>
-                    Este producto se vende por variantes: el precio y el inventario que valen son
-                    los de cada variante. Estos valores base se conservan tal cual, pero ya no son
-                    lo que se compra.
-                  </p>
-                ) : null}
-
-                <div className={styles.actionBar}>
-                  <div className={styles.actionBarText}>
-                    Se envía con la versión {product.version}, la que estás viendo.
-                  </div>
-                  <div className={styles.actionBarButtons}>
-                    <button className={styles.button} disabled={busy || blocked} type="submit">
-                      {busy ? 'Guardando…' : 'Guardar cambios'}
-                    </button>
-                  </div>
-                  {blocked ? (
-                    <p className={styles.hint}>
-                      Corrige lo marcado en rojo para poder guardar. Los campos opcionales pueden
-                      quedarse vacíos.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            </form>
-          ) : (
-            <section className={styles.card} id={SECTION_IDS.basica}>
+          <aside aria-label="Estado, categoría e imágenes" className={styles.editorSide}>
+            <section className={styles.card}>
               <div className={styles.cardPad}>
-                <SectionHeading icon="basica" title="Información básica" />
-                <dl className={styles.definition}>
-                  <dt>Nombre</dt>
-                  <dd>{product.name}</dd>
-                  <dt>SKU</dt>
-                  <dd className={styles.immutable}>{product.sku}</dd>
-                  <dt>Slug</dt>
-                  <dd className={styles.immutable}>{product.slug}</dd>
-                  <dt>Precio</dt>
-                  <dd>{formatCop(product.priceCop)}</dd>
-                </dl>
-                <p className={styles.hint}>Tu rol no permite editar este producto.</p>
-              </div>
-            </section>
-          )}
-
-          {/*
-            El inventario vive en su **propia** tarjeta, fuera del formulario del producto.
-
-            No es una decisión de maquetación: tiene su propia ruta, su propia clave de
-            idempotencia y su propia confirmación al cambiar de modo. Dentro de «Guardar cambios»,
-            corregir una descripción habría reescrito también las existencias.
-          */}
-          <section className={styles.card} id={SECTION_IDS.inventario}>
-            <div className={styles.cardPad}>
-              <SectionHeading icon="inventario" title="Inventario del producto" />
-              <ProductInventoryCard
-                busy={busy}
-                canEdit={permissions.canAdjustInventory}
-                inventory={product.inventory}
-                onSubmit={handleInventory}
-                sellsByVariant={sellsByVariant}
-              />
-            </div>
-          </section>
-
-          <div id={SECTION_IDS.imagenes}>
-            <ProductImages
-              canArchive={imagePermissions(role).canArchive}
-              canEdit={imagePermissions(role).canEdit}
-              onProduct={applyProduct}
-              product={product}
-            />
-          </div>
-
-          <div id={SECTION_IDS.variantes}>
-            <ProductVariants
-              onProduct={applyProduct}
-              permissions={variantPermissions(role)}
-              product={product}
-            />
-          </div>
-        </div>
-
-        <aside className={styles.detailAside}>
-          <section className={styles.card}>
-            <div className={styles.cardPad}>
-              <SectionHeading icon="estado" title="Estado del producto" />
-              <dl className={styles.definition}>
-                <dt>Estado</dt>
-                <dd>
+                <div className={styles.statusRow}>
+                  <h2 className={styles.sectionTitle}>Estado</h2>
                   <StatusBadge status={product.status} />
-                </dd>
-                <dt>Categoría</dt>
-                <dd>{product.category === null ? 'Sin categoría' : product.category.name}</dd>
-                <dt>Tipo</dt>
-                <dd>{product.productType === null ? 'Sin tipo' : product.productType.name}</dd>
-                <dt>Destacado</dt>
-                <dd>{product.featured ? 'Sí' : 'No'}</dd>
-                <dt>Precio base</dt>
-                <dd>{formatCop(product.priceCop)}</dd>
-                <dt>Inventario base</dt>
-                <dd className={baseReading.tone === 'lowStock' ? styles.lowStock : undefined}>
-                  {/* En modo disponibilidad no hay cantidad: se dice el estado, no un número. */}
-                  {baseReading.quantityLabel ?? baseReading.label}
-                </dd>
-                <dt>Versión</dt>
-                <dd>{product.version}</dd>
-                <dt>Actualizado</dt>
-                <dd>{formatDateTime(product.updatedAt)}</dd>
-              </dl>
-            </div>
-          </section>
-
-          <section className={styles.card}>
-            <div className={styles.cardPad}>
-              <SectionHeading icon="vistaPrevia" title="Preparación para publicar" />
-              <PublicationChecklist readiness={readiness} />
-
-              {permissions.canPublish || permissions.canArchive ? (
-                <div className={styles.actions}>
-                  {permissions.canPublish && product.status !== 'active' ? (
+                </div>
+                <div className={styles.sideActions}>
+                  {readOnly ? null : (
                     <button
                       className={styles.button}
+                      disabled={busy || blocked}
+                      form={ids.form}
+                      type="submit"
+                    >
+                      {busy ? 'Guardando…' : 'Actualizar'}
+                    </button>
+                  )}
+                  {permissions.canPublish && product.status !== 'active' ? (
+                    <button
+                      className={styles.buttonSecondary}
                       disabled={busy || !canPublishNow(permissions, product)}
                       onClick={() => void handleTransition('publish')}
                       type="button"
                     >
-                      Publicar producto
+                      Publicar
                     </button>
                   ) : null}
                   {permissions.canArchive && product.status !== 'archived' ? (
@@ -584,22 +551,107 @@ export function ProductDetailClient({
                       Archivar producto
                     </button>
                   ) : null}
+                  <PreviewDialog>
+                    {primaryImage === undefined ? (
+                      <span className={styles.previewEmpty}>Sin imagen</span>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        alt={primaryImage.altText}
+                        className={styles.previewImage}
+                        src={primaryImage.publicUrl}
+                      />
+                    )}
+                    {product.category === null ? null : (
+                      <p className={styles.previewText}>{product.category.name}</p>
+                    )}
+                    <p className={styles.previewName}>{product.name}</p>
+                    <p className={styles.previewPrice}>{formatCop(product.priceCop)}</p>
+                    {product.shortDescription.trim() === '' ? null : (
+                      <p className={styles.previewText}>{product.shortDescription}</p>
+                    )}
+                    <p className={styles.hint}>
+                      Es lo último que guardó el backend. Lo que no hayas actualizado no aparece
+                      aquí.
+                    </p>
+                  </PreviewDialog>
                 </div>
-              ) : null}
+                {readOnly ? (
+                  <p className={styles.hint}>Tu rol no permite editar este producto.</p>
+                ) : null}
+                {blocked && !readOnly ? (
+                  <p className={styles.hint}>
+                    Corrige lo marcado en rojo para poder actualizar. Los campos opcionales pueden
+                    quedarse vacíos.
+                  </p>
+                ) : null}
+                {permissions.canPublish ? null : (
+                  <p className={styles.hint}>Tu rol no incluye publicar ni archivar.</p>
+                )}
+                <dl className={styles.definition}>
+                  <dt>Destacado</dt>
+                  <dd>{product.featured ? 'Sí' : 'No'}</dd>
+                  <dt>Inventario base</dt>
+                  <dd className={baseReading.tone === 'lowStock' ? styles.lowStock : undefined}>
+                    {/* En modo disponibilidad no hay cantidad: se dice el estado, no un número. */}
+                    {baseReading.quantityLabel ?? baseReading.label}
+                  </dd>
+                  <dt>Versión</dt>
+                  <dd>{product.version}</dd>
+                  <dt>Actualizado</dt>
+                  <dd>{formatDateTime(product.updatedAt)}</dd>
+                </dl>
+              </div>
+            </section>
 
-              {permissions.canPublish && product.status !== 'active' && !readiness.ready ? (
+            <section className={styles.card}>
+              <div className={styles.cardPad}>
+                <SectionHeading icon="vistaPrevia" title="Preparación para publicar" />
+                <PublicationChecklist readiness={readiness} />
+                {permissions.canPublish && product.status !== 'active' && !readiness.ready ? (
+                  <p className={styles.hint}>
+                    «Publicar» está deshabilitado: {describeReadiness(readiness).toLowerCase()}.
+                    Complétalos y actualiza; el backend recalcula esta lista en cada respuesta.
+                  </p>
+                ) : null}
+              </div>
+            </section>
+
+            <section className={`${styles.card} ${styles.anchorTarget}`} id={SECTION_IDS.categoria}>
+              <div className={styles.cardPad}>
+                <SectionHeading icon="clasificacion" title="Categoría" />
+                <CategoryPicker
+                  canCreate={permissions.canUpdate}
+                  catalog={categories}
+                  catalogProblem={categoryProblem}
+                  choice={enrichment.category}
+                  disabled={busy || readOnly}
+                  error={categoryError}
+                  inputRef={categoryInput}
+                  onChange={(category) => {
+                    setEnrichment((current) => ({ ...current, category }));
+                    setCategoryError(null);
+                  }}
+                  onCreated={(category) =>
+                    setCategories((current) => withCreatedCategory(current, category))
+                  }
+                />
                 <p className={styles.hint}>
-                  «Publicar producto» está deshabilitado:{' '}
-                  {describeReadiness(readiness).toLowerCase()}. Complétalos y vuelve a guardar; el
-                  backend recalcula esta lista en cada respuesta.
+                  Se guarda con «Actualizar». Si no eliges otra, la categoría actual no se toca.
                 </p>
-              ) : null}
-              {permissions.canPublish ? null : (
-                <p className={styles.hint}>Tu rol no incluye publicar ni archivar.</p>
-              )}
+              </div>
+            </section>
+
+            <div className={styles.anchorTarget} id={SECTION_IDS.imagenes}>
+              <ProductImages
+                canArchive={imagePermissions(role).canArchive}
+                canEdit={imagePermissions(role).canEdit}
+                onProduct={applyProduct}
+                product={product}
+              />
             </div>
-          </section>
-        </aside>
+          </aside>
+        </div>
       </div>
     </>
   );

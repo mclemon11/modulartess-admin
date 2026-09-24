@@ -89,26 +89,30 @@ describe('resumen', () => {
     );
   });
 
+  it('la descripción corta lleva a la tarjeta «Descripción», donde ahora se escribe', () => {
+    const groups = groupBySection({ ready: false, missing: ['short_description'] });
+
+    expect(groups.map((group) => group.section)).toEqual(['contenido']);
+  });
+
   it('agrupa lo pendiente por la sección donde se resuelve, en el orden de la pantalla', () => {
     const groups = groupBySection({
       ready: false,
       missing: ['positive_price', 'category', 'name', 'sku'],
     });
 
-    expect(groups.map((group) => group.section)).toEqual(['basica', 'clasificacion', 'precio']);
+    // La categoría se elige en la barra lateral, que va después de las pestañas en móvil.
+    expect(groups.map((group) => group.section)).toEqual(['basica', 'precio', 'categoria']);
     expect(groups[0]?.items.map((item) => item.title)).toEqual(['Falta el nombre', 'Falta el SKU']);
   });
 
-  it.each(['imagenes', 'contenido', 'detalles'])(
-    'nunca agrupa nada en la sección «%s»',
-    (section) => {
-      // Imágenes, contenido visible y detalles adicionales son opcionales: ningún código del
-      // contrato lleva ya a esas secciones.
-      const groups = groupBySection({ ready: false, missing: [...ENUM] });
+  it.each(['imagenes', 'detalles'])('nunca agrupa nada en la sección «%s»', (section) => {
+    // Imágenes y detalles adicionales son opcionales: ningún código del contrato lleva ya a esas
+    // secciones. «Descripción» sí recibe uno, la descripción corta, que ahora vive en esa tarjeta.
+    const groups = groupBySection({ ready: false, missing: [...ENUM] });
 
-      expect(groups.map((group) => group.section)).not.toContain(section);
-    },
-  );
+    expect(groups.map((group) => group.section)).not.toContain(section);
+  });
 
   it('sin requisitos pendientes no hay grupos', () => {
     expect(groupBySection({ ready: true, missing: [] })).toEqual([]);

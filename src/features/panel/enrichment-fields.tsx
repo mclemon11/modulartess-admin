@@ -7,7 +7,7 @@ import { SPECIFICATION_MAX_LENGTH } from '@/lib/api/variant-limits';
 import styles from './catalog.module.css';
 import { CountedTextarea } from './counted-field';
 import {
-  withTaxonomyName,
+  withProductTypeName,
   type EnrichmentFields,
   type EnrichmentProblems,
   type SpecificationKey,
@@ -15,16 +15,11 @@ import {
 import { FeaturesEditor } from './features-editor';
 
 /**
- * Clasificación del producto: categoría, tipo y destacado.
+ * Clasificación del producto: tipo y destacado.
  *
- * Tiene su propia sección porque los requisitos de publicación `category` y `product_type` mandan
- * aquí a quien sigue el checklist, y porque no es contenido que se lea en la ficha: es cómo se
- * ordena el catálogo.
- *
- * Todavía **no existe un catálogo independiente de categorías**: el contrato no publica ningún
- * endpoint del que sacar una lista, así que aquí no hay desplegable. Se escriben el nombre y el
- * slug; el slug se propone desde el nombre y se puede corregir antes de guardar. Inventar una
- * lista de categorías sería pintar datos que no existen.
+ * La **categoría ya no se escribe aquí**: se elige del catálogo con `CategoryPicker`, en la barra
+ * lateral. El tipo de producto sigue siendo nombre y slug escritos, porque el contrato no publica
+ * un catálogo de tipos del que elegir, y una lista inventada pintaría datos que no existen.
  */
 export function ClassificationFields({
   fields,
@@ -42,47 +37,12 @@ export function ClassificationFields({
 }) {
   const id = useId();
 
-  function set(key: keyof EnrichmentFields, value: string | boolean) {
+  function set(key: 'productTypeSlug' | 'featured', value: string | boolean) {
     onChange({ ...fields, [key]: value });
   }
 
   return (
     <>
-      <div className={styles.row}>
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor={`${id}-category-name`}>
-            Categoría
-          </label>
-          <input
-            className={styles.input}
-            disabled={disabled}
-            id={`${id}-category-name`}
-            onChange={(event) => onChange(withTaxonomyName(fields, 'category', event.target.value))}
-            placeholder="Tocadores"
-            type="text"
-            value={fields.categoryName}
-          />
-        </div>
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor={`${id}-category-slug`}>
-            Slug de la categoría
-          </label>
-          <input
-            aria-describedby={`${id}-category-slug-hint`}
-            className={styles.input}
-            disabled={disabled}
-            id={`${id}-category-slug`}
-            onChange={(event) => set('categorySlug', event.target.value)}
-            placeholder="tocadores"
-            type="text"
-            value={fields.categorySlug}
-          />
-          <span className={styles.hint} id={`${id}-category-slug-hint`}>
-            Se propone desde el nombre y se puede corregir. El backend valida la forma.
-          </span>
-        </div>
-      </div>
-
       <div className={styles.row}>
         <div className={styles.field}>
           <label className={styles.label} htmlFor={`${id}-type-name`}>
@@ -92,9 +52,7 @@ export function ClassificationFields({
             className={styles.input}
             disabled={disabled}
             id={`${id}-type-name`}
-            onChange={(event) =>
-              onChange(withTaxonomyName(fields, 'productType', event.target.value))
-            }
+            onChange={(event) => onChange(withProductTypeName(fields, event.target.value))}
             type="text"
             value={fields.productTypeName}
           />

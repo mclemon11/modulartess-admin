@@ -3,9 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AdminProduct } from '@/lib/api/catalog';
 
 import {
+  describeFailedStep,
   describeProgress,
+  EMPTY_PROGRESS,
   isComplete,
   runCreateFlow,
+  withRereadProduct,
   type CreateFlowDeps,
   type CreateFlowInput,
 } from './create-product-flow';
@@ -693,5 +696,162 @@ describe('intención de publicar', () => {
     expect(deps.createProduct).toHaveBeenCalledTimes(1);
     // La imagen no se volvió a subir: ya estaba confirmada en el primer intento.
     expect(deps.uploadImage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('recuperación del alta por etapas', () => {
+  /*
+   * El `POST` salió bien y falló un paso posterior: el producto **existe**. Reintentar tiene que
+   * reutilizar su id y su versión, y nunca volver a crearlo.
+   */
+  it.each(['enrich', 'image', 'primary', 'variant', 'publish'] as const)(
+    'si falla «%s», el reintento no repite el POST',
+    async (step) => {
+      let failOnce = true;
+      const deps = backendDouble({}, true);
+      const failing = (name: typeof step) => {
+        const original = {
+          enrich: deps.enrichProduct,
+          image: deps.uploadImage,
+          primary: deps.setPrimary,
+          variant: deps.createVariant,
+          publish: deps.publishProduct,
+        }[name] as (...args: never[]) => Promise<unknown>;
+
+        return vi.fn(async (...args: never[]) => {
+          if (failOnce) {
+            failOnce = false;
+
+            return { ok: false as const, code: 'service_unavailable' };
+          }
+
+          return original(...args);
+        });
+      };
+      const flaky: CreateFlowDeps = {
+        ...deps,
+        ...(step === 'enrich' ? { enrichProduct: failing('enrich') as never } : {}),
+        ...(step === 'image' ? { uploadImage: failing('image') as never } : {}),
+        ...(step === 'primary' ? { setPrimary: failing('primary') as never } : {}),
+        ...(step === 'variant' ? { createVariant: failing('variant') as never } : {}),
+        ...(step === 'publish' ? { publishProduct: failing('publish') as never } : {}),
+      };
+      const request = input({
+        intent: 'publish',
+        enrichment: { featured: true },
+        queue: [entry('a'), entry('b')],
+        primaryEntryId: 'b',
+        variants: [draft('x')],
+      });
+
+      const first = await runCreateFlow(request, flaky);
+
+      expect(first.product?.id).toBe('prd_1');
+      expect(first.failure?.step).toBe(step);
+
+      const second = await runCreateFlow(request, flaky, first);
+
+      expect(second.failure).toBeNull();
+      expect(deps.createProduct).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('si falla el propio POST no hay producto, y no hay nada que recuperar', async () => {
+    const deps = backendDouble({
+      createProduct: vi.fn(async () => ({ ok: false as const, code: 'sku_conflict' })),
+    });
+
+    const result = await runCreateFlow(input(), deps);
+
+    expect(result.product).toBeNull();
+    expect(result.failure).toMatchObject({ step: 'create', code: 'sku_conflict' });
+    expect(deps.enrichProduct).not.toHaveBeenCalled();
+  });
+
+  it('reintentar lo pendiente parte de la última versión devuelta, no de la del alta', async () => {
+    let calls = 0;
+    const deps = backendDouble();
+    const seen: number[] = [];
+    const flaky = backendDouble({
+      uploadImage: vi.fn(async (args) => {
+        seen.push(args.expectedVersion);
+        calls += 1;
+
+        return calls === 2
+          ? { ok: false as const, code: 'service_unavailable' }
+          : deps.uploadImage(args);
+      }),
+    });
+
+    const first = await runCreateFlow(input({ queue: [entry('a'), entry('b')] }), flaky);
+
+    expect(first.failure?.step).toBe('image');
+
+    await runCreateFlow(input({ queue: [entry('a'), entry('b')] }), flaky, first);
+
+    // La segunda subida se reintenta con la versión que dejó la primera, no con la del POST.
+    expect(seen.at(-1)).toBe(first.product?.version);
+  });
+
+  it('dice exactamente qué paso falló', () => {
+    const queue = [entry('a')];
+    const variants = [draft('x')];
+    const failure = (
+      step: 'enrich' | 'image' | 'primary' | 'variant' | 'publish' | 'create',
+      entryId: string | null,
+    ) => describeFailedStep({ step, entryId, code: 'service_unavailable' }, { queue, variants });
+
+    expect(failure('image', 'a')).toBe('Subir la imagen «a.jpg».');
+    expect(failure('variant', 'x')).toBe('Crear la variante «SKU-X».');
+    expect(failure('enrich', null)).toContain('categoría');
+    expect(failure('primary', 'a')).toBe('Fijar la imagen de portada.');
+    expect(failure('publish', null)).toBe('Publicar el producto.');
+  });
+
+  it('el fallo conserva la referencia de un conflicto que el panel no reconoce', async () => {
+    const deps = backendDouble({
+      enrichProduct: vi.fn(async () => ({
+        ok: false as const,
+        code: 'conflict_unrecognized',
+        reference: 'product_new_rule',
+      })),
+    });
+
+    const result = await runCreateFlow(input({ enrichment: { featured: true } }), deps);
+
+    expect(result.failure).toMatchObject({
+      step: 'enrich',
+      code: 'conflict_unrecognized',
+      reference: 'product_new_rule',
+    });
+  });
+
+  /*
+   * Tras un conflicto de versión se relee el producto: el reintento parte de lo que de verdad hay.
+   * El fallo **se conserva**: releer no es reintentar, y el cambio ajeno tiene que verse antes.
+   */
+  it('releer tras un conflicto sustituye el producto y conserva el progreso y el fallo', async () => {
+    const deps = backendDouble({
+      createVariant: vi.fn(async () => ({ ok: false as const, code: 'version_conflict' })),
+    });
+    const stopped = await runCreateFlow(
+      input({ queue: [entry('a')], primaryEntryId: 'a', variants: [draft('x')] }),
+      deps,
+    );
+    const reread = product(40);
+    const next = withRereadProduct(stopped, reread);
+
+    expect(next.product?.version).toBe(40);
+    expect(next.uploaded).toEqual(stopped.uploaded);
+    expect(next.failure).toEqual(stopped.failure);
+  });
+
+  it('releer otro producto, o sin producto, no cambia nada', () => {
+    const other = { ...product(9), id: 'prd_otro' } as AdminProduct;
+
+    expect(withRereadProduct(EMPTY_PROGRESS, product(9))).toBe(EMPTY_PROGRESS);
+    expect(withRereadProduct({ ...EMPTY_PROGRESS, product: product(2) }, other).product?.id).toBe(
+      'prd_1',
+    );
   });
 });

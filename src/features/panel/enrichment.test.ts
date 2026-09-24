@@ -8,7 +8,7 @@ import {
   enrichmentFromProduct,
   enrichmentProblems,
   hasEnrichmentProblems,
-  withTaxonomyName,
+  withProductTypeName,
   type EnrichmentFields,
 } from './enrichment';
 
@@ -25,17 +25,18 @@ const fields = (overrides: Partial<EnrichmentFields> = {}): EnrichmentFields => 
 
 const AXES = [{ key: 'finish', label: 'Acabado' }];
 
+const TOCADORES = {
+  kind: 'catalog',
+  category: { id: 'cat_1', name: 'Tocadores', slug: 'tocadores', status: 'active' },
+} as const;
+
 describe('cuerpo del PATCH al crear', () => {
   it('sin nada escrito no gasta una llamada', () => {
     expect(enrichmentBody(EMPTY_ENRICHMENT, [], 'create')).toBeNull();
   });
 
   it('omite lo vacío: no hay nada que borrar en un producto que aún no existe', () => {
-    const body = enrichmentBody(
-      fields({ categoryName: 'Tocadores', categorySlug: 'tocadores' }),
-      [],
-      'create',
-    );
+    const body = enrichmentBody(fields({ category: TOCADORES }), [], 'create');
 
     expect(body).toEqual({ category: { name: 'Tocadores', slug: 'tocadores' } });
     expect(body).not.toHaveProperty('materials');
@@ -66,6 +67,27 @@ describe('cuerpo del PATCH al editar', () => {
       warranty: '',
       care: '',
       attributes: [],
+    });
+  });
+
+  /*
+   * La categoría que el producto ya tenía **no se reenvía**. Si estaba archivada, reenviarla haría
+   * que un guardado de la descripción chocara con la categoría sin que nadie la tocara.
+   */
+  it('la categoría que ya tenía el producto no viaja si nadie eligió otra', () => {
+    const body = enrichmentBody(
+      fields({ category: { kind: 'current', taxonomy: { name: 'Antigua', slug: 'antigua' } } }),
+      [],
+      'edit',
+    );
+
+    expect(body).not.toHaveProperty('category');
+  });
+
+  it('una categoría elegida del catálogo viaja con su nombre y su slug', () => {
+    expect(enrichmentBody(fields({ category: TOCADORES }), [], 'edit')?.category).toEqual({
+      slug: 'tocadores',
+      name: 'Tocadores',
     });
   });
 
@@ -125,22 +147,22 @@ describe('problemas del contenido', () => {
     expect(hasEnrichmentProblems(problems)).toBe(false);
   });
 
-  it('media categoría no es una categoría', () => {
-    const problems = enrichmentProblems(fields({ categoryName: 'Tocadores' }));
+  it('medio tipo de producto no es un tipo', () => {
+    const problems = enrichmentProblems(fields({ productTypeName: 'Tocador' }));
 
     expect(problems.classification).toEqual([
-      'La categoría necesita nombre y slug, o ninguno de los dos.',
+      'El tipo de producto necesita nombre y slug, o ninguno de los dos.',
     ]);
     expect(hasEnrichmentProblems(problems)).toBe(true);
   });
 
   it('un slug con mayúsculas no pasa', () => {
     const problems = enrichmentProblems(
-      fields({ categoryName: 'Tocadores', categorySlug: 'Tocadores' }),
+      fields({ productTypeName: 'Tocador', productTypeSlug: 'Tocador' }),
     );
 
     expect(problems.classification).toEqual([
-      'La categoría tiene un slug inválido: minúsculas, números y guiones.',
+      'El tipo de producto tiene un slug inválido: minúsculas, números y guiones.',
     ]);
   });
 
@@ -172,7 +194,11 @@ describe('ida y vuelta con el producto', () => {
     });
 
     expect(restored.features).toEqual(['Primera', 'Segunda']);
-    expect(restored.categorySlug).toBe('tocadores');
+    // La categoría que ya tenía se conserva como «actual»: no se convierte en una elección nueva.
+    expect(restored.category).toEqual({
+      kind: 'current',
+      taxonomy: { name: 'Tocadores', slug: 'tocadores' },
+    });
     expect(restored.productTypeName).toBe('');
     expect(restored.care).toBe('');
   });
@@ -192,15 +218,15 @@ describe('ida y vuelta con el producto', () => {
 
 describe('slug propuesto desde el nombre', () => {
   it('se propone mientras nadie lo haya corregido', () => {
-    const next = withTaxonomyName(EMPTY_ENRICHMENT, 'category', 'Tocadores Aura');
+    const next = withProductTypeName(EMPTY_ENRICHMENT, 'Tocador Aura');
 
-    expect(next.categorySlug).toBe('tocadores-aura');
+    expect(next.productTypeSlug).toBe('tocador-aura');
   });
 
   it('un slug corregido a mano no se pisa: es una dirección pública', () => {
-    const corrected = fields({ categoryName: 'Tocadores', categorySlug: 'muebles-bano' });
-    const next = withTaxonomyName(corrected, 'category', 'Tocadores Aura');
+    const corrected = fields({ productTypeName: 'Tocador', productTypeSlug: 'mueble-bano' });
+    const next = withProductTypeName(corrected, 'Tocador Aura');
 
-    expect(next.categorySlug).toBe('muebles-bano');
+    expect(next.productTypeSlug).toBe('mueble-bano');
   });
 });

@@ -114,6 +114,48 @@ export const BACKEND_FAILURE_CODES = [
    * resto del panel sigue funcionando, así que se dice de qué se trata.
    */
   'backend_payment_provider_unavailable',
+  /**
+   * 409 `product_sku_conflict` y `product_slug_conflict`.
+   *
+   * El SKU o el slug ya están reservados, **también por productos archivados**: el backend no los
+   * libera nunca. No tienen nada que ver con la versión, y tratarlos como «alguien modificó este
+   * producto» mandaba a recargar un producto que ni siquiera se llegó a crear.
+   */
+  'backend_product_sku_conflict',
+  'backend_product_slug_conflict',
+  /** 409 `product_variant_sku_conflict`: el SKU de la variante ya está reservado. */
+  'backend_product_variant_sku_conflict',
+  /** 409 `product_variant_combination_conflict`: ya hay una variante con esa combinación. */
+  'backend_product_variant_combination_conflict',
+  /** 409 `product_image_limit`: el producto ya tiene el máximo de imágenes activas. */
+  'backend_product_image_limit',
+  /** 409 `idempotency_conflict`: la misma clave llegó con otro cuerpo. */
+  'backend_idempotency_conflict',
+  /**
+   * `product_category_not_found` y `product_category_archived` al asignar una categoría.
+   *
+   * El contrato publica el primero en el catálogo de categorías; el segundo es el rechazo que
+   * corresponde a asignar una archivada. Se traducen aquí para que lleguen con su texto si el
+   * backend los devuelve desde el producto, en lugar de caer en un conflicto genérico.
+   */
+  'backend_product_category_not_found',
+  'backend_product_category_archived',
+  /** 409 `product_category_name_conflict`: el nombre ya existe, sin distinguir tildes ni mayúsculas. */
+  'backend_product_category_name_conflict',
+  /** 409 `product_category_slug_conflict`: el slug ya existe. Un slug nunca se libera. */
+  'backend_product_category_slug_conflict',
+  /** 409 `product_category_version_conflict`: la categoría cambió entre la lectura y el envío. */
+  'backend_product_category_version_conflict',
+  /** 400 `product_category_invalid`: nombre o slug con una forma que el contrato no admite. */
+  'backend_product_category_invalid',
+  /**
+   * 409 con un código que el panel no conoce, o sin código.
+   *
+   * **No se convierte en conflicto de versión.** Esa traducción genérica es la que hacía decir
+   * «alguien modificó este producto» ante un SKU repetido. El código original viaja aparte, en
+   * `BackendFailure.reference`, para poder diagnosticarlo.
+   */
+  'backend_conflict_unrecognized',
   /** 429 del backend: el intercambio está limitado por tasa. */
   'backend_rate_limited',
   /** 503, red, DNS o expiración del temporizador. */
@@ -132,11 +174,19 @@ export type BackendFailureCode = (typeof BACKEND_FAILURE_CODES)[number];
  */
 export class BackendFailure extends Error {
   readonly code: BackendFailureCode;
+  /**
+   * Código estable que devolvió el backend cuando el panel no lo reconoce, para diagnóstico.
+   *
+   * Solo llega aquí si pasa {@link safeErrorReference}: un identificador en `snake_case`, nunca un
+   * mensaje. `null` en el resto de los casos.
+   */
+  readonly reference: string | null;
 
-  constructor(code: BackendFailureCode) {
+  constructor(code: BackendFailureCode, reference: string | null = null) {
     super(`backend failure: ${code}`);
     this.name = 'BackendFailure';
     this.code = code;
+    this.reference = reference;
   }
 }
 
@@ -174,4 +224,77 @@ export function failureCodeFromStatus(
     default:
       return status >= 500 ? 'backend_unavailable' : 'backend_unexpected';
   }
+}
+
+/**
+ * Un código de error del backend es seguro de mostrar solo si es un identificador.
+ *
+ * Minúsculas, dígitos y guiones bajos, empezando por letra y con un tope de longitud. Cualquier
+ * otra cosa —un mensaje, un correo, un fragmento de token— se descarta: el `message` del backend no
+ * se propaga nunca, y un campo `code` con forma de frase tampoco.
+ */
+const SAFE_REFERENCE = /^[a-z][a-z0-9_]{0,63}$/;
+
+export function safeErrorReference(value: unknown): string | null {
+  return typeof value === 'string' && SAFE_REFERENCE.test(value) ? value : null;
+}
+
+/**
+ * El `code` del cuerpo de error del backend, si tiene forma de identificador.
+ *
+ * El `message` no se mira: su forma cambia sin aviso y puede nombrar datos.
+ */
+export function upstreamErrorCode(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null || !('code' in error)) {
+    return null;
+  }
+
+  return safeErrorReference((error as { code: unknown }).code);
+}
+
+/**
+ * Códigos del catálogo que el panel traduce uno a uno, sea cual sea el estado HTTP con el que
+ * lleguen.
+ *
+ * `product_version_conflict` y `product_category_version_conflict` son los **únicos** conflictos de
+ * versión: son los que se arreglan releyendo.
+ */
+const CATALOG_CODES: Readonly<Record<string, BackendFailureCode>> = {
+  product_version_conflict: 'backend_conflict',
+  product_sku_conflict: 'backend_product_sku_conflict',
+  product_slug_conflict: 'backend_product_slug_conflict',
+  product_variant_sku_conflict: 'backend_product_variant_sku_conflict',
+  product_variant_combination_conflict: 'backend_product_variant_combination_conflict',
+  product_image_limit: 'backend_product_image_limit',
+  idempotency_conflict: 'backend_idempotency_conflict',
+  product_category_not_found: 'backend_product_category_not_found',
+  product_category_archived: 'backend_product_category_archived',
+  product_category_name_conflict: 'backend_product_category_name_conflict',
+  product_category_slug_conflict: 'backend_product_category_slug_conflict',
+  product_category_version_conflict: 'backend_product_category_version_conflict',
+  product_category_invalid: 'backend_product_category_invalid',
+};
+
+/**
+ * Traduce una respuesta fallida del catálogo a un fallo estable.
+ *
+ * Primero el código del cuerpo; si no es uno de los conocidos, el estado HTTP. Un `409` que no se
+ * reconoce **no** se convierte en conflicto de versión: se conserva su código como referencia.
+ */
+export function catalogFailure(
+  status: number,
+  error: unknown,
+  options: { readonly notFound: BackendFailureCode } = { notFound: 'backend_not_found' },
+): BackendFailure {
+  const code = upstreamErrorCode(error);
+
+  if (code !== null && Object.hasOwn(CATALOG_CODES, code)) {
+    return new BackendFailure(CATALOG_CODES[code] as BackendFailureCode);
+  }
+
+  if (status === 409) {
+    return new BackendFailure('backend_conflict_unrecognized', code);
+  }
+
+  return new BackendFailure(failureCodeFromStatus(status, options));
 }

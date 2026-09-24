@@ -23,6 +23,7 @@ export function CopField({
   hint,
   required,
   onChange,
+  id: givenId,
 }: {
   readonly label: string;
   readonly value: string;
@@ -30,8 +31,11 @@ export function CopField({
   readonly hint?: string;
   readonly required?: boolean;
   readonly onChange: (value: string) => void;
+  /** Id del campo, para que el formulario pueda llevar el foco aquí tras un error. */
+  readonly id?: string;
 }) {
-  const id = useId();
+  const generatedId = useId();
+  const id = givenId ?? generatedId;
   const [touched, setTouched] = useState(false);
   const parsed = parseCop(value);
   // Un campo vacío que todavía no se ha tocado no es un error: es un campo vacío.

@@ -66,7 +66,7 @@
             "type": "string"
           },
           "status": {
-            "description": "previewed means it was rendered for inspection and NOT sent. suppressed means delivery was off and it will not be delivered later. sent is never resent automatically.",
+            "description": "previewed means it was rendered for inspection and NOT sent. suppressed means it was not delivered and will not be delivered later, either because delivery was off when it was written or because the recipient was not on the delivery allowlist — lastErrorCode tells the two apart. sent is never resent automatically.",
             "enum": [
               "pending",
               "sending",
@@ -1222,6 +1222,32 @@
         ],
         "type": "object"
       },
+      "CreateOrderCustomerDto": {
+        "properties": {
+          "email": {
+            "example": "ana@example.com",
+            "format": "email",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "fullName": {
+            "example": "Ana Pérez",
+            "maxLength": 120,
+            "type": "string"
+          },
+          "phone": {
+            "example": "+57 300 000 0000",
+            "maxLength": 32,
+            "type": "string"
+          }
+        },
+        "required": [
+          "fullName",
+          "email",
+          "phone"
+        ],
+        "type": "object"
+      },
       "CreateOrderItemDto": {
         "properties": {
           "productId": {
@@ -1235,7 +1261,7 @@
             "type": "number"
           },
           "variantId": {
-            "description": "Required when the product has active variants, and rejected when it has none: without it there is no price or SKU to record.",
+            "description": "Required when the product has active variants (order_variant_required), and rejected when it has none (order_variant_unavailable): without it there is no price or SKU to record. Optional but NOT nullable: omit it for a product that sells through its base option. Sending null is rejected, because a product without variants is not a product whose variant is null.",
             "type": "string"
           }
         },
@@ -1248,7 +1274,7 @@
       "CreateOrderRequestDto": {
         "properties": {
           "customer": {
-            "$ref": "#/components/schemas/OrderCustomerDto"
+            "$ref": "#/components/schemas/CreateOrderCustomerDto"
           },
           "items": {
             "description": "At least one line. Prices, names, SKUs and images come from the published catalogue; any amount sent here is rejected as an unknown field.",
@@ -1256,16 +1282,69 @@
               "$ref": "#/components/schemas/CreateOrderItemDto"
             },
             "maxItems": 50,
+            "minItems": 1,
             "type": "array"
           },
           "shippingAddress": {
-            "$ref": "#/components/schemas/OrderShippingAddressDto"
+            "$ref": "#/components/schemas/CreateOrderShippingAddressDto"
           }
         },
         "required": [
           "customer",
           "shippingAddress",
           "items"
+        ],
+        "type": "object"
+      },
+      "CreateOrderShippingAddressDto": {
+        "properties": {
+          "addressLine": {
+            "example": "Calle 10 #43-20, apto 501",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "city": {
+            "example": "Medellín",
+            "maxLength": 80,
+            "type": "string"
+          },
+          "department": {
+            "example": "Antioquia",
+            "maxLength": 80,
+            "type": "string"
+          },
+          "instructions": {
+            "description": "Delivery notes. Optional AND nullable: omitting it, sending null and sending an empty string all mean the same thing, no instructions were given, and all three are accepted. Anything that is not a string is rejected.",
+            "example": "Portería, timbre 501",
+            "maxLength": 500,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "department",
+          "city",
+          "addressLine"
+        ],
+        "type": "object"
+      },
+      "CreateProductCategoryRequestDto": {
+        "properties": {
+          "name": {
+            "example": "Tocadores",
+            "maxLength": 80,
+            "type": "string"
+          },
+          "slug": {
+            "description": "Public identifier, lowercase kebab-case, and IMMUTABLE after creation: it travels in storefront URLs, in saved filters and inside every product that uses the category. Renaming changes the name only; a different slug is a different category.",
+            "example": "tocadores",
+            "maxLength": 60,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "slug"
         ],
         "type": "object"
       },
@@ -1511,7 +1590,7 @@
             "type": "number"
           },
           "livePaymentsEnabled": {
-            "description": "Whether real charges are enabled at all. It is a constant in the binary, not a setting: while it is false, every approved payment in this deployment is a test.",
+            "description": "Whether this deployment allows real charges at all: its validated live-payments guard, resolved at start-up. While it is false, every approved payment in this deployment is a test. True does not mean charges are happening — production still has to be enabled by an administrator — but it does mean an approved payment could be real.",
             "example": false,
             "type": "boolean"
           },
@@ -2719,7 +2798,7 @@
             "type": "string"
           },
           "reason": {
-            "description": "Which check failed on an event whose SIGNATURE WAS VALID. live_disabled means a production event reached a deployment where real charges are blocked in code.",
+            "description": "Which check failed on an event whose SIGNATURE WAS VALID. live_disabled means a production event reached a deployment whose live-payments guard is off.",
             "enum": [
               "reference_unknown",
               "provider_mismatch",
@@ -2811,9 +2890,10 @@
       "PaymentResultDto": {
         "properties": {
           "environment": {
-            "description": "Sandbox does NOT move real money: no charge happens, no stock is reserved and no refund exists. Live payments are blocked in code and cannot be enabled by configuration.",
+            "description": "Which Wompi environment this belongs to. sandbox does NOT move real money: no charge happens, no stock is reserved and no refund exists. production does move real money, and only appears once the deployment lifts its live-payments guard AND an administrator enables production for new payments. The two are independent environments with their own credentials: a value here is never a fallback for the other.",
             "enum": [
-              "sandbox"
+              "sandbox",
+              "production"
             ],
             "type": "string"
           },
@@ -2901,6 +2981,100 @@
         "required": [
           "name",
           "value"
+        ],
+        "type": "object"
+      },
+      "ProductCategoryDto": {
+        "properties": {
+          "activeProducts": {
+            "description": "Of those, the ones in status active. null has the same meaning as above.",
+            "nullable": true,
+            "type": "number"
+          },
+          "assignedProducts": {
+            "description": "Products that have this category assigned, in any status. null means the count could not be computed — NOT zero: a made-up count would let someone archive a category believing nobody uses it.",
+            "nullable": true,
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "example": "cat_9f2c1d",
+            "type": "string"
+          },
+          "name": {
+            "example": "Tocadores",
+            "maxLength": 80,
+            "type": "string"
+          },
+          "slug": {
+            "description": "Public identifier, lowercase kebab-case, and IMMUTABLE after creation: it travels in storefront URLs, in saved filters and inside every product that uses the category. Renaming changes the name only; a different slug is a different category.",
+            "example": "tocadores",
+            "maxLength": 60,
+            "type": "string"
+          },
+          "status": {
+            "description": "archived stops NEW assignments and nothing else: products already using the category keep it, and the storefront keeps reading them. Nothing is ever deleted.",
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "description": "Send it back as expectedVersion.",
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "status",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "assignedProducts",
+          "activeProducts"
+        ],
+        "type": "object"
+      },
+      "ProductCategoryPageDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProductCategoryDto"
+            },
+            "type": "array"
+          },
+          "nextPageToken": {
+            "description": "Opaque cursor, or null.",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "nextPageToken"
+        ],
+        "type": "object"
+      },
+      "ProductCategoryTransitionRequestDto": {
+        "properties": {
+          "expectedVersion": {
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion"
         ],
         "type": "object"
       },
@@ -3558,6 +3732,24 @@
         ],
         "type": "object"
       },
+      "RenameProductCategoryRequestDto": {
+        "properties": {
+          "expectedVersion": {
+            "minimum": 1,
+            "type": "number"
+          },
+          "name": {
+            "example": "Tocadores y espejos",
+            "maxLength": 80,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "expectedVersion"
+        ],
+        "type": "object"
+      },
       "ResolvePaymentIncidentRequestDto": {
         "properties": {
           "expectedVersion": {
@@ -4007,9 +4199,10 @@
             "$ref": "#/components/schemas/WompiCheckoutCustomerDto"
           },
           "environment": {
-            "description": "Sandbox does NOT move real money: no charge happens, no stock is reserved and no refund exists. Live payments are blocked in code and cannot be enabled by configuration.",
+            "description": "Which Wompi environment this belongs to. sandbox does NOT move real money: no charge happens, no stock is reserved and no refund exists. production does move real money, and only appears once the deployment lifts its live-payments guard AND an administrator enables production for new payments. The two are independent environments with their own credentials: a value here is never a fallback for the other.",
             "enum": [
-              "sandbox"
+              "sandbox",
+              "production"
             ],
             "type": "string"
           },
@@ -4234,7 +4427,7 @@
             "type": "string"
           },
           "livePaymentsEnabled": {
-            "description": "Always false in this phase. It is a constant in the binary, not an environment variable: no configuration change can turn real charges on.",
+            "description": "Whether this deployment allows real charges at all. It is the deployment's validated guard, resolved at start-up from configuration that accepts only true or false and defaults to false. It does NOT mean charges are happening: enabling it only makes it possible for an administrator to turn production on. Saving production credentials never enables charges either — storing keys and charging with them are separate operations. While it is false, enabling production answers wompi_live_payments_not_enabled. Turning an environment off is always allowed.",
             "example": false,
             "type": "boolean"
           },
@@ -4244,7 +4437,7 @@
                 "$ref": "#/components/schemas/WompiEnvironmentConfigDto"
               }
             ],
-            "description": "Always reports enabledForNewPayments=false, whatever is stored."
+            "description": "While live payments are blocked, reports enabledForNewPayments=false whatever is stored. Once the block is lifted, reports the stored value."
           },
           "provider": {
             "enum": [
@@ -4821,7 +5014,7 @@
         ]
       },
       "patch": {
-        "description": "Every secret field is WRITE-ONLY: sending a value stores a NEW version in Secret Manager, omitting it leaves the current one, and no operation ever returns them. A rotation writes the new versions first and only then moves the pointer, so a partial failure leaves orphan versions nobody uses instead of a pointer to something that does not exist. SAVING KEYS AND ENABLING CHARGES ARE TWO DIFFERENT OPERATIONS. Saving credentials for EITHER environment is valid, including production, and never turns charges on by itself. Sandbox keys must carry the sandbox prefixes and production keys the production ones. The four are validated TOGETHER and nothing is written unless all of them pass, so mixing environments is rejected with wompi_credentials_environment_mismatch even when each prefix is valid on its own; an unknown prefix answers wompi_credential_prefix_invalid and a blank field wompi_credentials_incomplete. Each error names the offending fields in issues[].path, and never the value. Leading and trailing whitespace is trimmed before validating; whitespace inside a value is never altered and is rejected. enabledForNewPayments is what enables charges: it requires the complete configuration for that environment, and on production it is always refused with wompi_live_payments_not_enabled because the block is a constant in the binary, not a setting. Turning an environment off stops new checkouts and DELETES NOTHING: orders, attempts, events and secrets stay, and the webhook keeps closing payments already in flight. Requires expectedVersion and integrations.manage, which only super_admin has.",
+        "description": "Every secret field is WRITE-ONLY: sending a value stores a NEW version in Secret Manager, omitting it leaves the current one, and no operation ever returns them. A rotation writes the new versions first and only then moves the pointer, so a partial failure leaves orphan versions nobody uses instead of a pointer to something that does not exist. SAVING KEYS AND ENABLING CHARGES ARE TWO DIFFERENT OPERATIONS. Saving credentials for EITHER environment is valid, including production, and never turns charges on by itself. Sandbox keys must carry the sandbox prefixes and production keys the production ones. The four are validated TOGETHER and nothing is written unless all of them pass, so mixing environments is rejected with wompi_credentials_environment_mismatch even when each prefix is valid on its own; an unknown prefix answers wompi_credential_prefix_invalid and a blank field wompi_credentials_incomplete. Each error names the offending fields in issues[].path, and never the value. Leading and trailing whitespace is trimmed before validating; whitespace inside a value is never altered and is rejected. enabledForNewPayments is what enables charges: it requires the complete configuration for that environment, and on production it also requires the deployment live-payments guard to be on — otherwise it is refused with wompi_live_payments_not_enabled. Only one environment can be enabled at a time: enabling one while the other is on is refused. Turning an environment off is ALWAYS allowed, stops new checkouts and DELETES NOTHING: orders, attempts, events and secrets stay, and the webhook keeps closing payments already in flight. Requires expectedVersion and integrations.manage, which only super_admin has.",
         "operationId": "AdminIntegrationsController_update",
         "parameters": [],
         "requestBody": {
@@ -5008,7 +5201,7 @@
                 }
               }
             },
-            "description": "order_invalid"
+            "description": "order_request_invalid"
           },
           "401": {
             "content": {
@@ -5176,7 +5369,7 @@
                 }
               }
             },
-            "description": "order_invalid"
+            "description": "order_request_invalid"
           },
           "401": {
             "content": {
@@ -5285,7 +5478,7 @@
                 }
               }
             },
-            "description": "order_invalid"
+            "description": "order_request_invalid"
           },
           "401": {
             "content": {
@@ -5394,7 +5587,7 @@
                 }
               }
             },
-            "description": "order_invalid"
+            "description": "order_request_invalid"
           },
           "401": {
             "content": {
@@ -5693,6 +5886,378 @@
         "summary": "Mark a payment incident as reviewed",
         "tags": [
           "admin-integrations"
+        ]
+      }
+    },
+    "/v1/admin/product-categories": {
+      "get": {
+        "description": "Ordered by name, with the identifier as a tie-breaker so no category can fall between pages. Without the status filter it returns BOTH states: the panel needs to see archived ones to be able to reactivate them. Requires products.read.",
+        "operationId": "AdminProductCategoriesController_list",
+        "parameters": [
+          {
+            "description": "Opaque cursor.",
+            "in": "query",
+            "name": "pageToken",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Default 50, maximum 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "active",
+                "archived"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductCategoryPageDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_category_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "List product categories",
+        "tags": [
+          "admin-products"
+        ]
+      },
+      "post": {
+        "description": "Name and slug must both be free. The slug is normalised to lowercase and is IMMUTABLE afterwards. Names are compared without case or accents, so 'Clósets' and 'closets' are the same name. Requires products.update.",
+        "operationId": "AdminProductCategoriesController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductCategoryRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductCategoryDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_category_invalid"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_category_slug_conflict or product_category_name_conflict"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Create a product category",
+        "tags": [
+          "admin-products"
+        ]
+      }
+    },
+    "/v1/admin/product-categories/{categoryId}/archive": {
+      "post": {
+        "description": "Stops NEW assignments and nothing else: products already using it keep it and the storefront keeps reading them. Nothing is deleted and the slug is never released. Requires products.archive and expectedVersion.",
+        "operationId": "AdminProductCategoriesController_archive",
+        "parameters": [
+          {
+            "description": "Backend-generated category identifier, as returned by the list or create operations. It is NOT the slug: the slug is the public identifier and this one is internal.",
+            "in": "path",
+            "name": "categoryId",
+            "required": true,
+            "schema": {
+              "example": "cat_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductCategoryTransitionRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductCategoryDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_category_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_category_version_conflict"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Archive a product category",
+        "tags": [
+          "admin-products"
+        ]
+      }
+    },
+    "/v1/admin/product-categories/{categoryId}/reactivate": {
+      "post": {
+        "description": "Allows new assignments again. Requires products.archive and expectedVersion.",
+        "operationId": "AdminProductCategoriesController_reactivate",
+        "parameters": [
+          {
+            "description": "Backend-generated category identifier, as returned by the list or create operations. It is NOT the slug: the slug is the public identifier and this one is internal.",
+            "in": "path",
+            "name": "categoryId",
+            "required": true,
+            "schema": {
+              "example": "cat_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductCategoryTransitionRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductCategoryDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_category_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_category_version_conflict"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Reactivate an archived product category",
+        "tags": [
+          "admin-products"
+        ]
+      }
+    },
+    "/v1/admin/product-categories/{categoryId}/rename": {
+      "post": {
+        "description": "Changes the NAME only; the slug never changes. Products already using it keep their stored copy until they are edited. Requires products.update and expectedVersion.",
+        "operationId": "AdminProductCategoriesController_rename",
+        "parameters": [
+          {
+            "description": "Backend-generated category identifier, as returned by the list or create operations. It is NOT the slug: the slug is the public identifier and this one is internal.",
+            "in": "path",
+            "name": "categoryId",
+            "required": true,
+            "schema": {
+              "example": "cat_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameProductCategoryRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductCategoryDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_category_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_category_version_conflict or product_category_name_conflict"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Rename a product category",
+        "tags": [
+          "admin-products"
         ]
       }
     },
@@ -7917,7 +8482,7 @@
     },
     "/v1/orders": {
       "post": {
-        "description": "Prices, names, SKUs, variant attributes and images are read from the published catalogue: the request says what and how much, never at what price, and any amount sent is rejected as an unknown field. Only published products, and only active variants when one is selected. The order is created as pending_payment: this endpoint does not charge, does not reserve stock and calls no external service. shippingCop is always 0 in this phase. Repeating the same Idempotency-Key with the same body returns the same order; reusing it with a different body is a conflict.",
+        "description": "Prices, names, SKUs, variant attributes and images are read from the published catalogue: the request says what and how much, never at what price, and any amount sent is rejected as an unknown field. Only published products, and only active variants when one is selected. The order is created as pending_payment: this endpoint does not charge, does not reserve stock and calls no external service. NO CARD, PSE OR ACCOUNT FIELD IS ACCEPTED HERE AND NONE EVER WILL BE. Those are typed by the shopper on Wompi's hosted checkout, AFTER this call: the web takes the order this endpoint returns, opens POST /v1/orders/payments/wompi/checkout with its publicId and email, and sends the browser to checkout.wompi.co. shippingAddress.instructions is optional AND nullable: absent, null, an empty string and whitespace all mean no instructions were given, and all four are accepted. shippingCop is always 0 in this phase. Repeating the same Idempotency-Key with the same body returns the same order; reusing it with a different body is a conflict. Two bodies that mean the same order — one omitting instructions, the other sending null — are the same body for this purpose.",
         "operationId": "PublicOrdersController_create",
         "parameters": [
           {
@@ -7959,7 +8524,7 @@
                 }
               }
             },
-            "description": "order_invalid"
+            "description": "A closed set of codes, so the shop can say what to do instead of just failing. order_request_invalid: the body, the contact or the address is malformed, out of range or carries an unknown field. order_product_unavailable: one of the products does not exist, is a draft, is archived or is no longer published. order_variant_required: the product sells through active variants and none was chosen. order_variant_unavailable: the chosen variant does not exist, is no longer active, or the product has no variants at all. order_out_of_stock: the product or the chosen variant has no stock. None of them names the field, the value, the product or any internal identifier."
           },
           "409": {
             "content": {
@@ -7979,7 +8544,7 @@
                 }
               }
             },
-            "description": "order_unavailable"
+            "description": "order_unavailable: storage or a dependency is temporarily unavailable, or a stored document cannot be read. It is never the caller's body."
           }
         },
         "security": [
@@ -8027,7 +8592,7 @@
                 }
               }
             },
-            "description": "order_invalid: the body has an unknown field, a wrong type or a value out of range."
+            "description": "order_request_invalid: the body has an unknown field, a wrong type or a value out of range."
           },
           "404": {
             "content": {
@@ -8063,7 +8628,7 @@
     },
     "/v1/orders/payments/wompi/checkout": {
       "post": {
-        "description": "SANDBOX ONLY, AND NO REAL MONEY MOVES. Live payments are blocked in code and no configuration can enable them. Everything that decides the charge is generated by the backend: the reference, the amount from the STORED order total, the currency, the expiration, the return URL and the signature. The body carries only publicId and email, and any other field is rejected rather than ignored. The redirectUrl it returns ends with the attempt's own opaque reference, which is how the result page recovers the attempt after the browser loses its state. It contains no publicId, no email and no internal id. Reloading returns the SAME open attempt and the same reference: a new one is only created after the previous outcome was declined, voided, error or expired, and never after approved. An order that is cancelled, already paid or has a payment in progress is refused with payment_checkout_not_allowed. Card data never reaches this backend: the payment happens entirely on Wompi's hosted checkout.",
+        "description": "The environment of the returned descriptor is whichever one the administrator enabled: sandbox moves NO real money, production does. There is never a silent fallback between them. Everything that decides the charge is generated by the backend: the reference, the amount from the STORED order total, the currency, the expiration, the return URL and the signature. The body carries only publicId and email, and any other field is rejected rather than ignored. The redirectUrl it returns ends with the attempt's own opaque reference, which is how the result page recovers the attempt after the browser loses its state. It contains no publicId, no email and no internal id. Reloading returns the SAME open attempt and the same reference: a new one is only created after the previous outcome was declined, voided, error or expired, and never after approved. An order that is cancelled, already paid or has a payment in progress is refused with payment_checkout_not_allowed. Card data never reaches this backend: the payment happens entirely on Wompi's hosted checkout.",
         "operationId": "PublicPaymentsController_createCheckout",
         "parameters": [],
         "requestBody": {
@@ -8494,7 +9059,7 @@
       "name": "admin-products"
     },
     {
-      "description": "Public surface: Wompi hosted checkout and server-to-server reconciliation, plus the signed provider webhook. Sandbox only; live payments are blocked in code. The browser returning from the checkout never confirms a payment.",
+      "description": "Public surface: Wompi hosted checkout and server-to-server reconciliation, plus the signed provider webhook. Sandbox and production are independent environments; real charges require both the deployment live-payments guard and production enabled by an administrator. The browser returning from the checkout never confirms a payment.",
       "name": "payments"
     },
     {

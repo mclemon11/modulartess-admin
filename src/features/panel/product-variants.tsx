@@ -134,7 +134,7 @@ export function ProductVariants({
     }
 
     setConflict(result.code === 'version_conflict');
-    setFailure(describeCatalogFailure(result.code));
+    setFailure(describeCatalogFailure(result.code, result.reference));
   }
 
   /** Declara los ejes. El contrato los sustituye enteros y no reescribe las variantes que existan. */

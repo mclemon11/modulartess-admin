@@ -199,8 +199,10 @@ no lleva la cuenta del despliegue.
 - El panel solo pinta lo que OpenAPI publica. El contrato ya publica la clasificación —`category` y
   `productType`, como `slug` + `name`— y las variantes, y ambas están implementadas. Lo que sigue
   sin publicar —colecciones, SEO, envíos, descuentos, buscador, filtros y contadores agregados— no
-  se implementa mientras no exista en el contrato, ni siquiera como adorno. Tampoco hay un catálogo
-  de categorías: sin endpoint que las liste, no se ofrece un selector con opciones inventadas.
+  se implementa mientras no exista en el contrato, ni siquiera como adorno. El catálogo de
+  categorías sí existe (`/v1/admin/product-categories`): la categoría se elige de él y nunca se
+  escribe a mano; el tipo de producto, que no tiene catálogo, sigue escribiéndose. Ver
+  `docs/decisions/0007-category-catalog-and-product-editor.md`.
 - Los permisos por rol viven en `src/features/session/permissions.ts`, en una matriz explícita. No
   se deducen por jerarquía numérica: ocultar un botón es usabilidad, y la autoridad sigue siendo el
   backend, que rechaza cualquier petición fabricada. Las acciones sobre variantes reutilizan los

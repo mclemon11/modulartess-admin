@@ -852,3 +852,78 @@ describe('resumen del dashboard', () => {
     expect(approvedAt.description).toContain('This is the real date of the sale');
   });
 });
+
+describe('catálogo de categorías', () => {
+  const CATEGORY_PATHS = Object.entries(contract.paths).filter(([path]) =>
+    path.startsWith('/v1/admin/product-categories'),
+  );
+
+  it('publica exactamente las cinco operaciones que el panel usa', () => {
+    const operations = CATEGORY_PATHS.flatMap(([path, node]) =>
+      ['get', 'post', 'patch', 'put', 'delete']
+        .filter((method) => method in (node as object))
+        .map((method) => `${method.toUpperCase()} ${path}`),
+    );
+
+    expect(operations.sort()).toEqual([
+      'GET /v1/admin/product-categories',
+      'POST /v1/admin/product-categories',
+      'POST /v1/admin/product-categories/{categoryId}/archive',
+      'POST /v1/admin/product-categories/{categoryId}/reactivate',
+      'POST /v1/admin/product-categories/{categoryId}/rename',
+    ]);
+  });
+
+  /*
+   * La primera versión del contrato no declaraba `categoryId`: `openapi-fetch` no podía
+   * sustituirlo y las tres operaciones eran inalcanzables. El backend lo corrigió; esto impide que
+   * vuelva a pasar sin que nadie lo note.
+   */
+  it.each(['archive', 'reactivate', 'rename'])(
+    '%s declara categoryId como parámetro de ruta obligatorio',
+    (operation) => {
+      const node = (contract.paths as Record<string, unknown>)[
+        `/v1/admin/product-categories/{categoryId}/${operation}`
+      ] as {
+        post: { parameters?: { name: string; in: string; required?: boolean }[] };
+      };
+
+      expect(
+        node.post.parameters?.find((parameter) => parameter.name === 'categoryId'),
+      ).toMatchObject({ in: 'path', required: true });
+    },
+  );
+
+  it('las tres mutaciones sobre una categoría existente exigen expectedVersion', () => {
+    const schemas = contract.components.schemas as Record<string, { required?: string[] }>;
+
+    expect(schemas.RenameProductCategoryRequestDto?.required).toEqual(
+      expect.arrayContaining(['name', 'expectedVersion']),
+    );
+    expect(schemas.ProductCategoryTransitionRequestDto?.required).toEqual(['expectedVersion']);
+  });
+
+  it('el listado solo filtra por estado y pagina por cursor: no hay buscador', () => {
+    const list = (
+      contract.paths['/v1/admin/product-categories'] as {
+        get: { parameters: { name: string }[] };
+      }
+    ).get;
+
+    expect(list.parameters.map((parameter) => parameter.name).sort()).toEqual([
+      'pageSize',
+      'pageToken',
+      'status',
+    ]);
+  });
+
+  it('los contadores de productos son nullable: null no es cero', () => {
+    const category = (contract.components.schemas as Record<string, unknown>)
+      .ProductCategoryDto as {
+      properties: Record<string, { nullable?: boolean }>;
+    };
+
+    expect(category.properties.assignedProducts?.nullable).toBe(true);
+    expect(category.properties.activeProducts?.nullable).toBe(true);
+  });
+});

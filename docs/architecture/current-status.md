@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-09-23.
+Última actualización: 2026-09-24.
 
 ## Fase
 
@@ -137,6 +137,10 @@ Implementado en el repositorio y comprobado con dobles locales.
 | Imágenes de producto      | Listo      | Subir, editar texto alternativo, orden, principal y archivar.                  |
 | Alta completa             | Listo      | Un envío: crea el borrador, enriquece, sube y crea variantes.                  |
 | Reanudación tras fallo    | Listo      | No recrea nada guardado; reintenta solo lo que falta.                          |
+| Catálogo de categorías    | Listo      | Listar, buscar, filtrar, crear, renombrar, archivar y reactivar.               |
+| Selector de categoría     | Listo      | Solo activas; alta en línea; archivadas históricas visibles y conservadas.     |
+| Conflictos del catálogo   | Listo      | SKU, slug y versión por separado; desconocidos con referencia.                 |
+| Editor de producto        | Listo      | Nombre arriba, pestañas «Datos del producto», barra lateral fija con sitio.    |
 | Shell responsive          | Listo      | Sidebar fija en escritorio; cajón por debajo de 60rem.                         |
 | Mutaciones por BFF        | Listo      | Nueve Route Handlers; el navegador no llama al backend.                        |
 | Permisos por rol          | Listo      | Matriz explícita en `src/features/session/permissions.ts`.                     |
@@ -186,7 +190,6 @@ Elementos que forman parte del diseño acordado, pero que aún no existen en el 
 | Listado de la outbox            | Pendiente     | `failedNotifications` se cuenta; no hay pantalla que lo liste.        |
 | Addi                            | Pendiente     | Sin contrato: se anuncia como pendiente y no ejecuta ninguna llamada. |
 | Cobros reales de Wompi          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR PRODUCCIÓN».     |
-| Catálogo de categorías          | Pendiente     | No hay endpoint que las liste: se escriben nombre y slug.             |
 | Colecciones, SEO, envío, dtos.  | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.                |
 | Lectura aparte de variantes     | Pendiente     | Viajan dentro del producto; un `GET` propio no tendría uso.           |
 | Paginación numérica             | Descartada    | El cursor es opaco: permite avanzar, no saltar de página.             |
@@ -1356,13 +1359,46 @@ entera a 390 px, el historial de pago separa los intentos, y ningún estado depe
 —cada pastilla lleva su texto, el distintivo de simulación lleva borde discontinuo, y el hito no
 registrado lleva guion y borde discontinuo—.
 
-### Alta de producto: composición
+### Alta y edición de producto: composición
 
-Una sola pantalla, `/panel/productos/nuevo`, con la columna de trabajo a la izquierda y una vista
-previa de 21rem a la derecha que se apila debajo en cuanto la ventana baja de 64rem. Arriba, una
-barra compacta con «Guardar borrador» y «Publicar producto». A partir de 88rem —el ancho en el que
-la columna principal deja sitio de verdad— Información e Imágenes comparten la primera fila;
-Precio e Inventario son tarjetas compactas, y Características y Variantes ocupan el ancho completo.
+Rediseñadas el 2026-09-24 con la jerarquía de un editor de comercio y la identidad del panel. Ver
+[`0007-category-catalog-and-product-editor.md`](../decisions/0007-category-catalog-and-product-editor.md).
+
+- **Arriba, a todo el ancho:** el nombre del producto, y debajo SKU y URL (inmutables en la
+  edición).
+- **Área principal:** «Descripción» —corta, detallada y características— y una tarjeta «Datos del
+  producto» con cinco pestañas: General (precio), Inventario, Clasificación (tipo y destacado),
+  Variantes y Detalles. Los paneles no se desmontan: lo escrito sigue al cambiar de pestaña.
+- **Barra lateral de 21rem:** estado y acciones —Guardar borrador y Publicar en el alta;
+  Actualizar, Publicar y Archivar en la edición—, preparación con los errores pendientes enlazados,
+  categoría e imágenes. Se fija con `position: sticky` solo desde 64rem de ancho y 46rem de alto, y
+  desplaza por dentro si no cabe.
+- **Vista previa:** un botón que abre un `<dialog>` modal, no una columna permanente.
+- **Móvil y tableta:** una columna en ese mismo orden; las pestañas desplazan dentro de su tarjeta.
+
+Tras un error, el foco va al primer campo con problema y, si vive en una pestaña, la abre antes. El
+alta, si falla después del `POST`, dice «El producto fue creado como borrador», el paso exacto que
+falló, y ofrece «Abrir producto» y «Reintentar lo pendiente» sin volver a crear nada.
+
+### Catálogo de categorías
+
+`/panel/productos/categorias`, con entrada «Categorías» junto a «Nuevo producto». Lista con
+búsqueda, filtros Activas / Archivadas / Todas y paginación de 20, sobre el catálogo **entero**: el
+contrato no publica buscador, así que se leen hasta 10 páginas de 100 y se avisa si se alcanza el
+tope. Nombre, slug, estado y contadores —«No disponible» cuando llegan `null`, nunca cero—. Crear
+propone el slug desde el nombre y lo deja revisar; después no se edita. Renombrar, archivar
+(con confirmación) y reactivar mandan la `expectedVersion` de la fila.
+
+En el producto, la categoría se elige con un selector buscable conectado a ese catálogo: solo
+activas, «Sin categoría» admitido y «Crear categoría» en línea, que elige la creada. La categoría
+archivada de un producto histórico se enseña «Archivada» y no se cambia ni se reenvía sola.
+
+### Conflictos del catálogo
+
+`product_sku_conflict`, `product_slug_conflict` y `product_version_conflict` ya no se aplanan en
+«Alguien modificó este producto». Los dos primeros marcan y enfocan su campo; solo el tercero
+ofrece recargar. Un `409` desconocido llega como `conflict_unrecognized` con su código visible para
+diagnóstico.
 
 La zona de carga de imágenes no enseña el control nativo del navegador: es un área de borde
 discontinuo con icono, el texto «Arrastra y suelta las imágenes de tu producto aquí» y un botón

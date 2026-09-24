@@ -34,6 +34,7 @@ export type PublicationRequirement = PublicationReadiness['missing'][number];
  */
 export type ProductSection =
   | 'basica'
+  | 'categoria'
   | 'clasificacion'
   | 'contenido'
   | 'detalles'
@@ -44,6 +45,7 @@ export type ProductSection =
 
 export const SECTION_IDS: Readonly<Record<ProductSection, string>> = {
   basica: 'seccion-basica',
+  categoria: 'seccion-categoria',
   clasificacion: 'seccion-clasificacion',
   contenido: 'seccion-contenido',
   detalles: 'seccion-detalles',
@@ -54,9 +56,10 @@ export const SECTION_IDS: Readonly<Record<ProductSection, string>> = {
 };
 
 export const SECTION_LABELS: Readonly<Record<ProductSection, string>> = {
-  basica: 'Información básica',
+  basica: 'Nombre e identificadores',
+  categoria: 'Categoría',
   clasificacion: 'Clasificación',
-  contenido: 'Contenido visible',
+  contenido: 'Descripción',
   detalles: 'Detalles adicionales',
   imagenes: 'Imágenes',
   precio: 'Precio',
@@ -73,13 +76,14 @@ export const SECTION_LABELS: Readonly<Record<ProductSection, string>> = {
  */
 export const SECTION_ORDER: readonly ProductSection[] = [
   'basica',
-  'clasificacion',
   'contenido',
-  'detalles',
-  'imagenes',
   'precio',
   'inventario',
+  'clasificacion',
   'variantes',
+  'detalles',
+  'categoria',
+  'imagenes',
 ];
 
 export type RequirementCopy = {
@@ -110,16 +114,16 @@ const REQUIREMENTS: Readonly<Record<PublicationRequirement, RequirementCopy>> = 
   short_description: {
     title: 'Falta la descripción corta',
     hint: 'Es el único texto que la publicación exige: acompaña al precio en la ficha y en los listados.',
-    section: 'basica',
+    section: 'contenido',
   },
   category: {
     title: 'Falta la categoría',
-    hint: 'Escribe su nombre y su slug. Todavía no hay un catálogo de categorías del que elegir.',
-    section: 'clasificacion',
+    hint: 'Elígela del catálogo en «Categoría», o créala desde el mismo selector.',
+    section: 'categoria',
   },
   product_type: {
     title: 'Falta el tipo de producto',
-    hint: 'Escribe su nombre y su slug, igual que la categoría.',
+    hint: 'Escribe su nombre y su slug en la pestaña Clasificación. No hay un catálogo de tipos del que elegir.',
     section: 'clasificacion',
   },
   sellable_option: {

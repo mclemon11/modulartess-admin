@@ -16,9 +16,40 @@ import type {
   UploadProductImageResult,
   VariantInventoryAdjustmentResult,
 } from '@/lib/api/catalog';
+import type { ProductCategory } from '@/lib/api/categories';
 
-export type MutationResult<T> =
-  { readonly ok: true; readonly data: T } | { readonly ok: false; readonly code: string };
+export type MutationFailure = {
+  readonly ok: false;
+  readonly code: string;
+  /** Código original del backend cuando el BFF no lo reconoce. Solo para diagnóstico. */
+  readonly reference?: string;
+};
+
+export type MutationResult<T> = { readonly ok: true; readonly data: T } | MutationFailure;
+
+const REFERENCE = /^[a-z][a-z0-9_]{0,63}$/;
+
+/**
+ * Lee el cuerpo de error del BFF: el código y, si llegó, la referencia de diagnóstico.
+ *
+ * La referencia se vuelve a validar aquí aunque el BFF ya la filtró: es texto que acaba pintado en
+ * pantalla, y no cuesta nada exigirle forma de identificador también en el navegador.
+ */
+export function readFailurePayload(payload: unknown): MutationFailure | null {
+  if (typeof payload !== 'object' || payload === null || !('code' in payload)) {
+    return null;
+  }
+
+  const { code, reference } = payload as { code: unknown; reference?: unknown };
+
+  if (typeof code !== 'string' || code.length === 0) {
+    return null;
+  }
+
+  return typeof reference === 'string' && REFERENCE.test(reference)
+    ? { ok: false, code, reference }
+    : { ok: false, code };
+}
 
 async function send<T>(
   url: string,
@@ -49,14 +80,10 @@ async function send<T>(
   }
 
   try {
-    const payload: unknown = await response.json();
+    const failure = readFailurePayload(await response.json());
 
-    if (typeof payload === 'object' && payload !== null && 'code' in payload) {
-      const { code } = payload as { code: unknown };
-
-      if (typeof code === 'string' && code.length > 0) {
-        return { ok: false, code } as MutationResult<T>;
-      }
+    if (failure !== null) {
+      return failure;
     }
   } catch {
     // Cuerpo ilegible: cae al código genérico.
@@ -151,14 +178,10 @@ export async function uploadProductImage(
   }
 
   try {
-    const payload: unknown = await response.json();
+    const failure = readFailurePayload(await response.json());
 
-    if (typeof payload === 'object' && payload !== null && 'code' in payload) {
-      const { code } = payload as { code: unknown };
-
-      if (typeof code === 'string' && code.length > 0) {
-        return { ok: false, code };
-      }
+    if (failure !== null) {
+      return failure;
     }
   } catch {
     // Cuerpo ilegible.
@@ -241,6 +264,71 @@ export function setVariantInventory(
     `${variantPath(productId, variantId)}/inventory`,
     'PUT',
     body,
+    200,
+  );
+}
+
+/**
+ * Crea una categoría. Devuelve la categoría que respondió el backend, con su id y su versión: el
+ * selector la elige con eso, sin volver a pedir la lista.
+ */
+export function createCategory(body: {
+  readonly name: string;
+  readonly slug: string;
+}): Promise<MutationResult<ProductCategory>> {
+  return send<ProductCategory>('/api/admin/product-categories', 'POST', body, 200);
+}
+
+/** Relee un producto por el BFF. Solo lectura. */
+export async function readProduct(productId: string): Promise<MutationResult<AdminProduct>> {
+  let response: Response;
+
+  try {
+    response = await fetch(`/api/admin/products/${encodeURIComponent(productId)}`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+  } catch {
+    return { ok: false, code: 'service_unavailable' };
+  }
+
+  try {
+    const payload: unknown = await response.json();
+
+    if (response.status === 200) {
+      return { ok: true, data: payload as AdminProduct };
+    }
+
+    return readFailurePayload(payload) ?? { ok: false, code: 'internal_error' };
+  } catch {
+    return { ok: false, code: 'internal_error' };
+  }
+}
+
+/** Renombra una categoría. Solo el nombre: el slug no cambia nunca. */
+export function renameCategory(
+  categoryId: string,
+  body: { readonly name: string; readonly expectedVersion: number },
+): Promise<MutationResult<ProductCategory>> {
+  return send<ProductCategory>(
+    `/api/admin/product-categories/${encodeURIComponent(categoryId)}/rename`,
+    'POST',
+    body,
+    200,
+  );
+}
+
+/** Archiva o reactiva una categoría, con la versión que se está viendo. */
+export function transitionCategory(
+  categoryId: string,
+  transition: 'archive' | 'reactivate',
+  expectedVersion: number,
+): Promise<MutationResult<ProductCategory>> {
+  return send<ProductCategory>(
+    `/api/admin/product-categories/${encodeURIComponent(categoryId)}/${transition}`,
+    'POST',
+    { expectedVersion },
     200,
   );
 }

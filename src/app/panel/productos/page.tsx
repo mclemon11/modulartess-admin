@@ -96,6 +96,10 @@ export default async function ProductsPage({ searchParams }: PageProps) {
           actions={
             <>
               <RefreshButton />
+              {/* Entrada visible al catálogo de categorías, junto al alta: se gestionan desde aquí. */}
+              <Link className={styles.buttonSecondary} href="/panel/productos/categorias">
+                Categorías
+              </Link>
               {canCreate ? (
                 <Link className={styles.buttonPrimary} href="/panel/productos/nuevo">
                   <span aria-hidden="true">+</span> Nuevo producto

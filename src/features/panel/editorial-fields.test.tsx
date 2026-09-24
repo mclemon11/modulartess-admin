@@ -265,7 +265,7 @@ describe('checklist de publicación', () => {
     );
 
     expect(html).toContain('Falta la descripción corta');
-    expect(html).toContain('Información básica');
+    expect(html).toContain('href="#seccion-contenido">Descripción');
     expect(html).toContain('son opcionales');
 
     // Los seis títulos que el panel dejó de tener al retirarlos el contrato de `missing`.
@@ -297,7 +297,8 @@ describe('checklist de publicación', () => {
       />,
     );
 
-    expect(html).toContain('href="#seccion-clasificacion"');
+    // La categoría se elige del catálogo en su propia sección, fuera de Clasificación.
+    expect(html).toContain('href="#seccion-categoria"');
     expect(html).toContain('href="#seccion-precio"');
   });
 });

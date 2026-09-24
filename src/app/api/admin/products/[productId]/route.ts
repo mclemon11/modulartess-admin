@@ -10,7 +10,24 @@ import type { NextRequest, NextResponse } from 'next/server';
 
 import { parseUpdateProduct } from '@/features/panel/product-input';
 import { handleMutation } from '@/features/session/mutation-route';
-import { updateProduct } from '@/lib/api/catalog';
+import { handleQuery } from '@/features/session/query-route';
+import { getProduct, updateProduct } from '@/lib/api/catalog';
+
+/**
+ * Relee el producto con la sesión de la persona.
+ *
+ * Lo usa la recuperación del alta tras un `product_version_conflict`: en lugar de reintentar con la
+ * versión vieja —que volvería a fallar— o con una nueva a ciegas —que pisaría el cambio ajeno—, se
+ * relee y se enseña. Solo lectura: no toca nada.
+ */
+export async function GET(
+  request: NextRequest,
+  context: { readonly params: Promise<{ readonly productId: string }> },
+): Promise<NextResponse> {
+  const { productId } = await context.params;
+
+  return handleQuery(request, (sessionMaterial) => getProduct(sessionMaterial, productId));
+}
 
 export async function PATCH(
   request: NextRequest,

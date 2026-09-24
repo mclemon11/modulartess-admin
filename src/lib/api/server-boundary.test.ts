@@ -52,6 +52,7 @@ function read(path: string): string {
 const SERVER_ONLY_MODULES = [
   'src/lib/api/backend-client.ts',
   'src/lib/api/catalog.ts',
+  'src/lib/api/categories.ts',
   'src/lib/api/orders.ts',
   'src/lib/api/dashboard.ts',
   'src/lib/api/integrations.ts',
@@ -61,6 +62,10 @@ const SERVER_ONLY_MODULES = [
   'src/features/session/mutation-route.ts',
   'src/features/session/query-route.ts',
   'src/app/api/admin/auth/session/route.ts',
+  'src/app/api/admin/product-categories/route.ts',
+  'src/app/api/admin/product-categories/[categoryId]/rename/route.ts',
+  'src/app/api/admin/product-categories/[categoryId]/archive/route.ts',
+  'src/app/api/admin/product-categories/[categoryId]/reactivate/route.ts',
   'src/app/api/admin/products/route.ts',
   'src/app/api/admin/products/[productId]/route.ts',
   'src/app/api/admin/products/[productId]/publish/route.ts',
