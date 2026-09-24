@@ -89,6 +89,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
         </div>
         <ProductDetailClient
           categories={categories.options}
+          categoryComplete={categories.complete}
           categoryProblem={categories.problem}
           initial={product}
           permissions={detailPermissions(role)}

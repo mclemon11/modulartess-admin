@@ -58,10 +58,17 @@ export function choiceFromProduct(category: ProductTaxonomy | null): CategoryCho
 export function currentCategoryStatus(
   taxonomy: ProductTaxonomy,
   catalog: readonly CategoryOption[],
-): CurrentCategoryStatus {
+  /**
+   * `false` si el catálogo no se pudo leer, o no entero. Entonces «no la encuentro» no significa
+   * «no existe», y afirmarlo sería falso: se devuelve `null`, que es «no se sabe».
+   */
+  catalogComplete = true,
+): CurrentCategoryStatus | null {
   const found = catalog.find((option) => option.slug === taxonomy.slug);
 
-  return found === undefined ? 'missing' : found.status;
+  if (found !== undefined) return found.status;
+
+  return catalogComplete ? 'missing' : null;
 }
 
 /**

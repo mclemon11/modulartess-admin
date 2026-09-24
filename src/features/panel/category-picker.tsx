@@ -95,6 +95,7 @@ export function CategoryPicker({
   disabled,
   canCreate,
   catalogProblem,
+  catalogComplete = true,
   error,
   inputRef,
 }: {
@@ -108,6 +109,8 @@ export function CategoryPicker({
   readonly canCreate: boolean;
   /** Por qué el catálogo no está completo o no se pudo leer. `null` si está entero. */
   readonly catalogProblem: string | null;
+  /** El catálogo se leyó entero. Sin esto no se afirma que una categoría «no está». */
+  readonly catalogComplete?: boolean;
   /** Rechazo del backend sobre la categoría elegida, ya traducido. */
   readonly error: string | null;
   readonly inputRef?: Ref<HTMLInputElement>;
@@ -132,7 +135,10 @@ export function CategoryPicker({
 
   const rows = pickerRows(catalog, query, canCreate);
   const selected = choiceTaxonomy(choice);
-  const status = choice.kind === 'current' ? currentCategoryStatus(choice.taxonomy, catalog) : null;
+  const status =
+    choice.kind === 'current'
+      ? currentCategoryStatus(choice.taxonomy, catalog, catalogComplete)
+      : null;
   const draftProblems = categoryDraftProblems(draftName, draftSlug);
 
   function choose(row: PickerRow) {

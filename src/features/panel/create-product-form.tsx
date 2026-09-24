@@ -190,12 +190,15 @@ export function CreateProductForm({
   canCreateCategory,
   categories: initialCategories,
   categoryProblem,
+  categoryComplete = true,
 }: {
   readonly canPublish: boolean;
   /** `products.update`, que es lo que exige crear una categoría. */
   readonly canCreateCategory: boolean;
   readonly categories: readonly CategoryOption[];
   readonly categoryProblem: string | null;
+  /** El catálogo se leyó entero. */
+  readonly categoryComplete?: boolean;
 }) {
   const router = useRouter();
   const lock = useRef(createOperationLock());
@@ -1012,6 +1015,7 @@ export function CreateProductForm({
               <CategoryPicker
                 canCreate={canCreateCategory}
                 catalog={categories}
+                catalogComplete={categoryComplete}
                 catalogProblem={categoryProblem}
                 choice={enrichment.category}
                 disabled={busy || progress.enriched}
@@ -1109,7 +1113,7 @@ function Preview({
         <p className={styles.previewText}>{fields.shortDescription}</p>
       )}
       <p className={styles.previewText}>
-        {queue.length} imagen{queue.length === 1 ? '' : 'es'} en cola
+        {queue.length} {queue.length === 1 ? 'imagen' : 'imágenes'} en cola
       </p>
       <p className={styles.previewText}>
         {variantCount === 0

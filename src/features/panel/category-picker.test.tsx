@@ -235,6 +235,36 @@ describe('errores del backend sobre la categoría', () => {
     expect(html).toContain('La categoría elegida está archivada.');
   });
 
+  /*
+   * Sin catálogo, «no la encuentro» no es «no existe». Afirmarlo fue lo que se vio en staging
+   * cuando el listado respondía 503: una categoría normal aparecía como ajena al catálogo.
+   */
+  it('con el catálogo incompleto no afirma que la categoría no esté', () => {
+    expect(currentCategoryStatus({ name: 'x', slug: 'heredada' }, [], false)).toBeNull();
+    expect(currentCategoryStatus({ name: 'x', slug: 'heredada' }, [], true)).toBe('missing');
+    // Lo que sí se encontró se sigue reconociendo.
+    expect(currentCategoryStatus({ name: 'x', slug: 'escritorios-antiguos' }, CATALOG, false)).toBe(
+      'archived',
+    );
+
+    const html = renderToStaticMarkup(
+      <CategoryPicker
+        canCreate
+        catalog={[]}
+        catalogComplete={false}
+        catalogProblem="No pudimos leer el catálogo de categorías."
+        choice={choiceFromProduct({ name: 'Tocadores', slug: 'tocadores' })}
+        disabled={false}
+        error={null}
+        onChange={() => undefined}
+        onCreated={() => undefined}
+      />,
+    );
+
+    expect(html).toContain('Tocadores');
+    expect(html).not.toContain('No está en el catálogo');
+  });
+
   it('un catálogo ilegible se dice, y la categoría actual se sigue viendo', () => {
     const html = picker(choiceFromProduct({ name: 'Tocadores', slug: 'tocadores' }), {
       problem: 'No pudimos leer el catálogo de categorías.',

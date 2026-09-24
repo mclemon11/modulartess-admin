@@ -50,6 +50,7 @@ export default async function NewProductPage() {
           canCreateCategory={can(session.session.role, 'products.update')}
           canPublish={can(session.session.role, 'products.publish')}
           categories={categories.options}
+          categoryComplete={categories.complete}
           categoryProblem={categories.problem}
         />
       </div>

@@ -77,6 +77,7 @@ export function ProductDetailClient({
   role,
   categories: initialCategories,
   categoryProblem,
+  categoryComplete = true,
 }: {
   readonly initial: AdminProduct;
   readonly permissions: DetailPermissions;
@@ -85,6 +86,8 @@ export function ProductDetailClient({
   /** El catálogo de categorías, en los dos estados: las archivadas se reconocen, no se ofrecen. */
   readonly categories: readonly CategoryOption[];
   readonly categoryProblem: string | null;
+  /** El catálogo se leyó entero. */
+  readonly categoryComplete?: boolean;
 }) {
   const router = useRouter();
   const [product, setProduct] = useState(initial);
@@ -623,6 +626,7 @@ export function ProductDetailClient({
                 <CategoryPicker
                   canCreate={permissions.canUpdate}
                   catalog={categories}
+                  catalogComplete={categoryComplete}
                   catalogProblem={categoryProblem}
                   choice={enrichment.category}
                   disabled={busy || readOnly}

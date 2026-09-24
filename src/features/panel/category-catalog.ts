@@ -20,6 +20,8 @@ export type CategoryCatalogView = {
   readonly options: readonly CategoryOption[];
   /** Por qué el catálogo no está completo. `null` si está entero. */
   readonly problem: string | null;
+  /** Se leyó entero. Solo entonces «no está en el catálogo» es una afirmación cierta. */
+  readonly complete: boolean;
 };
 
 export async function loadCategoryCatalog(sessionMaterial: string): Promise<CategoryCatalogView> {
@@ -33,6 +35,7 @@ export async function loadCategoryCatalog(sessionMaterial: string): Promise<Cate
         slug: item.slug,
         status: item.status,
       })),
+      complete: !catalog.truncated,
       problem: catalog.truncated
         ? `El catálogo tiene más de ${CATEGORY_MAX_PAGES * CATEGORY_PAGE_SIZE_MAX} categorías y solo se leyeron las primeras: si no encuentras una, búscala en Categorías.`
         : null,
@@ -40,6 +43,7 @@ export async function loadCategoryCatalog(sessionMaterial: string): Promise<Cate
   } catch {
     return {
       options: [],
+      complete: false,
       problem:
         'No pudimos leer el catálogo de categorías. Puedes guardar sin cambiar la categoría y elegirla más tarde.',
     };

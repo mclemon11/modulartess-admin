@@ -1393,6 +1393,17 @@ En el producto, la categoría se elige con un selector buscable conectado a ese 
 activas, «Sin categoría» admitido y «Crear categoría» en línea, que elige la creada. La categoría
 archivada de un producto histórico se enseña «Archivada» y no se cambia ni se reenvía sola.
 
+#### Pendiente del backend: índices de `product_categories`
+
+En staging (backend `00027-4bq`), `GET /v1/admin/product-categories` responde `503`
+`catalogue_unexpected_failure`. El backend ordena por `name` + `id`, y filtrando por `status` +
+`name` + `id`: las dos consultas exigen índices compuestos en Firestore que no están declarados en
+su `firestore.indexes.json` ni desplegados. No se compensa en el panel. Mientras falten:
+
+- La página Categorías enseña su estado de error con «Reintentar».
+- El selector del producto dice que no pudo leer el catálogo, deja guardar sin cambiar la categoría
+  y **no** afirma que la categoría actual «no está en el catálogo»: sin catálogo, no se sabe.
+
 ### Conflictos del catálogo
 
 `product_sku_conflict`, `product_slug_conflict` y `product_version_conflict` ya no se aplanan en
