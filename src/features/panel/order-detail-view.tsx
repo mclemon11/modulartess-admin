@@ -10,6 +10,7 @@ import {
   OrderAddressCard,
   OrderCustomerCard,
   OrderNotificationsCard,
+  OrderPaymentAttemptsCard,
   OrderPaymentCard,
   OrderPaymentHistoryCard,
   OrderProductsCard,
@@ -21,6 +22,7 @@ import { PaymentSimulator } from './payment-simulator';
 import { PaymentStatusBadge } from './payment-status-badge';
 import styles from './orders.module.css';
 import { SectionHeading } from './section-icon';
+import { useNow } from './use-now';
 
 import type { AdminOrder } from '@/lib/api/orders';
 
@@ -49,6 +51,9 @@ export function OrderDetailView({
   readonly role: string;
 }) {
   const [order, setOrder] = useState(initialOrder);
+  // `null` en el servidor y durante la hidratación: el vencimiento de un checkout se calcula solo
+  // cuando el cliente ya montó, así que el HTML de servidor y el primer render coinciden.
+  const now = useNow();
 
   return (
     <div className={catalog.page}>
@@ -84,7 +89,8 @@ export function OrderDetailView({
         </div>
 
         <div className={styles.detailColumn}>
-          <OrderPaymentCard order={order} />
+          <OrderPaymentCard now={now} order={order} />
+          <OrderPaymentAttemptsCard now={now} order={order} />
           <PaymentSimulator onUpdated={setOrder} order={order} role={role} />
           <OrderPaymentHistoryCard order={order} />
           <OrderCustomerCard order={order} />

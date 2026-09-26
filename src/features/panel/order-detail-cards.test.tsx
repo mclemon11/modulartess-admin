@@ -86,6 +86,7 @@ function order(overrides: Partial<AdminOrder> = {}): AdminOrder {
       approvedAtSource: null,
       updatedAt: '2026-09-05T15:24:00.000Z',
     },
+    paymentAttempts: [],
     paymentEvents: [],
     notifications: [],
     paymentSimulationEnabled: false,
@@ -98,6 +99,7 @@ describe('información de pago', () => {
   it('muestra la etiqueta autoritativa del backend', () => {
     const html = renderToStaticMarkup(
       <OrderPaymentCard
+        now={null}
         order={order({
           payment: {
             status: 'approved',
@@ -116,15 +118,14 @@ describe('información de pago', () => {
   });
 
   /* `sandbox` significa que no hubo cobro. Dejarlo implícito es cómo alguien acaba creyendo que sí. */
-  it('dice con todas las letras que una simulación no es un cobro', () => {
-    const html = renderToStaticMarkup(<OrderPaymentCard order={order()} />);
+  it('dice con todas las letras que un pago sandbox no es un cobro', () => {
+    const html = renderToStaticMarkup(<OrderPaymentCard now={null} order={order()} />);
 
-    expect(html).toContain('Simulación');
     expect(html).toContain('Entorno de pruebas. No se realizó un cobro real.');
   });
 
   it('sin intentos lo explica en vez de dejar un cero suelto', () => {
-    const html = renderToStaticMarkup(<OrderPaymentCard order={order()} />);
+    const html = renderToStaticMarkup(<OrderPaymentCard now={null} order={order()} />);
 
     expect(html).toContain('Todavía no se ha iniciado un intento de pago.');
   });
@@ -133,7 +134,9 @@ describe('información de pago', () => {
   it.each(['Visa', 'Tarjeta', 'Método de pago', 'Transferencia', 'Referencia'])(
     'no inventa «%s»',
     (needle) => {
-      expect(renderToStaticMarkup(<OrderPaymentCard order={order()} />)).not.toContain(needle);
+      expect(renderToStaticMarkup(<OrderPaymentCard now={null} order={order()} />)).not.toContain(
+        needle,
+      );
     },
   );
 });

@@ -156,6 +156,13 @@
           "payment": {
             "$ref": "#/components/schemas/OrderPaymentDto"
           },
+          "paymentAttempts": {
+            "description": "Payment attempts opened for this order, NEWEST FIRST. Every attempt is returned regardless of its environment: they are NOT filtered by the order's payment.environment, because an order still carrying its initial value would otherwise hide a real production attempt. Empty when nobody has opened a checkout.",
+            "items": {
+              "$ref": "#/components/schemas/AdminPaymentAttemptDto"
+            },
+            "type": "array"
+          },
           "paymentEvents": {
             "description": "Append-only payment history. Separate from the order timeline on purpose.",
             "items": {
@@ -241,7 +248,8 @@
           "paymentEvents",
           "paymentSimulationEnabled",
           "availableSimulationEvents",
-          "notifications"
+          "notifications",
+          "paymentAttempts"
         ],
         "type": "object"
       },
@@ -382,6 +390,55 @@
           "totalCop",
           "createdAt",
           "updatedAt"
+        ],
+        "type": "object"
+      },
+      "AdminPaymentAttemptDto": {
+        "properties": {
+          "attemptNumber": {
+            "description": "Which attempt this is for the order, starting at 1.",
+            "type": "number"
+          },
+          "createdAt": {
+            "description": "When the attempt was opened.",
+            "type": "string"
+          },
+          "environment": {
+            "description": "Provider environment where this attempt was opened. This is the PROVIDER vocabulary (sandbox | production); the order's payment.environment uses the PAYMENT vocabulary (sandbox | live). A production attempt corresponds to a live payment.",
+            "enum": [
+              "sandbox",
+              "production"
+            ],
+            "type": "string"
+          },
+          "expiresAt": {
+            "description": "When the checkout stops being reusable.",
+            "type": "string"
+          },
+          "hasTransactionId": {
+            "description": "Whether the provider has bound a transaction to this attempt. The identifier itself is never published.",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "created",
+              "processing",
+              "approved",
+              "declined",
+              "voided",
+              "error",
+              "expired"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "environment",
+          "status",
+          "createdAt",
+          "attemptNumber",
+          "expiresAt",
+          "hasTransactionId"
         ],
         "type": "object"
       },
@@ -3732,6 +3789,83 @@
         ],
         "type": "object"
       },
+      "ReissuePaymentConfirmationRequestDto": {
+        "properties": {
+          "publicId": {
+            "description": "Public order identifier, the one shown to the buyer.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publicId"
+        ],
+        "type": "object"
+      },
+      "ReissuePaymentConfirmationResponseDto": {
+        "properties": {
+          "created": {
+            "description": "Messages written by this call. Zero means they already existed.",
+            "type": "number"
+          },
+          "environment": {
+            "description": "Payment environment of the approval being reissued.",
+            "enum": [
+              "sandbox",
+              "live"
+            ],
+            "type": "string"
+          },
+          "existing": {
+            "description": "Messages that already existed and were left intact.",
+            "type": "number"
+          },
+          "orderStatus": {
+            "enum": [
+              "pending_payment",
+              "paid",
+              "preparing",
+              "ready_to_ship",
+              "shipped",
+              "delivered",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "outcome": {
+            "description": "reissued the first time, already_reissued afterwards. The operation is idempotent: running it twice produces a single email.",
+            "enum": [
+              "reissued",
+              "already_reissued"
+            ],
+            "type": "string"
+          },
+          "paymentStatus": {
+            "enum": [
+              "pending",
+              "processing",
+              "approved",
+              "declined",
+              "voided",
+              "expired",
+              "error"
+            ],
+            "type": "string"
+          },
+          "publicId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "publicId",
+          "orderStatus",
+          "paymentStatus",
+          "environment",
+          "created",
+          "existing",
+          "outcome"
+        ],
+        "type": "object"
+      },
       "RenameProductCategoryRequestDto": {
         "properties": {
           "expectedVersion": {
@@ -5884,6 +6018,94 @@
           }
         ],
         "summary": "Mark a payment incident as reviewed",
+        "tags": [
+          "admin-integrations"
+        ]
+      }
+    },
+    "/v1/admin/payments/reissue-confirmation": {
+      "post": {
+        "description": "REPAIRS A MISSING EMAIL, NOT A PAYMENT. It never changes the order or the payment: not the status, not the version, not the history, not the approval date. It exists because a payment charged and applied while EMAIL_DELIVERY_MODE was disabled left its notices SUPPRESSED, which is terminal and deliberately never revived: turning a provider on cannot flush a queue of old emails, and rewriting a message's state by hand would erase the truth that it was not sent that day. So repairing REVIVES NOTHING. It writes a NEW message whose key is derived from the approval event, and leaves the original exactly as it is. IDEMPOTENT: the key is deterministic, so running it twice produces a single email. The response says outcome=reissued the first time and already_reissued afterwards. NARROW ON PURPOSE: one named order, and only the payment confirmation. It does not touch order_received or any other suppressed message, and there is no sweep. It requires BOTH that the order is paid AND that exactly one PaymentAttempt of that order is approved: the first is what the state machine believes, the second is what the gateway confirmed, and writing 'we received your payment' needs both. Requires notifications.reissue, which only super_admin holds. Audited as order.notifications_reissued, with the order unchanged, so from and to are the same status.",
+        "operationId": "AdminPaymentRepairController_reissueConfirmation",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReissuePaymentConfirmationRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReissuePaymentConfirmationResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "payment_integration_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "order_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "payment_repair_not_allowed: the order is not paid, or its attempt is not approved. The response never says which of the two, because that distinction only helps whoever operates, and they have it in the log and the audit trail."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Reissue the confirmation email of an already approved payment",
         "tags": [
           "admin-integrations"
         ]
@@ -8706,7 +8928,7 @@
     },
     "/v1/orders/payments/wompi/reconcile": {
       "post": {
-        "description": "THE BROWSER RETURNING TO THE RESULT PAGE DOES NOT CONFIRM A PAYMENT: anyone can open that URL, and the ?id= in it is put there by the browser. This endpoint asks Wompi directly, from the server, with the private key, and applies the outcome through the same state machine the signed webhook uses. The frontend never queries Wompi: the private key never leaves the backend, and a check made from a browser can be forged by exactly the person who wants a payment to look approved. The context is the OPAQUE REFERENCE of the attempt, which is the last segment of the return URL. It carries no personal data, so the shop does not have to ask for the email again, keep it in the browser or put it in a URL. The backend resolves reference -> attempt -> order on its own. Knowing the reference and the transaction id does NOT let anyone invent a payment: no state is accepted from the caller, and only what Wompi confirms is applied. The transaction must belong to THAT reference; if it does not, the answer is the stable mismatch code and an audited incident, and it never says which field differed. It shares the webhook's canonical idempotency, so the same outcome arriving by both doors is applied once: no second email, no second history entry and no change to the approval date. The response carries the NORMALIZED payment state; the provider's payload and its own status vocabulary are never published.",
+        "description": "THE BROWSER RETURNING TO THE RESULT PAGE DOES NOT CONFIRM A PAYMENT: anyone can open that URL, and the ?id= in it is put there by the browser. This endpoint asks Wompi directly, from the server, with the private key, and applies the outcome through the same state machine the signed webhook uses. The frontend never queries Wompi: the private key never leaves the backend, and a check made from a browser can be forged by exactly the person who wants a payment to look approved. The context is the OPAQUE REFERENCE of the attempt, which is the last segment of the return URL. It carries no personal data, so the shop does not have to ask for the email again, keep it in the browser or put it in a URL. The backend resolves reference -> attempt -> order on its own. Knowing the reference and the transaction id does NOT let anyone invent a payment: no state is accepted from the caller, and only what Wompi confirms is applied. The transaction must belong to THAT reference; if it does not, the answer is the stable mismatch code and an audited incident, and it never says which field differed. It shares the webhook's canonical idempotency, so the same outcome arriving by both doors is applied once: no second email, no second history entry and no change to the approval date. THE ENVIRONMENT COMES FROM THE ATTEMPT, not from whichever environment is active today: attempt.environment is immutable and written when the checkout opened, so a payment is always reconciled where it was charged. The environment must be CONFIGURED, not enabled: turning an environment off stops new checkouts and must not stop closing the ones already open. The lookup does NOT filter by state. An attempt the webhook already approved is found the same way and answers 200 with outcome=replayed: the webhook arriving before the browser is the normal case, not the exception. The response carries the NORMALIZED payment state; the provider's payload and its own status vocabulary are never published.",
         "operationId": "PublicPaymentsController_reconcile",
         "parameters": [],
         "requestBody": {
@@ -8784,7 +9006,7 @@
     },
     "/v1/products": {
       "get": {
-        "description": "Only active products are visible. Search and filters are applied before paging, inside the query itself. q is a prefix match over the product name, case- and accent-insensitive: it matches a prefix of any of its words, or a prefix of the whole name. It is not full-text search, and a multi-word q only matches from the start of the name. q combines with every filter. Firestore allows a single array-contains clause per query, so when q is present it takes the indexed slot and finish and size are checked against each candidate projection while the backend reads ordered batches. A 200 is always either a full page or the real end of the query: the page is never filtered after it is built, and the backend answers 503 catalogue_unavailable rather than returning a short page that a client would read as no results. The page token is opaque and bound to this exact combination of search, filters and sort; reusing it with another one answers 400 product_cursor_invalid.",
+        "description": "Only active products are visible. Search and filters are applied before paging, inside the query itself. q is a prefix match over the product name, case- and accent-insensitive: it matches a prefix of any of its words, or a prefix of the whole name. It is not full-text search, and a multi-word q only matches from the start of the name. q combines with every filter. Firestore allows a single array-contains clause per query, so when q is present it takes the indexed slot and finish and size are checked against each candidate projection while the backend reads ordered batches. A 200 is always either a full page or the real end of the query: the page is never filtered after it is built, and the backend answers 503 catalogue_unavailable rather than returning a short page that a client would read as no results. featured is resolved as an equality on its own field, not through the precomputed filter token, so it composes with q and with every other filter and sort without enlarging the precomputed array. The page token is opaque and bound to this exact combination of search, filters and sort; reusing it with another one answers 400 product_cursor_invalid.",
         "operationId": "PublicProductsController_list",
         "parameters": [
           {
@@ -8819,6 +9041,15 @@
                 "name_desc"
               ],
               "type": "string"
+            }
+          },
+          {
+            "description": "Restricts the page to products whose featured flag matches. ONLY the exact strings true and false are accepted: anything else answers 400 product_filter_invalid, because silently treating ?featured=1 as no filter would put the whole catalogue on a home page that asked for a handful. Omitting it is not the same as false: absent means no filter at all. It is applied inside the authoritative query, before paging, so a 200 is still a full page or the real end. It belongs to the page token like every other filter: a cursor issued with featured=true is rejected with product_cursor_invalid when replayed without it or with featured=false.",
+            "in": "query",
+            "name": "featured",
+            "required": false,
+            "schema": {
+              "type": "boolean"
             }
           },
           {

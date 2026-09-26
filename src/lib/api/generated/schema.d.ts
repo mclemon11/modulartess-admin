@@ -249,6 +249,26 @@ export interface paths {
         patch: operations["AdminPaymentIncidentsController_resolve"];
         trace?: never;
     };
+    "/v1/admin/payments/reissue-confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reissue the confirmation email of an already approved payment
+         * @description REPAIRS A MISSING EMAIL, NOT A PAYMENT. It never changes the order or the payment: not the status, not the version, not the history, not the approval date. It exists because a payment charged and applied while EMAIL_DELIVERY_MODE was disabled left its notices SUPPRESSED, which is terminal and deliberately never revived: turning a provider on cannot flush a queue of old emails, and rewriting a message's state by hand would erase the truth that it was not sent that day. So repairing REVIVES NOTHING. It writes a NEW message whose key is derived from the approval event, and leaves the original exactly as it is. IDEMPOTENT: the key is deterministic, so running it twice produces a single email. The response says outcome=reissued the first time and already_reissued afterwards. NARROW ON PURPOSE: one named order, and only the payment confirmation. It does not touch order_received or any other suppressed message, and there is no sweep. It requires BOTH that the order is paid AND that exactly one PaymentAttempt of that order is approved: the first is what the state machine believes, the second is what the gateway confirmed, and writing 'we received your payment' needs both. Requires notifications.reissue, which only super_admin holds. Audited as order.notifications_reissued, with the order unchanged, so from and to are the same status.
+         */
+        post: operations["AdminPaymentRepairController_reissueConfirmation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/product-categories": {
         parameters: {
             query?: never;
@@ -761,7 +781,7 @@ export interface paths {
         put?: never;
         /**
          * Confirm a payment outcome server to server
-         * @description THE BROWSER RETURNING TO THE RESULT PAGE DOES NOT CONFIRM A PAYMENT: anyone can open that URL, and the ?id= in it is put there by the browser. This endpoint asks Wompi directly, from the server, with the private key, and applies the outcome through the same state machine the signed webhook uses. The frontend never queries Wompi: the private key never leaves the backend, and a check made from a browser can be forged by exactly the person who wants a payment to look approved. The context is the OPAQUE REFERENCE of the attempt, which is the last segment of the return URL. It carries no personal data, so the shop does not have to ask for the email again, keep it in the browser or put it in a URL. The backend resolves reference -> attempt -> order on its own. Knowing the reference and the transaction id does NOT let anyone invent a payment: no state is accepted from the caller, and only what Wompi confirms is applied. The transaction must belong to THAT reference; if it does not, the answer is the stable mismatch code and an audited incident, and it never says which field differed. It shares the webhook's canonical idempotency, so the same outcome arriving by both doors is applied once: no second email, no second history entry and no change to the approval date. The response carries the NORMALIZED payment state; the provider's payload and its own status vocabulary are never published.
+         * @description THE BROWSER RETURNING TO THE RESULT PAGE DOES NOT CONFIRM A PAYMENT: anyone can open that URL, and the ?id= in it is put there by the browser. This endpoint asks Wompi directly, from the server, with the private key, and applies the outcome through the same state machine the signed webhook uses. The frontend never queries Wompi: the private key never leaves the backend, and a check made from a browser can be forged by exactly the person who wants a payment to look approved. The context is the OPAQUE REFERENCE of the attempt, which is the last segment of the return URL. It carries no personal data, so the shop does not have to ask for the email again, keep it in the browser or put it in a URL. The backend resolves reference -> attempt -> order on its own. Knowing the reference and the transaction id does NOT let anyone invent a payment: no state is accepted from the caller, and only what Wompi confirms is applied. The transaction must belong to THAT reference; if it does not, the answer is the stable mismatch code and an audited incident, and it never says which field differed. It shares the webhook's canonical idempotency, so the same outcome arriving by both doors is applied once: no second email, no second history entry and no change to the approval date. THE ENVIRONMENT COMES FROM THE ATTEMPT, not from whichever environment is active today: attempt.environment is immutable and written when the checkout opened, so a payment is always reconciled where it was charged. The environment must be CONFIGURED, not enabled: turning an environment off stops new checkouts and must not stop closing the ones already open. The lookup does NOT filter by state. An attempt the webhook already approved is found the same way and answers 200 with outcome=replayed: the webhook arriving before the browser is the normal case, not the exception. The response carries the NORMALIZED payment state; the provider's payload and its own status vocabulary are never published.
          */
         post: operations["PublicPaymentsController_reconcile"];
         delete?: never;
@@ -779,7 +799,7 @@ export interface paths {
         };
         /**
          * Search, filter and sort the active catalogue
-         * @description Only active products are visible. Search and filters are applied before paging, inside the query itself. q is a prefix match over the product name, case- and accent-insensitive: it matches a prefix of any of its words, or a prefix of the whole name. It is not full-text search, and a multi-word q only matches from the start of the name. q combines with every filter. Firestore allows a single array-contains clause per query, so when q is present it takes the indexed slot and finish and size are checked against each candidate projection while the backend reads ordered batches. A 200 is always either a full page or the real end of the query: the page is never filtered after it is built, and the backend answers 503 catalogue_unavailable rather than returning a short page that a client would read as no results. The page token is opaque and bound to this exact combination of search, filters and sort; reusing it with another one answers 400 product_cursor_invalid.
+         * @description Only active products are visible. Search and filters are applied before paging, inside the query itself. q is a prefix match over the product name, case- and accent-insensitive: it matches a prefix of any of its words, or a prefix of the whole name. It is not full-text search, and a multi-word q only matches from the start of the name. q combines with every filter. Firestore allows a single array-contains clause per query, so when q is present it takes the indexed slot and finish and size are checked against each candidate projection while the backend reads ordered batches. A 200 is always either a full page or the real end of the query: the page is never filtered after it is built, and the backend answers 503 catalogue_unavailable rather than returning a short page that a client would read as no results. featured is resolved as an equality on its own field, not through the precomputed filter token, so it composes with q and with every other filter and sort without enlarging the precomputed array. The page token is opaque and bound to this exact combination of search, filters and sort; reusing it with another one answers 400 product_cursor_invalid.
          */
         get: operations["PublicProductsController_list"];
         put?: never;
@@ -890,6 +910,8 @@ export interface components {
             /** @description Outbox messages for this order, oldest first. Bodies and recipients are never returned. */
             notifications: components["schemas"]["AdminNotificationDto"][];
             payment: components["schemas"]["OrderPaymentDto"];
+            /** @description Payment attempts opened for this order, NEWEST FIRST. Every attempt is returned regardless of its environment: they are NOT filtered by the order's payment.environment, because an order still carrying its initial value would otherwise hide a real production attempt. Empty when nobody has opened a checkout. */
+            paymentAttempts: components["schemas"]["AdminPaymentAttemptDto"][];
             /** @description Append-only payment history. Separate from the order timeline on purpose. */
             paymentEvents: components["schemas"]["AdminPaymentEventDto"][];
             /** @description Whether the staging payment simulator is switched on in this deployment. When false the simulation route answers as if it did not exist. */
@@ -975,6 +997,23 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             version: number;
+        };
+        AdminPaymentAttemptDto: {
+            /** @description Which attempt this is for the order, starting at 1. */
+            attemptNumber: number;
+            /** @description When the attempt was opened. */
+            createdAt: string;
+            /**
+             * @description Provider environment where this attempt was opened. This is the PROVIDER vocabulary (sandbox | production); the order's payment.environment uses the PAYMENT vocabulary (sandbox | live). A production attempt corresponds to a live payment.
+             * @enum {string}
+             */
+            environment: "sandbox" | "production";
+            /** @description When the checkout stops being reusable. */
+            expiresAt: string;
+            /** @description Whether the provider has bound a transaction to this attempt. The identifier itself is never published. */
+            hasTransactionId: boolean;
+            /** @enum {string} */
+            status: "created" | "processing" | "approved" | "declined" | "voided" | "error" | "expired";
         };
         AdminPaymentEventDto: {
             attemptNumber: number;
@@ -2311,6 +2350,31 @@ export interface components {
             /** @description Transaction identifier returned by the provider in ?id=. The backend checks that it belongs to THIS reference before applying anything. */
             transactionId: string;
         };
+        ReissuePaymentConfirmationRequestDto: {
+            /** @description Public order identifier, the one shown to the buyer. */
+            publicId: string;
+        };
+        ReissuePaymentConfirmationResponseDto: {
+            /** @description Messages written by this call. Zero means they already existed. */
+            created: number;
+            /**
+             * @description Payment environment of the approval being reissued.
+             * @enum {string}
+             */
+            environment: "sandbox" | "live";
+            /** @description Messages that already existed and were left intact. */
+            existing: number;
+            /** @enum {string} */
+            orderStatus: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
+            /**
+             * @description reissued the first time, already_reissued afterwards. The operation is idempotent: running it twice produces a single email.
+             * @enum {string}
+             */
+            outcome: "reissued" | "already_reissued";
+            /** @enum {string} */
+            paymentStatus: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+            publicId: string;
+        };
         RenameProductCategoryRequestDto: {
             expectedVersion: number;
             /** @example Tocadores y espejos */
@@ -3528,6 +3592,74 @@ export interface operations {
             };
             /** @description payment_provider_unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentRepairController_reissueConfirmation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReissuePaymentConfirmationRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReissuePaymentConfirmationResponseDto"];
+                };
+            };
+            /** @description payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_repair_not_allowed: the order is not paid, or its attempt is not approved. The response never says which of the two, because that distinction only helps whoever operates, and they have it in the log and the audit trail. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5518,6 +5650,8 @@ export interface operations {
                 pageSize?: number;
                 /** @description Defaults to newest, which is publishedAt descending. */
                 sort?: "newest" | "price_asc" | "price_desc" | "name_asc" | "name_desc";
+                /** @description Restricts the page to products whose featured flag matches. ONLY the exact strings true and false are accepted: anything else answers 400 product_filter_invalid, because silently treating ?featured=1 as no filter would put the whole catalogue on a home page that asked for a handful. Omitting it is not the same as false: absent means no filter at all. It is applied inside the authoritative query, before paging, so a 200 is still a full page or the real end. It belongs to the page token like every other filter: a cursor issued with featured=true is rejected with product_cursor_invalid when replayed without it or with featured=false. */
+                featured?: boolean;
                 availability?: "in_stock" | "out_of_stock";
                 /** @description Normalised value of the size axis across the active variants. */
                 size?: string;

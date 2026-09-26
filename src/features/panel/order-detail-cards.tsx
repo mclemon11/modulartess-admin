@@ -12,6 +12,13 @@ import {
 } from './notification-labels';
 import { buildOrderActivity } from './order-activity';
 import { describeReasonCode, isSandbox } from './payment-status';
+import {
+  attemptKey,
+  describeAttemptEnvironment,
+  describePaymentEnvironment,
+  presentAttempt,
+  presentCheckoutState,
+} from './payment-attempts';
 import { PaymentStatusBadge } from './payment-status-badge';
 import styles from './orders.module.css';
 import { SectionHeading } from './section-icon';
@@ -172,14 +179,29 @@ export function OrderSummaryCard({ order }: { readonly order: AdminOrder }) {
  * últimos dígitos, ni referencia bancaria, ni fecha de cobro real: el contrato no publica ninguna
  * de esas cosas, y en un panel administrativo un dato inventado se toma por bueno.
  *
- * Cuando el entorno es `sandbox` se dice con todas las letras que no hubo cobro. El contrato es
- * explícito —«sandbox means the outcome came from the staging simulator and NO real charge
- * happened»— y dejarlo implícito es exactamente cómo alguien acaba creyendo que un pedido está
- * cobrado.
+ * Cada dato sale de **una** fuente, sin deducirlo de otra:
+ *
+ * - el entorno, de `payment.environment` (`live` es producción);
+ * - la etiqueta «Simulación», **solo** de `paymentSimulationEnabled`. No se deduce de que el entorno
+ *   no sea `live`: un pedido sandbox no es por eso una simulación;
+ * - el recuento de intentos, de `paymentAttempts.length`. `payment.attemptNumber` no sirve como
+ *   recuento: puede repetirse en intentos que vencieron sin evento;
+ * - el estado del checkout, del intento más reciente, con el vencimiento calculado desde
+ *   `expiresAt` contra el reloj que recibe la tarjeta (`now`), nunca leído aquí.
+ *
+ * `payment.status` sigue siendo la autoridad final: un intento aprobado con el pago sin aprobar se
+ * enseña como inconsistencia, no como pagado.
  */
-export function OrderPaymentCard({ order }: { readonly order: AdminOrder }) {
-  const { payment } = order;
-  const sandbox = isSandbox(payment.environment);
+export function OrderPaymentCard({
+  order,
+  now,
+}: {
+  readonly order: AdminOrder;
+  readonly now: number | null;
+}) {
+  const { payment, paymentAttempts } = order;
+  const latest = paymentAttempts[0];
+  const checkout = presentCheckoutState(paymentAttempts, payment.status, now);
 
   return (
     <section className={`${catalog.card} ${catalog.cardPad}`}>
@@ -187,15 +209,33 @@ export function OrderPaymentCard({ order }: { readonly order: AdminOrder }) {
 
       <div className={styles.paymentHead}>
         <PaymentStatusBadge label={payment.statusLabel} status={payment.status} />
-        {sandbox ? <span className={styles.sandboxTag}>Simulación</span> : null}
+        {order.paymentSimulationEnabled ? (
+          <span className={styles.sandboxTag}>Simulación</span>
+        ) : null}
+      </div>
+
+      <div
+        className={`${styles.checkoutState} ${CHECKOUT_TONE_CLASS[checkout.tone]}`}
+        role={checkout.inconsistent ? 'alert' : undefined}
+      >
+        <p className={styles.checkoutTitle}>{checkout.title}</p>
+        {checkout.text === null ? null : <p className={styles.checkoutText}>{checkout.text}</p>}
       </div>
 
       <dl className={styles.facts}>
-        <Fact label="Entorno" value={sandbox ? 'Pruebas (sandbox)' : 'Producción'} />
+        <Fact label="Entorno" value={describePaymentEnvironment(payment.environment)} />
         <Fact
           label="Intentos de pago"
-          value={payment.attemptNumber === 0 ? 'Ninguno' : String(payment.attemptNumber)}
+          value={paymentAttempts.length === 0 ? 'Ninguno' : String(paymentAttempts.length)}
         />
+        {latest === undefined ? null : (
+          <Fact
+            label="Transacción"
+            value={
+              latest.hasTransactionId ? 'Transacción registrada' : 'Sin transacción registrada'
+            }
+          />
+        )}
         <Fact label="Última actualización" value={formatDateTime(payment.updatedAt)} />
         {/*
          * La fecha real de la venta. El contrato dice que es lo que el dashboard usa para
@@ -210,13 +250,78 @@ export function OrderPaymentCard({ order }: { readonly order: AdminOrder }) {
         />
       </dl>
 
-      {sandbox ? (
+      {/* El contrato: «sandbox means […] NO real charge happened». Es un hecho del entorno, no la
+          etiqueta de simulación. */}
+      {payment.environment === 'sandbox' ? (
         <p className={styles.sandboxNote}>Entorno de pruebas. No se realizó un cobro real.</p>
       ) : null}
+    </section>
+  );
+}
 
-      {payment.attemptNumber === 0 ? (
-        <p className={catalog.hint}>Todavía no se ha iniciado un intento de pago.</p>
-      ) : null}
+const CHECKOUT_TONE_CLASS = {
+  success: styles.checkoutToneSuccess,
+  danger: styles.checkoutToneDanger,
+  warning: styles.checkoutToneWarning,
+  info: styles.checkoutToneInfo,
+  neutral: styles.checkoutToneNeutral,
+} as const;
+
+/**
+ * Intentos de pago, del más reciente al más antiguo, en el orden en que los entrega el contrato.
+ *
+ * De cada intento se muestra solo lo publicado y útil: ambiente, estado presentado, fechas, número
+ * informativo y si hay transacción. La referencia, el identificador de la transacción, la URL de
+ * redirección, la llave pública y las firmas no se publican y no se piden.
+ */
+export function OrderPaymentAttemptsCard({
+  order,
+  now,
+}: {
+  readonly order: AdminOrder;
+  readonly now: number | null;
+}) {
+  const attempts = order.paymentAttempts;
+
+  return (
+    <section className={`${catalog.card} ${catalog.cardPad}`}>
+      <SectionHeading
+        hint="Cada checkout abierto sobre este pedido, del más reciente al más antiguo."
+        icon="historial"
+        title={`Intentos de pago (${attempts.length})`}
+      />
+
+      {attempts.length === 0 ? (
+        <p className={catalog.hint}>Nadie ha abierto todavía un checkout para este pedido.</p>
+      ) : (
+        <ol className={styles.attemptList}>
+          {attempts.map((attempt, index) => {
+            const presented = presentAttempt(attempt, now);
+
+            return (
+              <li className={styles.attemptRow} key={attemptKey(attempt, index)}>
+                <div className={styles.attemptRowHead}>
+                  <span className={`${styles.attemptState} ${CHECKOUT_TONE_CLASS[presented.tone]}`}>
+                    {presented.title}
+                  </span>
+                  <span className={styles.sandboxTag}>
+                    {describeAttemptEnvironment(attempt.environment)}
+                  </span>
+                </div>
+                <dl className={styles.attemptFacts}>
+                  <Fact label="Creado" value={formatDateTime(attempt.createdAt)} />
+                  <Fact label="Vence" value={formatDateTime(attempt.expiresAt)} />
+                  <Fact label="Intento n.º" value={String(attempt.attemptNumber)} />
+                  <Fact
+                    label="Transacción registrada"
+                    value={attempt.hasTransactionId ? 'Sí' : 'No'}
+                  />
+                </dl>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </section>
   );
 }
@@ -286,9 +391,8 @@ function PaymentEventRow({ event }: { readonly event: AdminPaymentEvent }) {
     <li className={styles.paymentEvent}>
       <div className={styles.paymentEventHead}>
         <PaymentStatusBadge label={event.label} status={event.status} />
-        {isSandbox(event.environment) ? (
-          <span className={styles.sandboxTag}>Simulación</span>
-        ) : null}
+        {/* El entorno del evento. «Simulación» solo lo decide `paymentSimulationEnabled`. */}
+        {isSandbox(event.environment) ? <span className={styles.sandboxTag}>Sandbox</span> : null}
       </div>
       {event.publicMessage === null ? null : (
         <p className={styles.paymentEventMessage}>{event.publicMessage}</p>

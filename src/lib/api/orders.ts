@@ -31,6 +31,7 @@ export type OrderShippingAddress = components['schemas']['OrderShippingAddressDt
 export type OrderTimelineEntry = components['schemas']['OrderTimelineEntryDto'];
 export type OrderPayment = components['schemas']['OrderPaymentDto'];
 export type AdminPaymentEvent = components['schemas']['AdminPaymentEventDto'];
+export type AdminPaymentAttempt = components['schemas']['AdminPaymentAttemptDto'];
 export type AdminNotification = components['schemas']['AdminNotificationDto'];
 export type UpdateOrderStatusRequest = components['schemas']['UpdateOrderStatusRequestDto'];
 export type CancelOrderRequest = components['schemas']['CancelOrderRequestDto'];

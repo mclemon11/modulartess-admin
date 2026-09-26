@@ -1047,3 +1047,90 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/*
+ * Estado efectivo del checkout: el del intento más reciente. Una franja con su tono, porque es lo
+ * primero que hay que leer de la tarjeta: si el enlace sigue vivo, venció o hay una transacción.
+ */
+.checkoutState {
+  margin-bottom: 0.875rem;
+  padding: 0.625rem 0.75rem;
+  border-left: 3px solid currentColor;
+  border-radius: var(--radius-control);
+}
+
+.checkoutTitle {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.checkoutText {
+  margin: 0.25rem 0 0;
+  color: var(--color-panel-text);
+  font-size: 0.8125rem;
+  text-wrap: pretty;
+}
+
+.checkoutToneSuccess {
+  background-color: var(--color-state-success-bg);
+  color: var(--color-state-success-fg);
+}
+
+.checkoutToneDanger {
+  background-color: var(--color-state-danger-bg);
+  color: var(--color-state-danger-fg);
+}
+
+.checkoutToneWarning {
+  background-color: var(--color-state-warning-bg);
+  color: var(--color-state-warning-fg);
+}
+
+.checkoutToneInfo {
+  background-color: var(--color-state-info-bg);
+  color: var(--color-state-info-fg);
+}
+
+.checkoutToneNeutral {
+  background-color: var(--color-state-neutral-bg);
+  color: var(--color-state-neutral-fg);
+}
+
+/* Lista compacta de intentos, del más reciente al más antiguo. */
+.attemptList {
+  display: grid;
+  gap: 0.625rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attemptRow {
+  padding: 0.75rem;
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-control);
+}
+
+.attemptRowHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.attemptState {
+  display: inline-flex;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.attemptFacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.5rem 0.75rem;
+  margin: 0;
+}

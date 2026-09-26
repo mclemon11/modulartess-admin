@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-09-24.
+Última actualización: 2026-09-26.
 
 ## Fase
 
@@ -122,7 +122,7 @@ Implementado en el repositorio y comprobado con dobles locales.
 | Ruta protegida `/panel`   | Listo      | Server Component; verifica en cada visita; solo muestra el rol.                |
 | Shell del panel           | Listo      | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión.           |
 | Catálogo de productos     | Listo      | Listado, alta, detalle, edición, publicar, archivar e inventario en dos modos. |
-| Pago del pedido           | Listo      | Estado, entorno, intentos e historial por intento. Sin método.                 |
+| Pago del pedido           | Listo      | Estado, entorno, checkout efectivo, intentos reales e historial. Sin método.   |
 | Simulador de pago         | Listo      | Staging, `payments.simulate`, botones del backend, `eventId` en RAM.           |
 | Notificaciones            | Listo      | Tarjeta de solo lectura; sin preview ni reenvío, que no existen.               |
 | Preparación para publicar | Listo      | `publicationReadiness` del backend, traducida y enlazada por sección.          |
@@ -1124,6 +1124,69 @@ Vive en `payment-status.ts` y una prueba lo compara contra el enum del contrato.
 
 Donde sí hay etiqueta —el detalle, con `payment.statusLabel`, y cada evento con su `label`— se usa
 la del backend.
+
+### Pedido, intento y transacción
+
+La ficha del pedido consume `paymentAttempts`, publicado por el backend desde la revisión
+`modulartess-backend-staging-00036-q24` (commit `24f47d9`). Son tres cosas distintas y el panel no
+las mezcla:
+
+- **Pedido**: tiene un único pago. `payment.status` es la **autoridad final** sobre si se cobró.
+- **Intento**: cada checkout abierto sobre el pedido (`paymentAttempts`, del más reciente al más
+  antiguo). Cuenta el progreso del checkout, no el resultado del pago.
+- **Transacción**: solo existe cuando Wompi la crea y la ata a un intento. El contrato publica
+  `hasTransactionId` y nunca el identificador.
+
+`paymentEvents` sigue siendo el historial de resultados recibidos por webhook o reconciliación.
+
+**Fuentes, una por dato.** El entorno sale de `payment.environment` (`live` → «Producción»,
+`sandbox` → «Pruebas (sandbox)»). La etiqueta «Simulación» sale **solo** de
+`paymentSimulationEnabled`, nunca de `environment !== "live"`; por la misma regla, el historial de
+eventos marca un evento sandbox como «Sandbox», no como «Simulación». El recuento de intentos es
+`paymentAttempts.length`: `payment.attemptNumber` puede repetirse en intentos que vencieron sin
+evento y no sirve como recuento ni como clave.
+
+**Estado efectivo del checkout**, calculado en `payment-attempts.ts` sobre el intento más reciente
+(el primero que entrega el contrato):
+
+| Intento más reciente                                         | Panel                                    |
+| ------------------------------------------------------------ | ---------------------------------------- |
+| Ninguno                                                      | Pago no iniciado                         |
+| `created`, sin transacción, `expiresAt` > ahora              | Checkout abierto                         |
+| `created` o `expired`, sin transacción, `expiresAt` <= ahora | Checkout vencido                         |
+| `processing`, o con transacción y sin estado final           | Transacción pendiente                    |
+| `declined` / `voided` / `error`                              | Pago rechazado / anulado / Error de pago |
+| `approved` y `payment.status = approved`                     | Pagado                                   |
+| `approved` y `payment.status ≠ approved`                     | Alerta de inconsistencia                 |
+
+Un intento aprobado con el pago del pedido sin aprobar **no** se presenta como pagado: se pinta una
+alerta (`role="alert"`), porque la autoridad es `payment.status`.
+
+**El vencimiento se calcula desde `expiresAt`**, aunque el backend todavía conserve
+`status=created`. La hora se lee en un único sitio, `use-now.ts` (`useSyncExternalStore`), que
+devuelve `null` en el servidor y durante la hidratación y la hora real después de montar, con un
+tic de 30 s. Mientras no hay reloj, lo que depende de la hora se declara «Checkout sin transacción ·
+Comprobando la vigencia» en lugar de adivinarse; así el HTML de servidor y el del primer render del
+cliente coinciden siempre. Las pruebas inyectan una hora fija.
+
+**Historial de intentos**: una tarjeta propia, «Intentos de pago (n)», en el orden del contrato. Por
+intento: ambiente (Producción o Sandbox, vocabulario del proveedor), estado presentado, creación,
+vencimiento, número de intento como dato informativo y «Transacción registrada: Sí/No». No se
+muestran ni se piden la referencia, el identificador de la transacción, la URL de redirección, la
+llave pública ni firmas. La clave de React combina posición y campos publicados, sin suponer que el
+número sea único.
+
+**Pedidos auditados.** `MZ-J327WPJW`, `MZ-F11KCYT4` y `MZ-N3QVA4BH` tienen la misma forma —pago
+`pending` en `live`, un intento `production` en `created`, sin transacción y con el enlace
+vencido— y están fijados en pruebas con valores ficticios: Producción, un intento, Checkout vencido,
+sin transacción, pago pendiente y sin «Simulación».
+
+**Pendiente en el backend:** todavía debe normalizar de forma persistente los intentos vencidos. Hasta
+entonces, un checkout vencido sigue llegando como `created` y el panel lo presenta vencido por
+`expiresAt`, sin escribir nada.
+
+El contrato también publica ahora `POST /v1/admin/payments/reissue-confirmation`. El panel **no** lo
+usa todavía: no forma parte de este cambio.
 
 ### Recorrido de siete hitos
 

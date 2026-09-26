@@ -36,6 +36,7 @@ function order(overrides: Partial<AdminOrder> = {}): AdminOrder {
       approvedAtSource: null,
       updatedAt: '2026-09-05T15:24:00.000Z',
     },
+    paymentAttempts: [],
     paymentEvents: [],
     notifications: [],
     ...overrides,
