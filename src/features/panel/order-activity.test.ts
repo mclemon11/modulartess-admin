@@ -252,3 +252,29 @@ describe('sin novedades', () => {
     expect(activity({})).toEqual([]);
   });
 });
+
+describe('recordatorio de pago', () => {
+  /*
+   * Aparece en la actividad como un aviso más, con su nombre, y no inventa un cambio de estado: el
+   * pedido sigue donde estaba, y el historial del pedido no gana ninguna entrada por él.
+   */
+  it('se enseña como aviso, sin crear una entrada de pedido ni de pago', () => {
+    const activity = buildOrderActivity({
+      timeline: [],
+      paymentEvents: [],
+      notifications: [
+        notification('payment_reminder', 'customer', '2026-09-26T16:00:00.000Z', 'pending'),
+      ],
+    });
+
+    expect(activity).toHaveLength(1);
+    expect(activity[0]).toMatchObject({
+      kind: 'notification',
+      title: 'Avisos de «Recordatorio de pago»',
+      detail: 'Cliente · Pendiente',
+    });
+    expect(activity.some((entry) => entry.kind === 'order' || entry.kind === 'payment')).toBe(
+      false,
+    );
+  });
+});

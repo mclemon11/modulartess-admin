@@ -449,7 +449,7 @@ const NOTIFICATION_TONE_CLASS = {
 } as const;
 
 function NotificationRow({ notification }: { readonly notification: AdminNotification }) {
-  const note = notificationNote(notification.status);
+  const note = notificationNote(notification.status, notification.lastErrorCode);
   const error = describeNotificationError(notification.lastErrorCode);
 
   return (

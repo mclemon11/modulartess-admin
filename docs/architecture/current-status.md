@@ -1377,6 +1377,25 @@ presenta como un fallo de la transición del pedido, que sí se aplicó.
 `order_ready_to_ship` aparece con la etiqueta «Listo para envío» tanto aquí como en Novedades. El
 panel **no** envía ese correo: el backend escribió el outbox al confirmar la transición.
 
+`payment_reminder` aparece como «Recordatorio de pago», también aquí y en Novedades. Es el
+recordatorio único que el backend programa para quien compró una hora después de crear el pedido, y
+que suprime si antes llega un evento de pago o el pedido se cancela. En Novedades entra como un
+aviso más —«Avisos de «Recordatorio de pago»»— y **no** como un cambio de estado: el historial del
+pedido y el del pago no ganan ninguna entrada por él. Sus estados se pintan con los mismos
+componentes que el resto (enviado, pendiente, suprimido, falló, requiere atención). Cuando el backend
+lo cierra con `payment_reminder_no_longer_applicable`, la nota dice «El pago avanzó o el pedido se
+canceló antes de la hora del recordatorio. No se envió.» en lugar de la frase genérica de
+`suppressed`, y no se presenta como un error del proveedor. El panel no lo envía, no lo edita y no
+ofrece ningún botón para hacerlo.
+
+La copia del contrato que trajo `payment_reminder` incluye también dos motivos de incidencia de
+Wompi que el backend ya publicaba: `duplicate_approval` («Segunda aprobación del mismo pedido») y
+`approval_on_closed_order` («Aprobación de un pedido cancelado»), los dos críticos y de revisión
+manual. El mapa de motivos es exhaustivo sobre el enum generado, así que se nombran para que el
+contrato compile; el panel no hace nada más con ellos.
+
+El panel acepta `payment_reminder` antes de que el backend lo emita, así que se despliega primero.
+
 ### Novedades del pedido
 
 Una sola lectura de todo lo que le ha pasado al pedido. La arma `order-activity.ts`, una función

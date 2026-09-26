@@ -26,6 +26,8 @@ type NotificationAudience = AdminNotification['audience'];
  */
 const EVENTS: Readonly<Record<NotificationEventKey, string>> = {
   order_received: 'Pedido recibido',
+  // Aviso programado para el cliente una hora después del alta. No es un cambio de estado.
+  payment_reminder: 'Recordatorio de pago',
   payment_processing: 'Pago en proceso',
   payment_approved: 'Pago confirmado',
   payment_declined: 'Pago rechazado',
@@ -94,7 +96,23 @@ const STATUS_NOTES: Readonly<Partial<Record<NotificationStatus, string>>> = {
   dead_letter: 'El pedido se actualizó, pero la notificación no pudo entregarse.',
 };
 
-export function notificationNote(status: string): string | null {
+/**
+ * Código con el que el backend cierra un recordatorio de pago que dejó de aplicar.
+ *
+ * No es un error de entrega: el pago avanzó o el pedido se canceló antes de la hora del
+ * recordatorio, y por eso no salió. Se explica como lo que es en lugar de decir que el envío
+ * estaba deshabilitado o que el proveedor falló.
+ */
+const REMINDER_NO_LONGER_APPLICABLE = 'payment_reminder_no_longer_applicable';
+
+export function notificationNote(
+  status: string,
+  lastErrorCode: string | null = null,
+): string | null {
+  if (status === 'suppressed' && lastErrorCode === REMINDER_NO_LONGER_APPLICABLE) {
+    return 'El pago avanzó o el pedido se canceló antes de la hora del recordatorio. No se envió.';
+  }
+
   return Object.hasOwn(STATUS_NOTES, status)
     ? (STATUS_NOTES[status as NotificationStatus] ?? null)
     : null;
@@ -133,7 +151,8 @@ const ERROR_CODES: Readonly<Record<string, string>> = {
 };
 
 export function describeNotificationError(code: string | null): string | null {
-  if (code === null) {
+  // La nota ya lo explica, y no es un error del proveedor.
+  if (code === null || code === REMINDER_NO_LONGER_APPLICABLE) {
     return null;
   }
 

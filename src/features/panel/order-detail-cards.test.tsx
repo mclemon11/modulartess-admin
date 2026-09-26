@@ -287,6 +287,40 @@ describe('notificaciones', () => {
     expect(html).not.toContain('order_ready_to_ship');
   });
 
+  it.each([
+    ['sent', 'Enviado'],
+    ['pending', 'Pendiente'],
+    ['suppressed', 'Suprimido'],
+    ['failed', 'Falló'],
+    ['dead_letter', 'Requiere atención'],
+  ] as const)(
+    'muestra un recordatorio de pago %s con los componentes de siempre',
+    (status, label) => {
+      const html = renderToStaticMarkup(
+        <OrderNotificationsCard
+          order={order({
+            notifications: [
+              notification({
+                eventKey: 'payment_reminder',
+                template: 'customer_payment_reminder',
+                status,
+                deliveryMode: 'provider',
+                lastErrorCode:
+                  status === 'suppressed' ? 'payment_reminder_no_longer_applicable' : null,
+              }),
+            ],
+          })}
+        />,
+      );
+
+      expect(html).toContain('Recordatorio de pago');
+      expect(html).toContain(label);
+      expect(html).not.toContain('payment_reminder');
+      // Ni botón para enviarlo ni forma de editarlo.
+      expect(html).not.toMatch(/<button|<form|<input|<textarea/);
+    },
+  );
+
   it('sin avisos lo dice en lugar de dejar la tarjeta muda', () => {
     expect(renderToStaticMarkup(<OrderNotificationsCard order={order()} />)).toContain(
       'todavía no ha generado ningún aviso',

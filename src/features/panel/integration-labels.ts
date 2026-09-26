@@ -189,6 +189,8 @@ const INCIDENT_REASONS: Readonly<Record<PaymentIncidentReason, string>> = {
   transaction_bound_to_other_attempt: 'La transacción ya tenía otro intento',
   order_unknown: 'Pedido desconocido',
   live_disabled: 'Evento de producción con cobros bloqueados',
+  duplicate_approval: 'Segunda aprobación del mismo pedido',
+  approval_on_closed_order: 'Aprobación de un pedido cancelado',
 };
 
 export function describeIncidentReason(reason: string): string {
@@ -210,6 +212,10 @@ const INCIDENT_REASON_HINTS: Readonly<Record<PaymentIncidentReason, string>> = {
   order_unknown: 'El intento no apunta a ningún pedido que exista.',
   live_disabled:
     'Llegó un evento de producción a un despliegue donde los cobros reales están bloqueados por código.',
+  duplicate_approval:
+    'Crítica: llegó otra aprobación auténtica, de una transacción distinta, para un pedido ya aprobado. No se devuelve nada solo: hay que revisarlo en el proveedor.',
+  approval_on_closed_order:
+    'Crítica: llegó una aprobación auténtica para un pedido cancelado. El pedido sigue cancelado y una persona decide si se devuelve el dinero.',
 };
 
 export function incidentReasonHint(reason: string): string | null {

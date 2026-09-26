@@ -130,6 +130,27 @@ describe('order_ready_to_ship', () => {
   });
 });
 
+describe('payment_reminder', () => {
+  /*
+   * Recordatorio único de pago, programado por el backend una hora después del alta. El panel no lo
+   * envía, no lo edita y no ofrece enviarlo: solo lo nombra y enseña su estado.
+   */
+  it('lo publica el contrato y el panel lo llama «Recordatorio de pago»', () => {
+    expect(published('eventKey')).toContain('payment_reminder');
+    expect(describeNotificationEvent('payment_reminder')).toBe('Recordatorio de pago');
+  });
+
+  it('un recordatorio que dejó de aplicar se explica como lo que es, no como un error', () => {
+    const code = 'payment_reminder_no_longer_applicable';
+    expect(notificationNote('suppressed', code)).toBe(
+      'El pago avanzó o el pedido se canceló antes de la hora del recordatorio. No se envió.',
+    );
+    expect(describeNotificationError(code)).toBeNull();
+    // Sin ese código, `suppressed` sigue diciendo lo de siempre.
+    expect(notificationNote('suppressed')).toBe('El envío estaba deshabilitado para este entorno.');
+  });
+});
+
 describe('errores de entrega', () => {
   /* El contrato dice que `lastErrorCode` «is never the provider's message». Tampoco se enseña. */
   it('traduce los códigos conocidos y resume los demás sin mostrarlos', () => {
