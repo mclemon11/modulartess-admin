@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OrderPaymentAttemptsCard, OrderPaymentCard } from './order-detail-cards';
 import { OrderDetailView } from './order-detail-view';
 import { attemptKey, presentAttempt, presentCheckoutState } from './payment-attempts';
-import { getServerSnapshot } from './use-now';
+import { getServerSnapshot, getSnapshot, subscribe } from './use-now';
 
 import type { AdminOrder, AdminPaymentAttempt, OrderPayment } from '@/lib/api/orders';
 
@@ -368,6 +368,19 @@ describe('hidratación', () => {
 
   it('el reloj del servidor es null', () => {
     expect(getServerSnapshot()).toBeNull();
+  });
+
+  /* Tras hidratar, React ya comparó la instantánea: la hora tiene que llegar con un aviso. */
+  it('al suscribirse fija la hora y avisa sin esperar al primer tic', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(NOW);
+    const listener = vi.fn();
+
+    const unsubscribe = subscribe(listener);
+    await Promise.resolve();
+
+    expect(getSnapshot()).toBe(NOW);
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
   });
 
   /* El HTML de servidor no depende de la hora: si dependiera, el cliente hidrataría otra cosa. */

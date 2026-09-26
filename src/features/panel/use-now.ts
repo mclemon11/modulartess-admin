@@ -24,13 +24,21 @@ function tick(): void {
   listeners.forEach((listener) => listener());
 }
 
-function subscribe(listener: () => void): () => void {
+export function subscribe(listener: () => void): () => void {
   listeners.add(listener);
 
   if (timer === null) {
     current = Date.now();
     timer = setInterval(tick, TICK_MS);
   }
+
+  // React compara la instantánea **antes** de suscribirse; tras la hidratación seguía siendo `null`
+  // y la hora recién fijada no se veía hasta el primer tic. Se avisa en cuanto la suscripción existe.
+  queueMicrotask(() => {
+    if (listeners.has(listener)) {
+      listener();
+    }
+  });
 
   return () => {
     listeners.delete(listener);
@@ -42,7 +50,7 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-function getSnapshot(): number | null {
+export function getSnapshot(): number | null {
   return current;
 }
 
