@@ -34,6 +34,8 @@ export const SESSION_ERROR_CODES = [
   'category_invalid',
   'conflict_unrecognized',
   'refund_required',
+  'status_reminder_not_allowed',
+  'notifications_unavailable',
   'payment_transition_invalid',
   'payment_conflict',
   'simulator_disabled',
@@ -83,6 +85,9 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
   conflict_unrecognized: 'El backend rechazó la operación por un conflicto.',
   refund_required:
     'Este pedido ya está pagado y cancelarlo exigiría devolver el dinero. El flujo de reembolso todavía no está disponible.',
+  status_reminder_not_allowed: 'Este pedido está cancelado: no admite un recordatorio de estado.',
+  notifications_unavailable:
+    'La entrega de correo está apagada en este despliegue. No se registró ningún recordatorio.',
   payment_transition_invalid:
     'Ese resultado no cabe desde el estado actual del pago. Recarga el pedido para ver en qué punto está.',
   payment_conflict:
@@ -128,6 +133,8 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   category_invalid: 400,
   conflict_unrecognized: 409,
   refund_required: 409,
+  status_reminder_not_allowed: 409,
+  notifications_unavailable: 503,
   payment_transition_invalid: 409,
   payment_conflict: 409,
   simulator_disabled: 404,
@@ -201,6 +208,10 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'conflict_unrecognized';
     case 'backend_refund_required':
       return 'refund_required';
+    case 'backend_status_reminder_not_allowed':
+      return 'status_reminder_not_allowed';
+    case 'backend_notifications_unavailable':
+      return 'notifications_unavailable';
     case 'backend_payment_transition_invalid':
       return 'payment_transition_invalid';
     case 'backend_payment_conflict':

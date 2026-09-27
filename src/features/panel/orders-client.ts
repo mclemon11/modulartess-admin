@@ -115,3 +115,85 @@ export function simulateOrderPayment(
     eventId,
   });
 }
+
+/**
+ * Resultado del recordatorio manual, tal como lo publica el contrato.
+ *
+ * `already_queued` no es un error: ya existía el recordatorio de esta versión del pedido y el
+ * backend no escribió nada.
+ */
+export type StatusReminderResult =
+  | { readonly ok: true; readonly status: 'queued' | 'already_queued' }
+  | { readonly ok: false; readonly code: string; readonly ambiguous: boolean };
+
+/**
+ * Pide al BFF el recordatorio manual. Solo viaja `expectedVersion`: ni destinatario, ni texto, ni
+ * estado. El navegador nunca llama al backend.
+ */
+export async function sendStatusReminder(
+  orderId: string,
+  expectedVersion: number,
+): Promise<StatusReminderResult> {
+  let response: Response;
+
+  try {
+    response = await fetch(
+      `/api/admin/orders/${encodeURIComponent(orderId)}/notifications/status-reminder`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ expectedVersion }),
+        credentials: 'same-origin',
+        cache: 'no-store',
+      },
+    );
+  } catch {
+    return { ok: false, code: 'service_unavailable', ambiguous: true };
+  }
+
+  let payload: unknown = null;
+
+  try {
+    payload = await response.json();
+  } catch {
+    // Cuerpo ilegible: se decide abajo.
+  }
+
+  if (response.status === 200) {
+    const status =
+      typeof payload === 'object' && payload !== null && 'status' in payload
+        ? (payload as { status: unknown }).status
+        : null;
+
+    return status === 'queued' || status === 'already_queued'
+      ? { ok: true, status }
+      : { ok: false, code: 'internal_error', ambiguous: true };
+  }
+
+  const code =
+    typeof payload === 'object' && payload !== null && 'code' in payload
+      ? (payload as { code: unknown }).code
+      : null;
+  const failure = typeof code === 'string' && code.length > 0 ? code : 'internal_error';
+
+  return { ok: false, code: failure, ambiguous: isAmbiguous(failure) };
+}
+
+/**
+ * Vuelve a leer la ficha del pedido desde el BFF, para pintar el aviso recién encolado.
+ *
+ * `null` si no se pudo: quien llama recurre a refrescar la página.
+ */
+export async function fetchOrder(orderId: string): Promise<AdminOrder | null> {
+  try {
+    const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+
+    return response.status === 200 ? ((await response.json()) as AdminOrder) : null;
+  } catch {
+    return null;
+  }
+}

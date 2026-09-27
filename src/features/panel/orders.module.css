@@ -1134,3 +1134,10 @@
   gap: 0.5rem 0.75rem;
   margin: 0;
 }
+
+/* Recordatorio manual del estado, dentro de la tarjeta de notificaciones. */
+.reminderControl {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-lg);
+}

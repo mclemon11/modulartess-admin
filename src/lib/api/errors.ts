@@ -31,6 +31,16 @@ export const BACKEND_FAILURE_CODES = [
    */
   'backend_refund_required',
   /**
+   * 409 `order_status_reminder_not_allowed`: el pedido está cancelado y no admite un recordatorio
+   * de estado. Recargar no lo cambia, así que tiene su propio texto.
+   */
+  'backend_status_reminder_not_allowed',
+  /**
+   * 503 `notifications_unavailable`: la entrega de correo está apagada en este despliegue y el
+   * backend **no escribió nada**. No es una caída genérica: no hay recordatorio pendiente.
+   */
+  'backend_notifications_unavailable',
+  /**
    * 409 `order_payment_transition_invalid`.
    *
    * El resultado de pago no cabe desde el estado actual del pago —por ejemplo, aprobar dos veces—.

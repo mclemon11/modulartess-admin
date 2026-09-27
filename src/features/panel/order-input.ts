@@ -9,6 +9,7 @@
  */
 
 import type {
+  StatusReminderRequest,
   CancelOrderRequest,
   SimulatePaymentRequest,
   UpdateOrderStatusRequest,
@@ -76,6 +77,25 @@ export function parseOrderStatusChange(raw: unknown): UpdateOrderStatusRequest |
   }
 
   return { expectedVersion: version, status };
+}
+
+/**
+ * Cuerpo del recordatorio manual: **solo** la versión.
+ *
+ * Cualquier otra clave se rechaza aquí, antes de llegar al backend —que también la rechaza—. No
+ * existe forma de mandar desde el navegador un destinatario, un asunto, un cuerpo, un estado, un
+ * ambiente, una URL ni una plantilla.
+ */
+export function parseStatusReminder(raw: unknown): StatusReminderRequest | null {
+  const body = record(raw);
+
+  if (body === null || Object.keys(body).some((key) => key !== 'expectedVersion')) {
+    return null;
+  }
+
+  const version = expectedVersion(body.expectedVersion);
+
+  return version === null ? null : { expectedVersion: version };
 }
 
 export function parseOrderCancel(raw: unknown): CancelOrderRequest | null {

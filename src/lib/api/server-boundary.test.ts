@@ -85,6 +85,7 @@ const SERVER_ONLY_MODULES = [
   'src/app/api/admin/orders/[orderId]/status/route.ts',
   'src/app/api/admin/orders/[orderId]/cancel/route.ts',
   'src/app/api/admin/orders/[orderId]/payment-simulation/route.ts',
+  'src/app/api/admin/orders/[orderId]/notifications/status-reminder/route.ts',
   'src/app/api/admin/integrations/wompi/route.ts',
   'src/app/api/admin/integrations/wompi/test/route.ts',
   'src/app/api/admin/payment-incidents/[incidentId]/resolve/route.ts',

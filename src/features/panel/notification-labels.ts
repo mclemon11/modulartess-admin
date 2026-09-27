@@ -39,6 +39,8 @@ const EVENTS: Readonly<Record<NotificationEventKey, string>> = {
   order_shipped: 'Enviado',
   order_delivered: 'Entregado',
   order_cancelled: 'Pedido cancelado',
+  // Lo pidió una persona desde el panel. Recuerda un estado: no es que haya vuelto a ocurrir.
+  order_status_reminder: 'Recordatorio manual de estado',
 };
 
 export function describeNotificationEvent(eventKey: string): string {
@@ -105,12 +107,32 @@ const STATUS_NOTES: Readonly<Partial<Record<NotificationStatus, string>>> = {
  */
 const REMINDER_NO_LONGER_APPLICABLE = 'payment_reminder_no_longer_applicable';
 
+/**
+ * Códigos de supresión que el backend escribe a propósito, con su explicación.
+ *
+ * Ninguno es un error del proveedor: son decisiones del backend para no mandar un correo que ya no
+ * procede. Se explican como lo que son y no se enseñan como un fallo.
+ */
+const SUPPRESSION_NOTES: Readonly<Record<string, string>> = {
+  [REMINDER_NO_LONGER_APPLICABLE]:
+    'El pago avanzó o el pedido se canceló antes de la hora del recordatorio. No se envió.',
+  payment_reminder_superseded_by_manual_reminder:
+    'Se sustituyó por un recordatorio manual de estado. No se envió.',
+  notification_environment_mismatch:
+    'El aviso se escribió con otro ambiente de pago que el del pedido. No se envió.',
+  notification_order_missing: 'El pedido del aviso ya no existe. No se envió.',
+};
+
 export function notificationNote(
   status: string,
   lastErrorCode: string | null = null,
 ): string | null {
-  if (status === 'suppressed' && lastErrorCode === REMINDER_NO_LONGER_APPLICABLE) {
-    return 'El pago avanzó o el pedido se canceló antes de la hora del recordatorio. No se envió.';
+  if (
+    status === 'suppressed' &&
+    lastErrorCode !== null &&
+    Object.hasOwn(SUPPRESSION_NOTES, lastErrorCode)
+  ) {
+    return SUPPRESSION_NOTES[lastErrorCode] ?? null;
   }
 
   return Object.hasOwn(STATUS_NOTES, status)
@@ -152,7 +174,7 @@ const ERROR_CODES: Readonly<Record<string, string>> = {
 
 export function describeNotificationError(code: string | null): string | null {
   // La nota ya lo explica, y no es un error del proveedor.
-  if (code === null || code === REMINDER_NO_LONGER_APPLICABLE) {
+  if (code === null || Object.hasOwn(SUPPRESSION_NOTES, code)) {
     return null;
   }
 

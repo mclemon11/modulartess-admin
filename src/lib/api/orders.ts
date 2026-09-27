@@ -35,6 +35,8 @@ export type AdminPaymentAttempt = components['schemas']['AdminPaymentAttemptDto'
 export type AdminNotification = components['schemas']['AdminNotificationDto'];
 export type UpdateOrderStatusRequest = components['schemas']['UpdateOrderStatusRequestDto'];
 export type CancelOrderRequest = components['schemas']['CancelOrderRequestDto'];
+export type StatusReminderRequest = components['schemas']['StatusReminderRequestDto'];
+export type StatusReminderResponse = components['schemas']['StatusReminderResponseDto'];
 export type SimulatePaymentRequest = components['schemas']['SimulatePaymentRequestDto'];
 
 /** Estado del pedido, tal y como lo publica el contrato. */
@@ -204,6 +206,51 @@ export async function cancelOrder(
       backendErrorCode(response.error) === 'order_cancellation_requires_refund'
     ) {
       throw new BackendFailure('backend_refund_required');
+    }
+
+    throw new BackendFailure(failureCodeFromStatus(status, RESOURCE));
+  }
+
+  return response.data;
+}
+
+/**
+ * Recordatorio manual del estado actual al cliente.
+ *
+ * El cuerpo lleva **solo** `expectedVersion`: el destinatario, el texto, el estado y el enlace los
+ * pone el backend desde el pedido, y el contrato rechaza cualquier otro campo. Exige
+ * `notifications.send_reminder`. Responde `queued` o `already_queued`; el segundo significa que ya
+ * existía el de esta versión y no se escribió nada.
+ */
+export async function sendStatusReminder(
+  sessionMaterial: string,
+  orderId: string,
+  body: StatusReminderRequest,
+): Promise<StatusReminderResponse> {
+  let response;
+
+  try {
+    response = await backendClient().POST(
+      '/v1/admin/orders/{orderId}/notifications/status-reminder',
+      {
+        params: { path: { orderId } },
+        body,
+        headers: sessionHeaders(sessionMaterial),
+      },
+    );
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    const status = response.response.status;
+    const code = backendErrorCode(response.error);
+
+    if (status === 409 && code === 'order_status_reminder_not_allowed') {
+      throw new BackendFailure('backend_status_reminder_not_allowed');
+    }
+    if (status === 503 && code === 'notifications_unavailable') {
+      throw new BackendFailure('backend_notifications_unavailable');
     }
 
     throw new BackendFailure(failureCodeFromStatus(status, RESOURCE));

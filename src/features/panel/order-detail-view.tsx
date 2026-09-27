@@ -22,6 +22,7 @@ import { PaymentSimulator } from './payment-simulator';
 import { PaymentStatusBadge } from './payment-status-badge';
 import styles from './orders.module.css';
 import { SectionHeading } from './section-icon';
+import { StatusReminderControl } from './status-reminder-control';
 import { useNow } from './use-now';
 
 import type { AdminOrder } from '@/lib/api/orders';
@@ -85,7 +86,10 @@ export function OrderDetailView({
 
           <OrderProductsCard order={order} />
           <OrderActivityCard order={order} />
-          <OrderNotificationsCard order={order} />
+          <OrderNotificationsCard
+            order={order}
+            reminder={<StatusReminderControl onUpdated={setOrder} order={order} role={role} />}
+          />
         </div>
 
         <div className={styles.detailColumn}>

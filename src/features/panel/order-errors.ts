@@ -49,6 +49,9 @@ export const ORDER_MESSAGES: Readonly<Record<string, string>> = {
   admin_surface_disabled: 'La superficie administrativa no está disponible en este despliegue.',
   too_many_requests: 'Demasiadas peticiones seguidas. Espera unos segundos.',
   service_unavailable: 'El servicio de pedidos no responde ahora mismo.',
+  status_reminder_not_allowed: 'Este pedido está cancelado: no admite un recordatorio de estado.',
+  notifications_unavailable:
+    'La entrega de correo está apagada en este despliegue. No se registró ningún recordatorio.',
 };
 
 export const GENERIC_ORDER_MESSAGE =

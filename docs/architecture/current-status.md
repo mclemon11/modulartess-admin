@@ -1396,6 +1396,23 @@ contrato compile; el panel no hace nada más con ellos.
 
 El panel acepta `payment_reminder` antes de que el backend lo emita, así que se despliega primero.
 
+**Recordatorio manual de estado.** La tarjeta de Notificaciones ofrece «Enviar recordatorio al
+cliente» a quien tiene `notifications.send_reminder`, que el contrato concede solo a `super_admin`;
+sin ese permiso la acción no se pinta, y el backend vuelve a comprobarlo. Enseña el estado que se va
+a recordar con las etiquetas que publica el backend, pide una confirmación explícita —«Se enviará un
+correo real al correo registrado del cliente con el estado actual del pedido.»— y solo entonces
+llama a `POST /api/admin/orders/{orderId}/notifications/status-reminder`, que reenvía al backend
+**solo** `expectedVersion`. No hay campo para destinatario, asunto, cuerpo, estado ni plantilla; el
+BFF rechaza cualquier otra clave. Un candado síncrono impide que un doble clic mande dos peticiones.
+Con `queued` la ficha se vuelve a leer para enseñar el aviso nuevo; con `already_queued` dice «Ya se
+envió un recordatorio para este estado.»; un conflicto de versión pide recargar. Un pedido cancelado
+no ofrece la acción. El aviso aparece como «Recordatorio manual de estado». Quién lo pidió queda en
+la auditoría del backend, que el contrato no publica al panel: la tarjeta no lo enseña ni lo deduce.
+
+Las supresiones que el backend escribe a propósito se explican en la tarjeta en lugar de enseñarse
+como un fallo: sustituido por un recordatorio manual, escrito con otro ambiente de pago que el del
+pedido, o pedido inexistente.
+
 ### Novedades del pedido
 
 Una sola lectura de todo lo que le ha pasado al pedido. La arma `order-activity.ts`, una función

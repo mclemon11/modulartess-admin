@@ -42,7 +42,8 @@
               "order_ready_to_ship",
               "order_shipped",
               "order_delivered",
-              "order_cancelled"
+              "order_cancelled",
+              "order_status_reminder"
             ],
             "example": "payment_approved",
             "type": "string"
@@ -4034,6 +4035,40 @@
         ],
         "type": "object"
       },
+      "StatusReminderRequestDto": {
+        "properties": {
+          "expectedVersion": {
+            "description": "The order version the administrator was looking at. The body is CLOSED: recipient, subject, body, status, environment, URL or template are rejected with order_request_invalid.",
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ],
+        "type": "object"
+      },
+      "StatusReminderResponseDto": {
+        "properties": {
+          "notificationId": {
+            "description": "Identifier of the outbox message. It appears in the order notifications.",
+            "type": "string"
+          },
+          "status": {
+            "description": "queued: a new customer email was written to the outbox for this order version. already_queued: one already existed for this version and NOTHING was written; no second email.",
+            "enum": [
+              "queued",
+              "already_queued"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "notificationId"
+        ],
+        "type": "object"
+      },
       "UpdateOrderStatusRequestDto": {
         "properties": {
           "expectedVersion": {
@@ -5595,6 +5630,115 @@
           }
         ],
         "summary": "Cancel an order",
+        "tags": [
+          "admin-orders"
+        ]
+      }
+    },
+    "/v1/admin/orders/{orderId}/notifications/status-reminder": {
+      "post": {
+        "description": "Writes ONE customer email (eventKey order_status_reminder) to the outbox; the worker sends it. Nothing is sent to the administrators. The body is CLOSED and carries only expectedVersion: recipient, status, payment state, environment, amounts, dates and the tracking link all come from the stored order. There is no free text, no recipient override and no template choice. The action in the email follows the current truth: pending payment → «Completar mi pago», payment processing → «Consultar estado del pago», paid or any operational status → «Consultar mi pedido». It always links to the secure tracking page by publicId, never to a provider checkout. At most ONE per order version: repeating it answers already_queued and writes nothing. After the order changes version a new one can be sent. The order itself does not change: no status, no version, no timeline entry. The message and the admin audit event order.status_reminder_queued are written together, and an automatic payment_reminder that could still go out is suppressed in the same operation with payment_reminder_superseded_by_manual_reminder. Requires expectedVersion and notifications.send_reminder, which only super_admin has.",
+        "operationId": "AdminOrdersController_sendStatusReminder",
+        "parameters": [
+          {
+            "description": "Backend-generated internal identifier, not the human-readable publicId.",
+            "in": "path",
+            "name": "orderId",
+            "required": true,
+            "schema": {
+              "example": "ord_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusReminderRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusReminderResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "order_request_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden: the principal lacks notifications.send_reminder"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "order_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "order_version_conflict: the order changed since it was read; reload before sending. order_status_reminder_not_allowed: the order is cancelled."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "notifications_unavailable: email delivery is off in this deployment and nothing was queued; order_unavailable otherwise"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Send the customer a reminder of the order's CURRENT status",
         "tags": [
           "admin-orders"
         ]

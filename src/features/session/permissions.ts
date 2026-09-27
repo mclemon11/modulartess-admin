@@ -50,6 +50,14 @@ export const PERMISSIONS = [
    * cobra la tienda: ninguna de las dos es una tarea de operación.
    */
   'integrations.manage',
+  /*
+   * Enviar al cliente un recordatorio del estado actual de su pedido.
+   *
+   * El contrato dice que la operación «requires notifications.send_reminder, which only
+   * super_admin has». Manda un correo real a una persona, así que no se deduce de `orders.read`
+   * ni de `orders.update_status`. El panel no escribe nada del correo: solo lo pide.
+   */
+  'notifications.send_reminder',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

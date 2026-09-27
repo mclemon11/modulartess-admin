@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import catalog from './catalog.module.css';
 import { formatDateTime } from './format';
 import { formatCop } from './money';
@@ -418,14 +419,26 @@ function PaymentEventRow({ event }: { readonly event: AdminPaymentEvent }) {
  * `suppressed` no es un error, y un `failed` es del correo, no de la transición del pedido, que sí
  * se aplicó.
  */
-export function OrderNotificationsCard({ order }: { readonly order: AdminOrder }) {
+export function OrderNotificationsCard({
+  order,
+  reminder = null,
+}: {
+  readonly order: AdminOrder;
+  /**
+   * La acción de recordatorio manual, ya decidida por quien pinta la ficha. La tarjeta no conoce
+   * el rol ni llama a nada: solo le hace sitio.
+   */
+  readonly reminder?: ReactNode;
+}) {
   return (
     <section className={`${catalog.card} ${catalog.cardPad}`}>
       <SectionHeading
-        hint="Registro de los avisos que el backend escribió. El panel no los envía."
+        hint="Registro de los avisos que el backend escribió. El panel solo puede pedir un recordatorio del estado actual."
         icon="notificaciones"
         title={`Notificaciones (${order.notifications.length})`}
       />
+
+      {reminder}
 
       {order.notifications.length === 0 ? (
         <p className={catalog.hint}>Este pedido todavía no ha generado ningún aviso.</p>

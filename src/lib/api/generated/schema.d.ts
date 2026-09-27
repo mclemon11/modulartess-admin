@@ -169,6 +169,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/orders/{orderId}/notifications/status-reminder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the customer a reminder of the order's CURRENT status
+         * @description Writes ONE customer email (eventKey order_status_reminder) to the outbox; the worker sends it. Nothing is sent to the administrators. The body is CLOSED and carries only expectedVersion: recipient, status, payment state, environment, amounts, dates and the tracking link all come from the stored order. There is no free text, no recipient override and no template choice. The action in the email follows the current truth: pending payment → «Completar mi pago», payment processing → «Consultar estado del pago», paid or any operational status → «Consultar mi pedido». It always links to the secure tracking page by publicId, never to a provider checkout. At most ONE per order version: repeating it answers already_queued and writes nothing. After the order changes version a new one can be sent. The order itself does not change: no status, no version, no timeline entry. The message and the admin audit event order.status_reminder_queued are written together, and an automatic payment_reminder that could still go out is suppressed in the same operation with payment_reminder_superseded_by_manual_reminder. Requires expectedVersion and notifications.send_reminder, which only super_admin has.
+         */
+        post: operations["AdminOrdersController_sendStatusReminder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/orders/{orderId}/payment-simulation": {
         parameters: {
             query?: never;
@@ -872,7 +892,7 @@ export interface components {
              * @example payment_approved
              * @enum {string}
              */
-            eventKey: "order_received" | "payment_reminder" | "payment_processing" | "payment_approved" | "payment_declined" | "payment_voided" | "payment_expired" | "payment_error" | "order_preparing" | "order_ready_to_ship" | "order_shipped" | "order_delivered" | "order_cancelled";
+            eventKey: "order_received" | "payment_reminder" | "payment_processing" | "payment_approved" | "payment_declined" | "payment_voided" | "payment_expired" | "payment_error" | "order_preparing" | "order_ready_to_ship" | "order_shipped" | "order_delivered" | "order_cancelled" | "order_status_reminder";
             /** @example ntf_0123456789abcdef */
             id: string;
             /** @description Stable error code of the last failure. Never the provider's message. */
@@ -2441,6 +2461,19 @@ export interface components {
              */
             reasonCode?: string;
         };
+        StatusReminderRequestDto: {
+            /** @description The order version the administrator was looking at. The body is CLOSED: recipient, subject, body, status, environment, URL or template are rejected with order_request_invalid. */
+            expectedVersion: number;
+        };
+        StatusReminderResponseDto: {
+            /** @description Identifier of the outbox message. It appears in the order notifications. */
+            notificationId: string;
+            /**
+             * @description queued: a new customer email was written to the outbox for this order version. already_queued: one already existed for this version and NOTHING was written; no second email.
+             * @enum {string}
+             */
+            status: "queued" | "already_queued";
+        };
         UpdateOrderStatusRequestDto: {
             /** @description Version the caller last read. */
             expectedVersion: number;
@@ -3299,6 +3332,86 @@ export interface operations {
                 };
             };
             /** @description order_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_sendStatusReminder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated internal identifier, not the human-readable publicId. */
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusReminderRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusReminderResponseDto"];
+                };
+            };
+            /** @description order_request_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden: the principal lacks notifications.send_reminder */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_version_conflict: the order changed since it was read; reload before sending. order_status_reminder_not_allowed: the order is cancelled. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description notifications_unavailable: email delivery is off in this deployment and nothing was queued; order_unavailable otherwise */
             503: {
                 headers: {
                     [name: string]: unknown;

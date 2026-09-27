@@ -357,7 +357,7 @@ describe('tipos generados', () => {
  * el contrato y se actualiza la copia, esto falla aquí en lugar de fallar en producción.
  */
 describe('pedidos administrativos', () => {
-  it('publica exactamente las cinco operaciones que el panel usa', () => {
+  it('publica exactamente las seis operaciones que el panel usa', () => {
     const operations: string[] = [];
 
     for (const [path, node] of Object.entries(contract.paths)) {
@@ -374,6 +374,7 @@ describe('pedidos administrativos', () => {
       'GET /v1/admin/orders',
       'GET /v1/admin/orders/{orderId}',
       'POST /v1/admin/orders/{orderId}/cancel',
+      'POST /v1/admin/orders/{orderId}/notifications/status-reminder',
       'POST /v1/admin/orders/{orderId}/payment-simulation',
       'POST /v1/admin/orders/{orderId}/status',
     ]);
@@ -466,12 +467,18 @@ describe('pedidos administrativos', () => {
    * No hay vista previa, ni reenvío, ni envío manual de avisos. Por eso la tarjeta de
    * Notificaciones es de solo lectura: no es una omisión de diseño.
    */
-  it('no publica ninguna operación sobre las notificaciones', () => {
-    for (const path of Object.keys(contract.paths)) {
-      expect(path).not.toContain('notification');
-      expect(path).not.toContain('email');
-      expect(path).not.toContain('preview');
-    }
+  /*
+   * Una sola operación sobre los avisos: pedir el recordatorio manual del estado. Ni vista previa,
+   * ni reenvío, ni envío libre, ni lectura de cuerpos.
+   */
+  it('publica una única operación sobre las notificaciones: el recordatorio manual', () => {
+    const paths = Object.keys(contract.paths).filter(
+      (path) => path.includes('notification') || path.includes('email') || path.includes('preview'),
+    );
+    expect(paths).toEqual(['/v1/admin/orders/{orderId}/notifications/status-reminder']);
+    expect(
+      Object.keys(contract.paths['/v1/admin/orders/{orderId}/notifications/status-reminder']),
+    ).toEqual(['post']);
   });
 
   /* Ni destinatario ni cuerpo: el contrato lo dice y el panel no puede pintarlos. */
