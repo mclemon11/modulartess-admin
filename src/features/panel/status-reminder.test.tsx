@@ -7,13 +7,23 @@ import { OrderNotificationsCard } from './order-detail-cards';
 import { describeOrderFailure, offersReload } from './order-errors';
 import { parseStatusReminder } from './order-input';
 import {
-  STATUS_REMINDER_ALREADY_QUEUED,
-  STATUS_REMINDER_QUEUED,
   STATUS_REMINDER_WARNING,
   StatusReminderView,
+  trackingMessage,
 } from './status-reminder-control';
-import { canSendStatusReminder, createReminderRunner } from './status-reminder-flow';
-import { describeNotificationEvent, notificationNote } from './notification-labels';
+import {
+  canSendStatusReminder,
+  createReminderRunner,
+  REMINDER_ALREADY_QUEUED_MESSAGE,
+  REMINDER_QUEUED_MESSAGE,
+  trackReminder,
+  type ReminderTracking,
+} from './status-reminder-flow';
+import {
+  describeNotificationEvent,
+  describeNotificationStatus,
+  notificationNote,
+} from './notification-labels';
 
 import type { AdminNotification, AdminOrder } from '@/lib/api/orders';
 
@@ -107,12 +117,38 @@ describe('lo que se ve', () => {
     expect(html.match(/disabled=""/g) ?? []).toHaveLength(2);
   });
 
-  it('queued y already_queued se cuentan distinto', () => {
-    expect(view({ outcome: { kind: 'queued' } })).toContain(STATUS_REMINDER_QUEUED);
-    expect(view({ outcome: { kind: 'already_queued' } })).toContain(
-      'Ya se envió un recordatorio para este estado.',
-    );
-    expect(STATUS_REMINDER_ALREADY_QUEUED).toBe('Ya se envió un recordatorio para este estado.');
+  it('queued y already_queued nunca dicen «enviado»', () => {
+    const queued = view({ outcome: { kind: 'queued', notificationId: 'ntf_1' } });
+    const already = view({ outcome: { kind: 'already_queued', notificationId: 'ntf_1' } });
+    expect(queued).toContain('Recordatorio programado para envío.');
+    expect(already).toContain('Ya existe un recordatorio para este estado.');
+    expect(REMINDER_QUEUED_MESSAGE).toBe('Recordatorio programado para envío.');
+    expect(REMINDER_ALREADY_QUEUED_MESSAGE).toBe('Ya existe un recordatorio para este estado.');
+    for (const html of [queued, already]) {
+      expect(html.toLowerCase()).not.toMatch(/ya se envió|enviado|entregado|recibido/);
+    }
+  });
+
+  it('enseña el estado real del seguimiento, sin identificadores ni destinatarios', () => {
+    const html = view({
+      order: order({
+        notifications: [
+          {
+            id: 'ntf_630e7cfa58ba3232ed9c092da4bd8b62',
+            eventKey: 'order_status_reminder',
+            status: 'sent',
+            lastErrorCode: null,
+          } as AdminNotification,
+        ],
+      }),
+      outcome: { kind: 'queued', notificationId: 'ntf_630e7cfa58ba3232ed9c092da4bd8b62' },
+      tracking: { kind: 'status', status: 'sent', terminal: true },
+    });
+    expect(html).toContain('Estado del recordatorio: Aceptado por el proveedor de correo.');
+    expect(html).toContain('No tenemos confirmación de que haya llegado al buzón del cliente.');
+    expect(html).not.toContain('ntf_630e7cfa');
+    expect(html).not.toContain('@');
+    expect(html.toLowerCase()).not.toContain('entregado');
   });
 
   it('un conflicto de versión pide recargar y no se presenta como fallo genérico', () => {
@@ -142,81 +178,178 @@ describe('lo que se ve', () => {
 
 describe('el envío', () => {
   it('un doble clic manda una sola petición', async () => {
-    let release: (value: { ok: true; status: 'queued' }) => void = () => undefined;
+    let release: (value: { ok: true; status: 'queued'; notificationId: string }) => void = () =>
+      undefined;
     const send = vi.fn(
       () =>
-        new Promise<{ ok: true; status: 'queued' }>((resolve) => {
+        new Promise<{ ok: true; status: 'queued'; notificationId: string }>((resolve) => {
           release = resolve;
         }),
     );
-    const run = createReminderRunner({
-      send,
-      reload: async () => order({ version: 3 }),
-      onUpdated: () => undefined,
-      refresh: () => undefined,
-    });
+    const run = createReminderRunner({ send });
 
     const first = run(order());
     const second = await run(order());
     expect(second).toBeNull();
-    release({ ok: true, status: 'queued' });
-    await expect(first).resolves.toEqual({ kind: 'queued' });
+    release({ ok: true, status: 'queued', notificationId: 'ntf_1' });
+    await expect(first).resolves.toEqual({ kind: 'queued', notificationId: 'ntf_1' });
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith('ord_abc', 3);
-  });
-
-  it('tras queued vuelve a leer la ficha y la sustituye', async () => {
-    const fresh = order({ notifications: [{ id: 'ntf_1' } as AdminNotification] });
-    const onUpdated = vi.fn();
-    const refresh = vi.fn();
-    const run = createReminderRunner({
-      send: async () => ({ ok: true, status: 'queued' }),
-      reload: async () => fresh,
-      onUpdated,
-      refresh,
-    });
-    await run(order());
-    expect(onUpdated).toHaveBeenCalledWith(fresh);
-    expect(refresh).not.toHaveBeenCalled();
-  });
-
-  it('si no puede releer, refresca la página', async () => {
-    const refresh = vi.fn();
-    const run = createReminderRunner({
-      send: async () => ({ ok: true, status: 'queued' }),
-      reload: async () => null,
-      onUpdated: () => undefined,
-      refresh,
-    });
-    await run(order());
-    expect(refresh).toHaveBeenCalledTimes(1);
-  });
-
-  it('already_queued no relee: no se escribió nada', async () => {
-    const reload = vi.fn();
-    const run = createReminderRunner({
-      send: async () => ({ ok: true, status: 'already_queued' }),
-      reload,
-      onUpdated: () => undefined,
-      refresh: () => undefined,
-    });
-    await expect(run(order())).resolves.toEqual({ kind: 'already_queued' });
-    expect(reload).not.toHaveBeenCalled();
   });
 
   it('un conflicto vuelve como fallo y libera el candado', async () => {
     const send = vi
       .fn()
       .mockResolvedValueOnce({ ok: false, code: 'version_conflict', ambiguous: false })
-      .mockResolvedValueOnce({ ok: true, status: 'queued' });
-    const run = createReminderRunner({
-      send,
-      reload: async () => null,
-      onUpdated: () => undefined,
-      refresh: () => undefined,
-    });
+      .mockResolvedValueOnce({ ok: true, status: 'already_queued', notificationId: 'ntf_1' });
+    const run = createReminderRunner({ send });
     await expect(run(order())).resolves.toEqual({ kind: 'failure', code: 'version_conflict' });
-    await expect(run(order())).resolves.toEqual({ kind: 'queued' });
+    await expect(run(order())).resolves.toEqual({
+      kind: 'already_queued',
+      notificationId: 'ntf_1',
+    });
+  });
+});
+
+function withReminder(status: string, lastErrorCode: string | null = null): AdminOrder {
+  return order({
+    notifications: [
+      {
+        id: 'ntf_1',
+        eventKey: 'order_status_reminder',
+        status,
+        lastErrorCode,
+      } as AdminNotification,
+    ],
+  });
+}
+
+async function track(sequence: Array<AdminOrder | null>, maxPolls = 10) {
+  const progress: ReminderTracking[] = [];
+  const updated: AdminOrder[] = [];
+  let index = 0;
+  const result = await trackReminder(
+    'ord_abc',
+    'ntf_1',
+    {
+      reload: async () => sequence[Math.min(index++, sequence.length - 1)] ?? null,
+      onUpdated: (next) => updated.push(next),
+      onProgress: (next) => progress.push(next),
+      wait: async () => undefined,
+    },
+    { maxPolls },
+  );
+  return { result, progress, updated, polls: index };
+}
+
+describe('seguimiento hasta el estado real', () => {
+  it.each([
+    ['sent', 'Aceptado por el proveedor de correo.'],
+    ['suppressed', 'No enviado.'],
+    ['dead_letter', 'No se pudo enviar.'],
+  ])('pending → sending → %s', async (terminal, label) => {
+    const { result, progress, updated } = await track([
+      withReminder('pending'),
+      withReminder('sending'),
+      withReminder(terminal),
+    ]);
+    expect(progress.map((entry) => (entry.kind === 'status' ? entry.status : entry.kind))).toEqual([
+      'pending',
+      'sending',
+      terminal,
+    ]);
+    expect(result).toEqual({ kind: 'status', status: terminal, terminal: true });
+    // Cada lectura sustituye la ficha: la tarjeta se actualiza sin recargar la página.
+    expect(updated).toHaveLength(3);
+    expect(trackingMessage(result)).toBe(`Estado del recordatorio: ${label}`);
+  });
+
+  it('un fallo transitorio del proveedor no es terminal: se sigue consultando', async () => {
+    const { result, progress } = await track([
+      withReminder('sending'),
+      withReminder('pending', 'provider_unavailable'),
+      withReminder('sent'),
+    ]);
+    expect(progress).toHaveLength(3);
+    expect(result).toMatchObject({ status: 'sent', terminal: true });
+  });
+
+  it('con un límite: si no termina, lo dice sin darlo por enviado', async () => {
+    const { result, polls } = await track([withReminder('pending')], 4);
+    expect(polls).toBe(4);
+    expect(result).toEqual({ kind: 'timeout', lastStatus: 'pending' });
+    const message = trackingMessage(result) ?? '';
+    expect(message).toContain('Pendiente de envío.');
+    expect(message.toLowerCase()).not.toMatch(/enviado|entregado|aceptado/);
+  });
+
+  it('si la ficha no se puede leer, no inventa un estado', async () => {
+    const { result, progress } = await track([null], 3);
+    expect(progress).toEqual([{ kind: 'timeout', lastStatus: null }]);
+    expect(result).toEqual({ kind: 'timeout', lastStatus: null });
+  });
+
+  it('se detiene si la pantalla se cierra', async () => {
+    const reload = vi.fn(async () => withReminder('pending'));
+    await trackReminder(
+      'ord_abc',
+      'ntf_1',
+      {
+        reload,
+        onUpdated: () => undefined,
+        onProgress: () => undefined,
+        wait: async () => undefined,
+        cancelled: () => true,
+      },
+      { maxPolls: 10 },
+    );
+    expect(reload).not.toHaveBeenCalled();
+  });
+});
+
+describe('estados de los avisos', () => {
+  it.each([
+    ['pending', 'Pendiente de envío.'],
+    ['sending', 'Enviando.'],
+    ['sent', 'Aceptado por el proveedor de correo.'],
+    ['suppressed', 'No enviado.'],
+    ['dead_letter', 'No se pudo enviar.'],
+  ])('%s se llama «%s»', (status, label) => {
+    expect(describeNotificationStatus(status)).toBe(label);
+  });
+
+  it('sent no equivale a entregado: no existe «Entregado» ni «Enviado» sin más', () => {
+    expect(describeNotificationStatus('sent')).not.toMatch(/^Enviado|Entregado/);
+    expect(notificationNote('sent')).toContain('No tenemos confirmación');
+  });
+
+  it('un código de error del proveedor no se enseña tal cual', () => {
+    const html = renderToStaticMarkup(
+      <OrderNotificationsCard
+        order={order({
+          notifications: [
+            {
+              id: 'ntf_630e7cfa58ba3232ed9c092da4bd8b62',
+              eventKey: 'order_status_reminder',
+              audience: 'customer',
+              template: 'customer_order_status_reminder',
+              templateVersion: 1,
+              deliveryMode: 'provider',
+              status: 'dead_letter',
+              attempts: 5,
+              createdAt: '2026-09-27T16:33:32.000Z',
+              updatedAt: '2026-09-27T16:34:04.000Z',
+              nextAttemptAt: null,
+              sentAt: null,
+              lastErrorCode: 'provider_credentials_rejected',
+            } as AdminNotification,
+          ],
+        })}
+      />,
+    );
+    expect(html).toContain('No se pudo enviar.');
+    expect(html).not.toContain('provider_credentials_rejected');
+    expect(html).not.toContain('ntf_630e7cfa');
   });
 });
 

@@ -78,13 +78,14 @@ describe('modo de entrega', () => {
 
 describe('estado del aviso', () => {
   it.each([
-    ['pending', 'Pendiente'],
-    ['sending', 'Enviando'],
-    ['sent', 'Enviado'],
-    ['failed', 'Falló'],
-    ['dead_letter', 'Requiere atención'],
-    ['previewed', 'Previsualizado'],
-    ['suppressed', 'Suprimido'],
+    ['pending', 'Pendiente de envío.'],
+    ['sending', 'Enviando.'],
+    // Aceptado no es entregado: el backend no recibe confirmaciones de entrega.
+    ['sent', 'Aceptado por el proveedor de correo.'],
+    ['failed', 'Falló.'],
+    ['dead_letter', 'No se pudo enviar.'],
+    ['previewed', 'Previsualizado.'],
+    ['suppressed', 'No enviado.'],
   ])('%s se lee «%s»', (value, label) => {
     expect(describeNotificationStatus(value)).toBe(label);
   });
@@ -113,9 +114,16 @@ describe('estado del aviso', () => {
   });
 
   it('los estados que no se prestan a confusión no llevan nota', () => {
-    for (const status of ['pending', 'sending', 'sent']) {
+    for (const status of ['pending', 'sending']) {
       expect(notificationNote(status), status).toBeNull();
     }
+  });
+
+  /* `sent` sí la lleva: aceptado por el proveedor no es recibido por el cliente. */
+  it('sent aclara que no hay confirmación de entrega', () => {
+    expect(notificationNote('sent')).toBe(
+      'El proveedor aceptó el correo. No tenemos confirmación de que haya llegado al buzón del cliente.',
+    );
   });
 });
 

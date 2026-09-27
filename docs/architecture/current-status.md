@@ -1404,8 +1404,14 @@ correo real al correo registrado del cliente con el estado actual del pedido.»�
 llama a `POST /api/admin/orders/{orderId}/notifications/status-reminder`, que reenvía al backend
 **solo** `expectedVersion`. No hay campo para destinatario, asunto, cuerpo, estado ni plantilla; el
 BFF rechaza cualquier otra clave. Un candado síncrono impide que un doble clic mande dos peticiones.
-Con `queued` la ficha se vuelve a leer para enseñar el aviso nuevo; con `already_queued` dice «Ya se
-envió un recordatorio para este estado.»; un conflicto de versión pide recargar. Un pedido cancelado
+Pedir no es enviar: `queued` dice «Recordatorio programado para envío.» y `already_queued` «Ya
+existe un recordatorio para este estado.»; ninguno dice «enviado». Después la tarjeta **sigue el
+aviso**, releyendo la ficha cada 5 s —36 veces como mucho, pasada y media del trabajador—, hasta un
+estado terminal, y enseña el estado real sin recargar la página. Si se agota el límite lo dice. Los
+estados se nombran por lo que sabemos: «Pendiente de envío.», «Enviando.», «Aceptado por el
+proveedor de correo.» —con la nota de que no hay confirmación de entrega—, «No enviado.» y «No se
+pudo enviar.». No existe «Entregado»: el contrato no publica ningún estado de entrega. Un conflicto
+de versión pide recargar. Un pedido cancelado
 no ofrece la acción. El aviso aparece como «Recordatorio manual de estado». Quién lo pidió queda en
 la auditoría del backend, que el contrato no publica al panel: la tarjeta no lo enseña ni lo deduce.
 

@@ -70,15 +70,29 @@ export function describeDeliveryMode(mode: string): string {
     : mode;
 }
 
+/**
+ * Lo que de verdad sabemos de cada estado, y nada más.
+ *
+ * `sent` es que **el proveedor aceptó** el correo, no que llegara al buzón: el backend no recibe
+ * confirmaciones de entrega, y el contrato no publica ningún estado «entregado». Por eso aquí no
+ * existe «Enviado» ni «Entregado»: decirlo prometería algo que nadie ha comprobado.
+ */
 const STATUSES: Readonly<Record<NotificationStatus, string>> = {
-  pending: 'Pendiente',
-  sending: 'Enviando',
-  sent: 'Enviado',
-  failed: 'Falló',
-  dead_letter: 'Requiere atención',
-  previewed: 'Previsualizado',
-  suppressed: 'Suprimido',
+  pending: 'Pendiente de envío.',
+  sending: 'Enviando.',
+  sent: 'Aceptado por el proveedor de correo.',
+  failed: 'Falló.',
+  dead_letter: 'No se pudo enviar.',
+  previewed: 'Previsualizado.',
+  suppressed: 'No enviado.',
 };
+
+/** Estados en los que un aviso ya no se mueve solo. `failed` vuelve a `pending` y reintenta. */
+const TERMINAL: readonly string[] = ['sent', 'suppressed', 'dead_letter', 'previewed'];
+
+export function isTerminalNotificationStatus(status: string): boolean {
+  return TERMINAL.includes(status);
+}
 
 export function describeNotificationStatus(status: string): string {
   return Object.hasOwn(STATUSES, status) ? STATUSES[status as NotificationStatus] : status;
@@ -92,6 +106,7 @@ export function describeNotificationStatus(status: string): string {
  * la transición del pedido, que sí se aplicó.
  */
 const STATUS_NOTES: Readonly<Partial<Record<NotificationStatus, string>>> = {
+  sent: 'El proveedor aceptó el correo. No tenemos confirmación de que haya llegado al buzón del cliente.',
   previewed: 'La plantilla se generó para revisión. No se envió un correo.',
   suppressed: 'El envío estaba deshabilitado para este entorno.',
   failed: 'El pedido se actualizó, pero la notificación no pudo entregarse.',

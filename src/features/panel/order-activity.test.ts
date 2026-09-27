@@ -271,7 +271,7 @@ describe('recordatorio de pago', () => {
     expect(activity[0]).toMatchObject({
       kind: 'notification',
       title: 'Avisos de «Recordatorio de pago»',
-      detail: 'Cliente · Pendiente',
+      detail: 'Cliente · Pendiente de envío.',
     });
     expect(activity.some((entry) => entry.kind === 'order' || entry.kind === 'payment')).toBe(
       false,

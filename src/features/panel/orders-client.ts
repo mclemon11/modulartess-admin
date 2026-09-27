@@ -123,7 +123,12 @@ export function simulateOrderPayment(
  * backend no escribió nada.
  */
 export type StatusReminderResult =
-  | { readonly ok: true; readonly status: 'queued' | 'already_queued' }
+  | {
+      readonly ok: true;
+      readonly status: 'queued' | 'already_queued';
+      /** Aviso del outbox al que seguir. No se enseña: sirve para buscarlo en la ficha. */
+      readonly notificationId: string;
+    }
   | { readonly ok: false; readonly code: string; readonly ambiguous: boolean };
 
 /**
@@ -160,13 +165,17 @@ export async function sendStatusReminder(
   }
 
   if (response.status === 200) {
-    const status =
-      typeof payload === 'object' && payload !== null && 'status' in payload
-        ? (payload as { status: unknown }).status
-        : null;
+    const body =
+      typeof payload === 'object' && payload !== null
+        ? (payload as { status?: unknown; notificationId?: unknown })
+        : {};
+    const status = body.status;
+    const notificationId = body.notificationId;
 
-    return status === 'queued' || status === 'already_queued'
-      ? { ok: true, status }
+    return (status === 'queued' || status === 'already_queued') &&
+      typeof notificationId === 'string' &&
+      notificationId.length > 0
+      ? { ok: true, status, notificationId }
       : { ok: false, code: 'internal_error', ambiguous: true };
   }
 
