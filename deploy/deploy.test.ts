@@ -266,3 +266,23 @@ describe.skipIf(!hasBuild)('bundle del cliente (requiere pnpm build previo)', ()
     expect(bundle).not.toMatch(/private_key|client_email|BEGIN [A-Z ]*PRIVATE KEY/);
   });
 });
+
+describe('origen administrativo canónico', () => {
+  const VARS = readFileSync('deploy/staging.vars', 'utf8');
+
+  it('staging.vars fija exactamente https://admin.modulartess.com', () => {
+    expect(VARS).toMatch(/^ADMIN_ORIGIN=https:\/\/admin\.modulartess\.com$/m);
+    expect(VARS).not.toMatch(/^ADMIN_ORIGIN=.*run\.app/m);
+  });
+
+  it('el script exige ese valor exacto y rechaza la URL de Cloud Run', () => {
+    expect(STAGING_SH).toContain('readonly CANONICAL_ADMIN_ORIGIN="https://admin.modulartess.com"');
+    expect(STAGING_SH).toContain('[ "${ADMIN_ORIGIN}" != "${CANONICAL_ADMIN_ORIGIN}" ]');
+    expect(STAGING_SH).toContain('no puede ser la URL de Cloud Run');
+  });
+
+  it('verify entra por el dominio y comprueba la puerta run.app', () => {
+    expect(STAGING_SH).toContain('local url="${ADMIN_ORIGIN}"');
+    expect(STAGING_SH).toContain('-H "origin: $(cloud_run_origin)"');
+  });
+});

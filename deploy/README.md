@@ -152,19 +152,49 @@ variables que no se mencionen, así que una omisión dejaría el servicio sin co
 MODULARTESS_BACKEND_URL=https://modulartess-backend-staging-eiccfp227q-ue.a.run.app
 MODULARTESS_BACKEND_AUTH_MODE=google-oidc
 MODULARTESS_BACKEND_AUDIENCE=https://modulartess-backend-staging-eiccfp227q-ue.a.run.app
-MODULARTESS_ADMIN_ORIGIN=https://modulartess-admin-staging-651080070961.us-east1.run.app
+MODULARTESS_ADMIN_ORIGIN=https://admin.modulartess.com
 ```
 
 Las `NEXT_PUBLIC_FIREBASE_*` **no** se pasan como variables de runtime. Next.js las sustituye en el
 bundle durante el build; ponerlas aquí no cambiaría nada del cliente y sugeriría que sí.
 
-## 5. Dominio: el de Cloud Run es temporal
+## 5. Dominio: `https://admin.modulartess.com`
 
-### Antes de la primera prueba real
+El panel entra por **un Load Balancer HTTPS externo** con un NEG serverless hacia el servicio. No
+por Firebase Hosting —su rewrite a Cloud Run **descarta todas las cookies salvo `__session`**, y la
+sesión es `__Host-modulartess-admin-session`— ni por un domain mapping de Cloud Run.
 
-El dominio del panel —el temporal de Cloud Run ahora, el definitivo después— **tiene que estar
-autorizado en Firebase Authentication** antes de que nadie intente iniciar sesión. Sin eso el SDK
-rechaza la operación en el navegador y el fallo se parece a un problema de credenciales.
+| Recurso (proyecto `modulartessweb-250f5`) | Nombre                                                   | Configuración                                                                 |
+| ----------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| IP global estática (Premium)              | `modulartess-admin-ip`                                   | `8.233.108.239`                                                               |
+| NEG serverless, `us-east1`                | `modulartess-admin-neg`                                  | → `modulartess-admin-staging`                                                 |
+| Backend service                           | `modulartess-admin-backend`                              | `EXTERNAL_MANAGED`, **sin CDN**, `X-Robots-Tag: noindex, nofollow, noarchive` |
+| URL map                                   | `modulartess-admin-urlmap`                               | todo al backend service                                                       |
+| Certificado gestionado                    | `modulartess-admin-cert`                                 | `admin.modulartess.com`                                                       |
+| Proxy y regla HTTPS                       | `modulartess-admin-https-proxy` / `-https`               | puerto 443                                                                    |
+| Redirección HTTP                          | `modulartess-admin-http-redirect`, proxy y regla `-http` | puerto 80 → `301` a HTTPS, conserva ruta y consulta                           |
+
+**DNS** (GoDaddy, zona `modulartess.com`): un único registro `A admin 8.233.108.239`. Sin AAAA: la IP
+es solo IPv4. Ningún registro de la tienda (`@`, `www`) cambia.
+
+**Origen.** `MODULARTESS_ADMIN_ORIGIN` es exactamente `https://admin.modulartess.com`, y `preflight`
+rechaza cualquier otro valor: la URL de Cloud Run, otro dominio, un subdominio, un puerto, una ruta,
+una consulta, un fragmento, credenciales o una barra final. `admin.modulartess.com` está autorizado en
+Firebase Authentication. El backend usa el mismo valor como `ADMIN_APP_URL`, que es la URL de regreso
+de las invitaciones.
+
+**La cookie llega intacta.** El Load Balancer reenvía el encabezado `Cookie` sin tocarlo, así que la
+cookie `__Host-` —`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, sin `Domain`— queda ligada al
+host exacto `admin.modulartess.com`, aislada de la tienda.
+
+**Ingress.** `SERVICE_INGRESS` decide si la URL de Cloud Run sigue respondiendo desde internet.
+`verify` lo comprueba: el origen `run.app` siempre recibe `403` en las rutas mutantes y, con
+`internal-and-cloud-load-balancing`, la URL de Cloud Run deja de ser una entrada.
+
+**Rollback** del dominio: reabrir el ingress (`SERVICE_INGRESS=all`) y redesplegar vuelve a hacer
+accesible la URL de Cloud Run, pero el origen sigue siendo el dominio; volver a la URL de Cloud Run
+como origen exige además cambiar `ADMIN_ORIGIN`, el `ADMIN_APP_URL` del backend y el script, que hoy
+la rechazan a propósito.
 
 ## 6. Verificación
 

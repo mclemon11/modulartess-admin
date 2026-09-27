@@ -424,6 +424,15 @@ check_backend_origin_pair() {
   ok "URL y audiencia del backend idénticas y canónicas."
 }
 
+# El único origen administrativo válido. Fijo en el script, y no solo en `staging.vars`, para que
+# un cambio de configuración no pueda aflojarlo sin que se vea en el diff del propio script.
+readonly CANONICAL_ADMIN_ORIGIN="https://admin.modulartess.com"
+
+# URL determinista de Cloud Run del panel.
+cloud_run_origin() {
+  printf 'https://%s-%s.%s.run.app' "${SERVICE_NAME}" "${PROJECT_NUMBER}" "${REGION}"
+}
+
 check_admin_origin() {
   case "${ADMIN_ORIGIN}" in
     https://*) ;;
@@ -433,20 +442,23 @@ check_admin_origin() {
     */|*\?*|*\#*|*@*) warn "ADMIN_ORIGIN debe ser un origen exacto, sin ruta, consulta, fragmento, credenciales ni barra final."; return 1 ;;
   esac
 
-  # Cloud Run publica una URL determinista: <servicio>-<numero-de-proyecto>.<region>.run.app.
-  # Se puede calcular antes del primer despliegue, así que ADMIN_ORIGIN tiene que coincidir con
-  # ella exactamente. Si no coincidiera, el BFF rechazaría sus propias peticiones: valida `Origin`
-  # de forma exacta.
-  local expected="https://${SERVICE_NAME}-${PROJECT_NUMBER}.${REGION}.run.app"
+  # La URL de Cloud Run ya no es una entrada del panel. Se rechaza con su propio mensaje porque es
+  # el valor que alguien pondría por costumbre.
+  if [ "${ADMIN_ORIGIN}" = "$(cloud_run_origin)" ]; then
+    warn "ADMIN_ORIGIN no puede ser la URL de Cloud Run: el panel entra por ${CANONICAL_ADMIN_ORIGIN}."
+    return 1
+  fi
 
-  if [ "${ADMIN_ORIGIN}" != "${expected}" ]; then
-    warn "ADMIN_ORIGIN no es la URL determinista de Cloud Run."
-    warn "  esperado: ${expected}"
+  # Igualdad exacta con el dominio canónico: sin sufijos, subdominios ni puertos. El BFF valida
+  # `Origin` byte a byte, y un dominio parecido aceptado aquí sería un origen aceptado allí.
+  if [ "${ADMIN_ORIGIN}" != "${CANONICAL_ADMIN_ORIGIN}" ]; then
+    warn "ADMIN_ORIGIN no es el dominio administrativo canónico."
+    warn "  esperado: ${CANONICAL_ADMIN_ORIGIN}"
     warn "  recibido: ${ADMIN_ORIGIN}"
     return 1
   fi
 
-  ok "Origen administrativo HTTPS y determinista."
+  ok "Origen administrativo canónico: ${CANONICAL_ADMIN_ORIGIN}."
 }
 
 check_build_context() {
@@ -606,10 +618,15 @@ service_url() {
 }
 
 cmd_verify() {
-  local url
-  url="$(service_url)"
-  [ -n "${url}" ] || die "No se pudo leer la URL de ${SERVICE_NAME}. ¿Está desplegado?"
-  ok "Servicio en ${url}"
+  local direct
+  direct="$(service_url)"
+  [ -n "${direct}" ] || die "No se pudo leer la URL de ${SERVICE_NAME}. ¿Está desplegado?"
+  ok "Servicio desplegado en ${direct}"
+
+  # Todas las sondas del panel entran por el dominio canónico, que es por donde entra el navegador:
+  # el Load Balancer, su certificado y su NEG forman parte de lo que se verifica.
+  local url="${ADMIN_ORIGIN}"
+  ok "Entrada del panel: ${url}"
 
   local failures=0
 
@@ -667,6 +684,36 @@ cmd_verify() {
   else
     warn "Sonda con credencial ficticia: ${probe_status} ${probe_code:-sin código}; se esperaba 401 session_required."
     failures=$((failures + 1))
+  fi
+
+  # 4. La URL de Cloud Run no sirve como origen administrativo: el BFF la rechaza.
+  local foreign_status
+  foreign_status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+    -X POST "${url}/api/admin/auth/session" \
+    -H 'content-type: application/json' \
+    -H "origin: $(cloud_run_origin)" \
+    --data '{}' || printf '000')"
+  if [ "${foreign_status}" = "403" ]; then
+    ok "El origen run.app se rechaza en las rutas mutantes (403)."
+  else
+    warn "El origen run.app respondió ${foreign_status}; se esperaba 403 invalid_origin."
+    failures=$((failures + 1))
+  fi
+
+  # 5. La URL de Cloud Run no es una entrada pública cuando el ingress está cerrado. Con `all` solo
+  # se avisa: es el estado de transición, antes de cerrar el ingress.
+  local direct_status
+  direct_status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$(cloud_run_origin)/iniciar-sesion" || printf '000')"
+  if [ "${SERVICE_INGRESS}" = "internal-and-cloud-load-balancing" ]; then
+    if [ "${direct_status}" = "200" ]; then
+      warn "La URL de Cloud Run responde 200 con el ingress cerrado: sigue siendo una entrada."
+      failures=$((failures + 1))
+    else
+      ok "La URL de Cloud Run ya no es una entrada pública (${direct_status})."
+    fi
+  else
+    warn "Ingress ${SERVICE_INGRESS}: la URL de Cloud Run todavía responde (${direct_status}). Ciérralo"
+    warn "con internal-and-cloud-load-balancing cuando el dominio esté verificado."
   fi
 
   printf '\n' >&2

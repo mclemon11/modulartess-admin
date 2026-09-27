@@ -56,20 +56,23 @@ y **no se han activado**: queda para que una persona lo confirme desde el panel.
 
 Esto es lo que ya existe fuera de este repositorio, y no debe describirse como pendiente:
 
-| Hecho                                 | Estado                                               |
-| ------------------------------------- | ---------------------------------------------------- |
-| Firebase Authentication               | Habilitado                                           |
-| Primera cuenta administrativa         | Creada, con el correo **verificado**                 |
-| Claim `super_admin` de esa cuenta     | **Ya asignado**                                      |
-| Bootstrap del backend                 | `completed`; **no puede repetirse**                  |
-| Roles admitidos por backend y OpenAPI | `super_admin`, `master_admin`, `moderator`           |
-| `master_admin` y `moderator`          | Implementados y publicados en el contrato            |
-| Cuentas existentes                    | La `super_admin` del bootstrap                       |
-| Backend desplegado                    | **`ADMIN_AUTH_MODE=firebase`**, `/v1/admin/*` activa |
-| Backend `modulartess-backend-staging` | Ready, privado por IAM                               |
-| `modulartess-admin-stg-run`           | Creada                                               |
-| `roles/run.invoker` para el panel     | Concedido sobre el backend de staging                |
-| Servicio `modulartess-admin-staging`  | **Desplegado**                                       |
+| Hecho                                    | Estado                                                 |
+| ---------------------------------------- | ------------------------------------------------------ |
+| Firebase Authentication                  | Habilitado                                             |
+| Primera cuenta administrativa            | Creada, con el correo **verificado**                   |
+| Claim `super_admin` de esa cuenta        | **Ya asignado**                                        |
+| Bootstrap del backend                    | `completed`; **no puede repetirse**                    |
+| Roles admitidos por backend y OpenAPI    | `super_admin`, `master_admin`, `moderator`             |
+| `master_admin` y `moderator`             | Implementados y publicados en el contrato              |
+| Cuentas existentes                       | La `super_admin` del bootstrap                         |
+| Backend desplegado                       | **`ADMIN_AUTH_MODE=firebase`**, `/v1/admin/*` activa   |
+| Backend `modulartess-backend-staging`    | Ready, privado por IAM                                 |
+| `modulartess-admin-stg-run`              | Creada                                                 |
+| `roles/run.invoker` para el panel        | Concedido sobre el backend de staging                  |
+| Servicio `modulartess-admin-staging`     | **Desplegado**                                         |
+| Dominio del panel                        | **`https://admin.modulartess.com`**, por Load Balancer |
+| Certificado gestionado                   | `ACTIVE` (Google Trust Services)                       |
+| `admin.modulartess.com` en Firebase Auth | Autorizado                                             |
 
 ## Implementado
 
@@ -188,8 +191,16 @@ justo lo que se vio en el primer despliegue. `deploy/deploy.test.ts` lo exige.
   Es el archivado de siempre, con confirmación: no hay borrado físico.
 - **El listado de productos oculta lo archivado** (`view=current`) y lo enseña en «Eliminados
   (archivados)» (`view=archived`). El filtro es del backend, antes de paginar.
-- **Todavía no se ha invitado a nadie.** Las primeras cuentas se crearán cuando `admin.modulartess.com`
-  esté operativo y el `ADMIN_APP_URL` del backend apunte a él.
+- **Todavía no se ha invitado a nadie.** `admin.modulartess.com` ya está operativo y el
+  `ADMIN_APP_URL` del backend apunta a él, así que las invitaciones regresan al dominio definitivo.
+
+### Dominio `admin.modulartess.com`
+
+El panel entra por un Load Balancer HTTPS externo —IP global `8.233.108.239`, NEG serverless y
+certificado gestionado—, no por Firebase Hosting, que descarta la cookie `__Host-` en su rewrite a
+Cloud Run. `MODULARTESS_ADMIN_ORIGIN` es exactamente `https://admin.modulartess.com` y `preflight`
+rechaza cualquier otro valor, incluida la URL de Cloud Run. Detalle y rollback en
+`../../deploy/README.md`, sección 5.
 
 ## Previsto, todavía no implementado
 

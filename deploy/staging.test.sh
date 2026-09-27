@@ -116,7 +116,11 @@ for a in "$@"; do
   prev="${a}"
 done
 case "${ARGS}" in
+  # La URL de Cloud Run directa, que con el ingress cerrado deja de responder.
+  *".run.app/iniciar-sesion"*) printf '%s' "${SHIM_DIRECT_STATUS:-404}"; exit 0 ;;
   *"/iniciar-sesion"*) printf '%s' "${SHIM_LOGIN_STATUS:-200}"; exit 0 ;;
+  # Una mutación con el origen run.app: el BFF la rechaza.
+  *"origin: https://modulartess-admin-staging-"*) printf '%s' "${SHIM_FOREIGN_ORIGIN_STATUS:-403}"; exit 0 ;;
   *"/api/admin/auth/session"*)
     [ -n "${OUT}" ] && printf '{"code":"%s","message":"x"}' "${SHIM_PROBE_CODE:-session_required}" > "${OUT}"
     printf '%s' "${SHIM_PROBE_STATUS:-401}"; exit 0 ;;
@@ -160,7 +164,7 @@ sut() {
 }
 
 # Copia del repositorio cuyo `staging.vars` se puede reescribir. El versionado ya trae el origen
-# determinista correcto; esta copia sirve para los casos NEGATIVOS de ADMIN_ORIGIN.
+# canónico correcto; esta copia sirve para los casos NEGATIVOS de ADMIN_ORIGIN y SERVICE_INGRESS.
 REPO_COPY="${WORK}/repo"
 mkdir -p "${REPO_COPY}/deploy"
 cp "${REPO_ROOT}/Dockerfile" "${REPO_ROOT}/.dockerignore" "${REPO_ROOT}/next.config.ts" "${REPO_COPY}/"
@@ -170,7 +174,12 @@ set_admin_origin() {
   sed "s|^ADMIN_ORIGIN=.*|ADMIN_ORIGIN=$1|" "${SCRIPT_DIR}/staging.vars" \
     > "${REPO_COPY}/deploy/staging.vars"
 }
-set_admin_origin "https://modulartess-admin-staging-zzzz111122-ue.a.run.app"
+set_admin_origin "https://admin.modulartess.com"
+
+set_ingress() {
+  sed -i.bak "s|^SERVICE_INGRESS=.*|SERVICE_INGRESS=$1|" "${REPO_COPY}/deploy/staging.vars"
+  rm -f "${REPO_COPY}/deploy/staging.vars.bak"
+}
 
 # Ejecuta la copia con el origen ya resuelto.
 sut_fixed() {
@@ -343,30 +352,38 @@ expect_fail "${RC}" "verify falla si la credencial ficticia fuera aceptada"
 OUT="$(SHIM_LOGIN_STATUS=500 sut verify)"; RC=$?
 expect_fail "${RC}" "verify falla si la página de acceso no responde"
 
-group "ADMIN_ORIGIN determinista"
+group "ADMIN_ORIGIN canónico"
 OUT="$(sut preflight --firebase-env "${FB_GOOD}")"; RC=$?
-expect_ok "${RC}" "el origen determinista versionado pasa el preflight"
-expect_has "${OUT}" "Origen administrativo HTTPS y determinista" "lo valida como determinista"
+expect_ok "${RC}" "el origen canónico versionado pasa el preflight"
+expect_has "${OUT}" "Origen administrativo canónico: https://admin.modulartess.com" "lo valida como canónico"
 expect_lacks "${OUT}" "skip-origin-check" "ya no existe el despliegue provisional"
 
-set_admin_origin "https://modulartess-admin-staging-otrohash-ue.a.run.app"
-OUT="$(sut_fixed preflight --firebase-env "${FB_GOOD}")"; RC=$?
-expect_fail "${RC}" "un origen que no es el determinista bloquea el preflight"
-expect_has "${OUT}" "no es la URL determinista" "explica cuál se esperaba"
-
-set_admin_origin "http://modulartess-admin-staging-651080070961.us-east1.run.app"
-OUT="$(sut_fixed preflight --firebase-env "${FB_GOOD}")"; RC=$?
-expect_fail "${RC}" "un origen en http bloquea el preflight"
-
-set_admin_origin "https://modulartess-admin-staging-651080070961.us-east1.run.app/panel"
-OUT="$(sut_fixed preflight --firebase-env "${FB_GOOD}")"; RC=$?
-expect_fail "${RC}" "un origen con ruta bloquea el preflight"
-
-set_admin_origin "https://modulartess-admin-staging-651080070961.us-east1.run.app/"
-OUT="$(sut_fixed preflight --firebase-env "${FB_GOOD}")"; RC=$?
-expect_fail "${RC}" "un origen con barra final bloquea el preflight"
-
 set_admin_origin "https://modulartess-admin-staging-651080070961.us-east1.run.app"
+OUT="$(sut_fixed preflight --firebase-env "${FB_GOOD}")"; RC=$?
+expect_fail "${RC}" "la URL de Cloud Run ya no vale como origen"
+expect_has "${OUT}" "no puede ser la URL de Cloud Run" "lo explica"
+
+for bad in \
+  "http://admin.modulartess.com" \
+  "https://admin.modulartess.co" \
+  "https://admin.modulartes.com" \
+  "https://www.admin.modulartess.com" \
+  "https://admin.modulartess.com.atacante.tld" \
+  "https://xadmin.modulartess.com" \
+  "https://ADMIN.modulartess.com" \
+  "https://admin.modulartess.com:443" \
+  "https://admin.modulartess.com:8443" \
+  "https://admin.modulartess.com/panel" \
+  "https://admin.modulartess.com?x=1" \
+  "https://admin.modulartess.com#x" \
+  "https://usuario:clave@admin.modulartess.com" \
+  "https://admin.modulartess.com/"; do
+  set_admin_origin "${bad}"
+  OUT="$(sut_fixed preflight --firebase-env "${FB_GOOD}")"; RC=$?
+  expect_fail "${RC}" "rechaza el origen ${bad}"
+done
+
+set_admin_origin "https://admin.modulartess.com"
 
 group "Ready: por tipo, no por posición"
 OUT="$(sut preflight --firebase-env "${FB_GOOD}")"; RC=$?
@@ -405,8 +422,28 @@ expect_fail "${RC}" "deploy bloquea si gcloud falla al leer Ready"
 
 set_admin_origin "https://otro.example.invalid"
 OUT="$(sut_fixed deploy --yes --dry-run)"; RC=$?
-expect_fail "${RC}" "deploy bloquea con un ADMIN_ORIGIN que no es el determinista"
-set_admin_origin "https://modulartess-admin-staging-651080070961.us-east1.run.app"
+expect_fail "${RC}" "deploy bloquea con un ADMIN_ORIGIN que no es el canónico"
+expect_lacks "${OUT}" "gcloud run deploy" "no llega a la mutación con un origen ajeno"
+set_admin_origin "https://admin.modulartess.com"
+
+group "verify entra por el dominio y cierra la puerta run.app"
+OUT="$(sut verify)"; RC=$?
+expect_ok "${RC}" "verify termina bien con el dominio canónico"
+expect_has "${OUT}" "Entrada del panel: https://admin.modulartess.com" "sondea por el dominio canónico"
+expect_has "${CALL_LOG_CONTENT:-$(cat "${CALL_LOG}")}" "https://admin.modulartess.com/iniciar-sesion" "la página de acceso se pide al dominio"
+expect_has "${OUT}" "El origen run.app se rechaza" "comprueba que run.app no vale como origen"
+
+OUT="$(SHIM_FOREIGN_ORIGIN_STATUS=200 sut verify)"; RC=$?
+expect_fail "${RC}" "verify falla si el BFF aceptara el origen run.app"
+
+set_ingress "internal-and-cloud-load-balancing"
+OUT="$(sut_fixed verify)"; RC=$?
+expect_ok "${RC}" "con el ingress cerrado, run.app sin respuesta pública pasa"
+expect_has "${OUT}" "ya no es una entrada pública" "lo confirma"
+
+OUT="$(SHIM_DIRECT_STATUS=200 sut_fixed verify)"; RC=$?
+expect_fail "${RC}" "con el ingress cerrado, run.app respondiendo 200 falla"
+set_ingress "all"
 
 group "los valores de Firebase nunca se imprimen"
 FB_SENTINEL="${WORK}/sentinel.env"
