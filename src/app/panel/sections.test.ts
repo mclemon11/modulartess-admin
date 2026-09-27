@@ -12,6 +12,7 @@ describe('rutas de las secciones anunciadas', () => {
   it.each([
     ['/panel/envios', () => import('./envios/page')],
     ['/panel/wallet', () => import('./wallet/page')],
+    ['/panel/usuarios', () => import('./usuarios/page')],
   ])('%s tiene página', async (_href, load) => {
     const page = await load();
 

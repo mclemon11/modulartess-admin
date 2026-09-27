@@ -58,6 +58,15 @@ export const PERMISSIONS = [
    * ni de `orders.update_status`. El panel no escribe nada del correo: solo lo pide.
    */
   'notifications.send_reminder',
+  /*
+   * Cuentas administrativas (ADR 0019 del backend). Los nombres son los del contrato, sin
+   * inventar ninguno: ver cuentas y administrar las de cada rol, por separado. El listado solo
+   * trae las cuentas de los roles que quien mira puede administrar, y eso lo decide el backend.
+   */
+  'admin_users.read',
+  'admin_users.manage_moderators',
+  'admin_users.manage_masters',
+  'admin_users.manage_super_admins',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -93,6 +102,9 @@ const MASTER_ADMIN: readonly Permission[] = [
   'inventory.adjust',
   // Ve el estado de la pasarela y la bandeja de incidencias; no toca ni una credencial.
   'integrations.read',
+  // Ve y administra **solo** cuentas `moderator`. Ni `master_admin` ni `super_admin`.
+  'admin_users.read',
+  'admin_users.manage_moderators',
 ];
 
 /** `super_admin` tiene acceso completo a lo que esta fase publica. */

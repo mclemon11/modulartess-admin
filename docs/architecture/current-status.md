@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-09-26.
+Última actualización: 2026-09-27 (usuarios y «Eliminar del catálogo»).
 
 ## Fase
 
@@ -173,6 +173,24 @@ La imagen copia al runner **tres** artefactos, no dos: `.next/standalone`, `.nex
 igual y devuelve `404` en todo lo que vive ahí —el logotipo de la marca, entre otras cosas—, que es
 justo lo que se vio en el primer despliegue. `deploy/deploy.test.ts` lo exige.
 
+### Usuarios y «Eliminar del catálogo»
+
+[`ADR 0008`](../decisions/0008-admin-users-and-catalog-removal.md), sobre el ADR 0019 del backend.
+
+- **`/panel/usuarios`**, con `admin_users.read`: `super_admin` ve todas las cuentas y `master_admin`
+  solo las `moderator`. Listado paginado con nombre, correo, rol, estado —Invitación pendiente,
+  Activo o Deshabilitado—, creación y último acceso. Invitar, cambiar el rol, deshabilitar,
+  reactivar y reenviar la invitación, cada una con confirmación, `expectedVersion`, clave de
+  idempotencia y candado síncrono. Sin búsqueda: el contrato no la publica.
+- **Ninguna contraseña pasa por el panel**: la persona invitada la establece con el enlace del
+  correo que envía el backend.
+- **«Eliminar del catálogo»** en la fila, la tarjeta móvil y el detalle, solo con `products.archive`.
+  Es el archivado de siempre, con confirmación: no hay borrado físico.
+- **El listado de productos oculta lo archivado** (`view=current`) y lo enseña en «Eliminados
+  (archivados)» (`view=archived`). El filtro es del backend, antes de paginar.
+- **Todavía no se ha invitado a nadie.** Las primeras cuentas se crearán cuando `admin.modulartess.com`
+  esté operativo y el `ADMIN_APP_URL` del backend apunte a él.
+
 ## Previsto, todavía no implementado
 
 Elementos que forman parte del diseño acordado, pero que aún no existen en el repositorio.
@@ -180,13 +198,13 @@ Elementos que forman parte del diseño acordado, pero que aún no existen en el 
 | Área                            | Estado        | Detalle                                                               |
 | ------------------------------- | ------------- | --------------------------------------------------------------------- |
 | Metas y presupuesto de venta    | Pendiente     | El contrato publica lo vendido, no contra qué compararlo.             |
-| Clientes y usuarios admin.      | Pendiente     | El shell ya está preparado para añadirlos sin rehacerlo.              |
+| Clientes                        | Pendiente     | El shell ya está preparado para añadirlos sin rehacerlo.              |
 | Pasarela real de pago           | Pendiente     | El contrato solo publica el simulador de staging (`sandbox`).         |
 | Reembolsos                      | Pendiente     | Sin operación de reembolso en el contrato.                            |
 | Vista previa y reenvío de aviso | Pendiente     | No hay endpoint: la tarjeta de avisos es de solo lectura.             |
 | Envíos                          | Pendiente     | Pantalla anunciada; el despacho no está publicado.                    |
 | Addi y Odoo                     | Pendiente     | Integraciones fuera del contrato actual.                              |
-| Búsqueda y filtros del catálogo | Pendiente     | Solo hay `pageToken` y `pageSize`: filtrar una página mentiría.       |
+| Búsqueda del catálogo           | Pendiente     | Solo hay `view`, `pageToken` y `pageSize`; no hay texto que buscar.   |
 | Listado de la outbox            | Pendiente     | `failedNotifications` se cuenta; no hay pantalla que lo liste.        |
 | Addi                            | Pendiente     | Sin contrato: se anuncia como pendiente y no ejecuta ninguna llamada. |
 | Cobros reales de Wompi          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR PRODUCCIÓN».     |
@@ -195,7 +213,6 @@ Elementos que forman parte del diseño acordado, pero que aún no existen en el 
 | Paginación numérica             | Descartada    | El cursor es opaco: permite avanzar, no saltar de página.             |
 | Reordenar imágenes arrastrando  | Pendiente     | Hoy se reordena con botones accesibles sobre el mismo PATCH.          |
 | Biblioteca de medios            | Pendiente     | Sin endpoint que liste objetos del bucket.                            |
-| CRUD de cuentas administrativas | Pendiente     | Vertical posterior; hoy solo existe la cuenta `super_admin`.          |
 | Revocación al cerrar sesión     | Pendiente     | El contrato no publica un `DELETE`; el panel no lo inventa.           |
 | IAM y autorización del backend  | Fuera de aquí | El panel no la ejerce; es autoridad del backend.                      |
 | CI                              | Pendiente     | Hay pruebas unitarias, pero no pipeline.                              |

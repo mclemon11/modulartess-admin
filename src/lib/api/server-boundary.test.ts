@@ -89,6 +89,12 @@ const SERVER_ONLY_MODULES = [
   'src/app/api/admin/integrations/wompi/route.ts',
   'src/app/api/admin/integrations/wompi/test/route.ts',
   'src/app/api/admin/payment-incidents/[incidentId]/resolve/route.ts',
+  // Cuentas administrativas (ADR 0019 del backend).
+  'src/app/api/admin/users/route.ts',
+  'src/app/api/admin/users/[userId]/role/route.ts',
+  'src/app/api/admin/users/[userId]/disable/route.ts',
+  'src/app/api/admin/users/[userId]/reactivate/route.ts',
+  'src/app/api/admin/users/[userId]/resend-invitation/route.ts',
 ];
 
 describe('módulos server-only', () => {

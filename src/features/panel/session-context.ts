@@ -19,6 +19,11 @@ export type PanelSession = {
   /** Material opaco de la cookie. **Solo servidor**: se usa para llamar al backend. */
   readonly sessionMaterial: string;
   readonly role: string;
+  /**
+   * UID verificado de la sesión. **Solo servidor**: decide aquí qué fila del listado de cuentas es
+   * la propia, y nunca se pinta ni se pasa al cliente como dato.
+   */
+  readonly uid: string;
 };
 
 export type PanelSessionResult =
@@ -53,7 +58,10 @@ export async function resolvePanelSession(): Promise<PanelSessionResult> {
   try {
     const principal = await verifyAdminSession(sessionMaterial);
 
-    return { kind: 'active', session: { sessionMaterial, role: principal.role } };
+    return {
+      kind: 'active',
+      session: { sessionMaterial, role: principal.role, uid: principal.uid },
+    };
   } catch (error) {
     if (isBackendFailure(error)) {
       return error.code === 'backend_unauthorized' || error.code === 'backend_forbidden'

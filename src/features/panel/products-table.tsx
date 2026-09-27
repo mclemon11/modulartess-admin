@@ -9,6 +9,7 @@ import { describeReadiness } from './publication-readiness';
 import { StatusBadge } from './status-badge';
 
 import type { AdminProduct } from '@/lib/api/catalog';
+import { RemoveFromCatalogButton } from './remove-from-catalog';
 
 /**
  * Tabla del catálogo en escritorio.
@@ -24,9 +25,12 @@ import type { AdminProduct } from '@/lib/api/catalog';
 export function ProductsTable({
   products,
   canEdit,
+  canArchive = false,
 }: {
   readonly products: readonly AdminProduct[];
   readonly canEdit: boolean;
+  /** `products.archive`: muestra «Eliminar del catálogo» en las filas que no están archivadas. */
+  readonly canArchive?: boolean;
 }) {
   return (
     <div className={styles.tableScroll}>
@@ -51,7 +55,12 @@ export function ProductsTable({
         </thead>
         <tbody>
           {products.map((product) => (
-            <ProductRow canEdit={canEdit} key={product.id} product={product} />
+            <ProductRow
+              canArchive={canArchive}
+              canEdit={canEdit}
+              key={product.id}
+              product={product}
+            />
           ))}
         </tbody>
       </table>
@@ -103,9 +112,11 @@ export function StockCell({ product }: { readonly product: AdminProduct }) {
 function ProductRow({
   product,
   canEdit,
+  canArchive,
 }: {
   readonly product: AdminProduct;
   readonly canEdit: boolean;
+  readonly canArchive: boolean;
 }) {
   return (
     <tr>
@@ -139,9 +150,12 @@ function ProductRow({
       </td>
       <td className={styles.timestamp}>{formatDateTime(product.updatedAt)}</td>
       <td className={styles.actionCell}>
-        <Link className={styles.rowAction} href={`/panel/productos/${product.id}`}>
-          {canEdit ? 'Editar' : 'Ver'}
-        </Link>
+        <span className={styles.rowActions}>
+          <Link className={styles.rowAction} href={`/panel/productos/${product.id}`}>
+            {canEdit ? 'Editar' : 'Ver'}
+          </Link>
+          {canArchive ? <RemoveFromCatalogButton product={product} /> : null}
+        </span>
       </td>
     </tr>
   );

@@ -69,7 +69,10 @@ no crea colecciones ni documentos.
 Reglas de uso, también permanentes:
 
 - El acceso es **cerrado**: no hay registro público, ni enlaces de «Crear cuenta», ni proveedores
-  federados, ni autenticación anónima, ni cambio o restablecimiento de contraseña.
+  federados, ni autenticación anónima, ni cambio o restablecimiento de contraseña. Las cuentas solo
+  se crean como **invitación administrativa** desde «Usuarios», y la ejecuta el backend: el panel
+  nunca pide, genera, muestra ni guarda una contraseña, ni ve el enlace de la invitación. Ver
+  `docs/decisions/0008-admin-users-and-catalog-removal.md`.
 - La persistencia se fija a `inMemoryPersistence` **antes** de autenticar. Ni la sesión de
   Firebase, ni el correo, ni la contraseña, ni el UID, ni ningún token se escriben en
   `localStorage`, `sessionStorage`, cookies accesibles desde JavaScript, logs o URLs.
@@ -207,7 +210,10 @@ no lleva la cuenta del despliegue.
   se deducen por jerarquía numérica: ocultar un botón es usabilidad, y la autoridad sigue siendo el
   backend, que rechaza cualquier petición fabricada. Las acciones sobre variantes reutilizan los
   permisos que ya exige el contrato —`products.create`, `products.update`, `inventory.adjust` y
-  `products.archive`—, sin inventar ninguno nuevo.
+  `products.archive`—, sin inventar ninguno nuevo. Las cuentas usan los del contrato:
+  `admin_users.read` y `admin_users.manage_*` por rol objetivo.
+- «Eliminar del catálogo» es el **archivado** del contrato. No existe borrado físico de productos y
+  un producto archivado nunca se presenta como eliminado permanentemente.
 - La disponibilidad la deriva el backend. El panel muestra el inventario y el estado que recibe y
   no calcula si algo está disponible: eso es una regla comercial.
 - Prohibido implementar login simulado o sesiones falsas.

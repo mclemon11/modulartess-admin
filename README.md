@@ -109,8 +109,8 @@ Estado real del entorno:
 
 Todavía pendiente en este repositorio:
 
-- Pedidos, clientes y usuarios administrativos: el contrato no publica sus operaciones.
-- Métricas del panel, buscador y filtros del catálogo: `GET /v1/admin/products` solo admite
+- Clientes: el contrato no publica sus operaciones.
+- Métricas del panel y buscador del catálogo: `GET /v1/admin/products` solo admite `view`,
   `pageToken` y `pageSize`, y no hay agregaciones que mostrar.
 - Revocación de la sesión en el proveedor al cerrar sesión: el contrato no publica un `DELETE`.
 - Pipeline de integración continua.
@@ -362,10 +362,10 @@ ninguna pantalla. El detalle está en
 
 Todas esperan a que el contrato publique sus operaciones; ninguna se aparenta en la interfaz.
 
-- Pedidos, clientes y usuarios administrativos.
-- Categorías, colecciones, SEO, envíos y descuentos como entidades propias.
+- Clientes.
+- Colecciones, SEO, envíos y descuentos como entidades propias.
 - Métricas del panel y contadores por estado: el backend no publica agregaciones.
-- Buscador y filtros del catálogo: el listado administrativo solo admite `pageToken` y `pageSize`.
+- Buscador del catálogo: el listado administrativo solo admite `view`, `pageToken` y `pageSize`.
 - Biblioteca de medios y reordenar imágenes arrastrando.
 - Revocación de la sesión en el proveedor al cerrar sesión.
 - Pipeline de integración continua.

@@ -159,6 +159,23 @@ export const BACKEND_FAILURE_CODES = [
   /** 400 `product_category_invalid`: nombre o slug con una forma que el contrato no admite. */
   'backend_product_category_invalid',
   /**
+   * Administración de cuentas (ADR 0019 del backend), uno por código publicado.
+   *
+   * - `admin_user_email_taken`: el correo ya es de una cuenta administrativa o de otra identidad.
+   * - `admin_user_last_super_admin`: dejaría el sistema sin ningún `super_admin` activo.
+   * - `admin_user_self_change`: nadie se deshabilita ni se cambia el rol a sí mismo.
+   * - `admin_user_state_conflict`: la acción no vale para el estado actual de la cuenta.
+   * - `admin_user_invitation_recently_sent`: la última invitación salió hace menos de un minuto.
+   * - `admin_user_sync_pending` (503): el cambio quedó registrado y la cuenta ya no puede entrar,
+   *   pero Firebase aún no lo refleja. Repetir la misma petición lo termina.
+   */
+  'backend_admin_user_email_taken',
+  'backend_admin_user_last_super_admin',
+  'backend_admin_user_self_change',
+  'backend_admin_user_state_conflict',
+  'backend_admin_user_invitation_recently_sent',
+  'backend_admin_user_sync_pending',
+  /**
    * 409 con un código que el panel no conoce, o sin código.
    *
    * **No se convierte en conflicto de versión.** Esa traducción genérica es la que hacía decir
@@ -307,4 +324,41 @@ export function catalogFailure(
   }
 
   return new BackendFailure(failureCodeFromStatus(status, options));
+}
+
+/**
+ * Códigos de la administración de cuentas, uno a uno.
+ *
+ * El conflicto de versión es el único que ofrece recargar. `admin_user_invalid` y
+ * `admin_user_not_found` no necesitan fila: el estado (400 y 404) ya los traduce bien.
+ */
+const ACCOUNT_CODES: Readonly<Record<string, BackendFailureCode>> = {
+  admin_user_version_conflict: 'backend_conflict',
+  admin_user_email_taken: 'backend_admin_user_email_taken',
+  admin_user_last_super_admin: 'backend_admin_user_last_super_admin',
+  admin_user_self_change: 'backend_admin_user_self_change',
+  admin_user_state_conflict: 'backend_admin_user_state_conflict',
+  admin_user_invitation_recently_sent: 'backend_admin_user_invitation_recently_sent',
+  admin_user_sync_pending: 'backend_admin_user_sync_pending',
+  idempotency_conflict: 'backend_idempotency_conflict',
+};
+
+/**
+ * Traduce un fallo de `/v1/admin/users/*`.
+ *
+ * Primero el código del cuerpo, nunca el mensaje. Un 409 desconocido no se convierte en conflicto
+ * de versión: viaja como `backend_conflict_unrecognized` con su código de referencia.
+ */
+export function accountFailure(status: number, error: unknown): BackendFailure {
+  const code = upstreamErrorCode(error);
+
+  if (code !== null && Object.hasOwn(ACCOUNT_CODES, code)) {
+    return new BackendFailure(ACCOUNT_CODES[code] as BackendFailureCode);
+  }
+
+  if (status === 409) {
+    return new BackendFailure('backend_conflict_unrecognized', code);
+  }
+
+  return new BackendFailure(failureCodeFromStatus(status, { notFound: 'backend_not_found' }));
 }

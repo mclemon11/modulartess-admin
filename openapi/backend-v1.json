@@ -951,6 +951,143 @@
         ],
         "type": "object"
       },
+      "AdminUserDto": {
+        "properties": {
+          "activatedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "description": "Normalised to lowercase.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Account identifier.",
+            "type": "string"
+          },
+          "identitySync": {
+            "description": "pending: the change is recorded but Firebase does not reflect it yet. The account is already denied a session; repeat the same request with the same Idempotency-Key to finish it.",
+            "enum": [
+              "synced",
+              "pending"
+            ],
+            "type": "string"
+          },
+          "invitation": {
+            "$ref": "#/components/schemas/AdminUserInvitationDto"
+          },
+          "lastSessionAt": {
+            "description": "Last completed sign-in.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "super_admin",
+              "master_admin",
+              "moderator"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "description": "invited: the invitation has not been completed yet, so the account has no credential and cannot sign in. active: can sign in. disabled: cannot sign in.",
+            "enum": [
+              "invited",
+              "active",
+              "disabled"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "description": "Send it back as expectedVersion to change the account.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "role",
+          "status",
+          "version",
+          "createdAt",
+          "activatedAt",
+          "lastSessionAt",
+          "invitation",
+          "identitySync"
+        ],
+        "type": "object"
+      },
+      "AdminUserInvitationDto": {
+        "properties": {
+          "lastAttemptAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "sendCount": {
+            "description": "Deliveries attempted, including the first one.",
+            "type": "number"
+          },
+          "state": {
+            "description": "State of the latest invitation: pending (not attempted yet, or interrupted), sent, failed or suppressed (delivery disabled or recipient not allowed). The link itself is never published.",
+            "enum": [
+              "pending",
+              "sent",
+              "failed",
+              "suppressed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "sendCount",
+          "lastAttemptAt"
+        ],
+        "type": "object"
+      },
+      "AdminUserPageDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminUserDto"
+            },
+            "type": "array"
+          },
+          "nextPageToken": {
+            "description": "Opaque cursor for the next page, or null when there are no more.",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "nextPageToken"
+        ],
+        "type": "object"
+      },
+      "AdminUserTransitionDto": {
+        "properties": {
+          "expectedVersion": {
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ],
+        "type": "object"
+      },
       "CancelOrderRequestDto": {
         "properties": {
           "expectedVersion": {
@@ -1205,6 +1342,27 @@
         ],
         "type": "object"
       },
+      "ChangeAdminUserRoleDto": {
+        "properties": {
+          "expectedVersion": {
+            "minimum": 1,
+            "type": "number"
+          },
+          "role": {
+            "enum": [
+              "super_admin",
+              "master_admin",
+              "moderator"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "role"
+        ],
+        "type": "object"
+      },
       "CheckoutCustomerDto": {
         "properties": {
           "address": {
@@ -1278,6 +1436,34 @@
           "variantId",
           "quantity",
           "customer"
+        ],
+        "type": "object"
+      },
+      "CreateAdminUserDto": {
+        "properties": {
+          "displayName": {
+            "maxLength": 80,
+            "minLength": 2,
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "super_admin",
+              "master_admin",
+              "moderator"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "displayName",
+          "role"
         ],
         "type": "object"
       },
@@ -6664,7 +6850,7 @@
     },
     "/v1/admin/products": {
       "get": {
-        "description": "Ordered by updatedAt descending. Requires products.read.",
+        "description": "Ordered by updatedAt descending. The view is filtered by the query before paginating: current (default) lists draft and active products, archived lists only archived products, all lists every product. Each view has its own cursor. Requires products.read.",
         "operationId": "AdminProductsController_list",
         "parameters": [
           {
@@ -6683,6 +6869,20 @@
             "required": false,
             "schema": {
               "type": "number"
+            }
+          },
+          {
+            "description": "current (default): draft and active. archived: only archived. all: every product. An archived product is withdrawn from the catalogue, never permanently deleted.",
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "enum": [
+                "current",
+                "archived",
+                "all"
+              ],
+              "type": "string"
             }
           }
         ],
@@ -8510,6 +8710,655 @@
         ]
       }
     },
+    "/v1/admin/users": {
+      "get": {
+        "description": "Only accounts registered as administrative, never other identities of the Firebase project. Filtered by the query before paginating to the roles the caller manages: super_admin sees every account, master_admin sees only moderator accounts. Ordered by creation, newest first. Requires admin_users.read.",
+        "operationId": "AdminUsersController_list",
+        "parameters": [
+          {
+            "description": "Opaque cursor.",
+            "in": "query",
+            "name": "pageToken",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Default 20, maximum 50.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserPageDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_users_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "List administrative accounts",
+        "tags": [
+          "admin-users"
+        ]
+      },
+      "post": {
+        "description": "Receives only email, displayName and role. Creates the Firebase identity with no credential, assigns only the role claim and emails an invitation whose link lets the person choose their own credential. The link is never returned, stored or logged. If the email cannot be delivered the account stays invited with invitation.state=failed; recover it with resend-invitation. Requires the permission to manage the chosen role.",
+        "operationId": "AdminUsersController_create",
+        "parameters": [
+          {
+            "description": "8-128 characters [A-Za-z0-9._:-]. Repeating the same key with the same body returns the current account without applying the change again, and finishes a pending Firebase reconciliation. Reusing it with a different body is idempotency_conflict.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAdminUserDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_email_taken or idempotency_conflict"
+          },
+          "429": {
+            "description": "Throttled."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_users_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Invite an administrative account",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/v1/admin/users/{userId}/disable": {
+      "post": {
+        "description": "Requires expectedVersion and the permission to manage the account's role. Nobody disables themselves, and the last active super_admin cannot be disabled. Revokes the account's sessions and refresh tokens. Nothing is deleted.",
+        "operationId": "AdminUsersController_disable",
+        "parameters": [
+          {
+            "description": "8-128 characters [A-Za-z0-9._:-]. Repeating the same key with the same body returns the current account without applying the change again, and finishes a pending Firebase reconciliation. Reusing it with a different body is idempotency_conflict.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Account identifier.",
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserTransitionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_version_conflict, admin_user_last_super_admin, admin_user_self_change, admin_user_state_conflict or idempotency_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_sync_pending: the change is recorded and the account is already denied a session; repeat the same request to finish it. admin_users_unavailable: transient."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Disable an account",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/v1/admin/users/{userId}/reactivate": {
+      "post": {
+        "description": "Returns the account to active, or to invited if it never completed its invitation. Requires expectedVersion and the permission to manage the account's role. Revokes refresh tokens so the next sign-in starts fresh.",
+        "operationId": "AdminUsersController_reactivate",
+        "parameters": [
+          {
+            "description": "8-128 characters [A-Za-z0-9._:-]. Repeating the same key with the same body returns the current account without applying the change again, and finishes a pending Firebase reconciliation. Reusing it with a different body is idempotency_conflict.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Account identifier.",
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserTransitionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_version_conflict, admin_user_last_super_admin, admin_user_self_change, admin_user_state_conflict or idempotency_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_sync_pending: the change is recorded and the account is already denied a session; repeat the same request to finish it. admin_users_unavailable: transient."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Reactivate a disabled account",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/v1/admin/users/{userId}/resend-invitation": {
+      "post": {
+        "description": "Explicit action. Only for accounts still invited. Requires expectedVersion and the permission to manage the account's role; not allowed within a minute of the previous attempt. The link is never returned, stored or logged.",
+        "operationId": "AdminUsersController_resendInvitation",
+        "parameters": [
+          {
+            "description": "8-128 characters [A-Za-z0-9._:-]. Repeating the same key with the same body returns the current account without applying the change again, and finishes a pending Firebase reconciliation. Reusing it with a different body is idempotency_conflict.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Account identifier.",
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserTransitionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_version_conflict, admin_user_state_conflict, admin_user_invitation_recently_sent or idempotency_conflict"
+          },
+          "429": {
+            "description": "Throttled."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_users_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Resend the invitation of an invited account",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/v1/admin/users/{userId}/role": {
+      "patch": {
+        "description": "Requires expectedVersion and the permission to manage both the current and the new role. Nobody changes their own role, and the last active super_admin cannot be demoted, not even by two concurrent requests. Revokes the account's sessions and refresh tokens.",
+        "operationId": "AdminUsersController_changeRole",
+        "parameters": [
+          {
+            "description": "8-128 characters [A-Za-z0-9._:-]. Repeating the same key with the same body returns the current account without applying the change again, and finishes a pending Firebase reconciliation. Reusing it with a different body is idempotency_conflict.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Account identifier.",
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeAdminUserRoleDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_version_conflict, admin_user_last_super_admin, admin_user_self_change, admin_user_state_conflict or idempotency_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_user_sync_pending: the change is recorded and the account is already denied a session; repeat the same request to finish it. admin_users_unavailable: transient."
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Change the role of an account",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
     "/v1/demo/checkout": {
       "post": {
         "operationId": "DemoController_checkout",
@@ -9479,6 +10328,10 @@
     {
       "description": "Administrative surface: the commercial summary the panel opens with. Read-only, server-to-server, and every figure comes from stored data: nothing is estimated or generated. Requires dashboard.read.",
       "name": "admin-dashboard"
+    },
+    {
+      "description": "Administrative surface: administrative accounts and invitations (ADR 0019). Server-to-server only. Lists only accounts registered as administrative, never other identities of the project. No credential, token, claim map or invitation link is ever accepted or returned. Requires admin_users.read to list and the permission to manage the target role to change an account.",
+      "name": "admin-users"
     },
     {
       "description": "Administrative surface: session exchange and verification. Server-to-server only, called by the panel BFF and never by a browser. Disabled unless ADMIN_AUTH_MODE=firebase.",

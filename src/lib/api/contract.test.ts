@@ -241,7 +241,7 @@ describe('copia versionada del contrato', () => {
     ).toEqual(['attributes', 'expectedVersion', 'priceCop']);
   });
 
-  it('solo los ajustes de inventario y la subida de imagen exigen Idempotency-Key', () => {
+  it('solo inventario, imágenes y las mutaciones de cuentas exigen Idempotency-Key', () => {
     const withKey: string[] = [];
 
     for (const [path, node] of Object.entries(contract.paths)) {
@@ -261,16 +261,25 @@ describe('copia versionada del contrato', () => {
     // `POST /v1/orders` sí la lleva, y es de la tienda, no del panel: un reintento de red que
     // creara dos pedidos dejaría a alguien esperando dos entregas. El panel no crea pedidos, así
     // que no la envía nunca; aparece aquí porque la copia del contrato es completa.
-    expect(withKey.sort()).toEqual([
-      'POST /v1/admin/products/{productId}/images',
-      'POST /v1/admin/products/{productId}/inventory-adjustments',
-      'POST /v1/admin/products/{productId}/variants/{variantId}/inventory-adjustments',
-      'POST /v1/orders',
-      // Las dos rutas que usa el panel desde los dos modos. La clave es obligatoria ahí, y por eso
-      // el BFF la exige en el cuerpo antes de llamar: sin ella no hay reintento seguro.
-      'PUT /v1/admin/products/{productId}/inventory',
-      'PUT /v1/admin/products/{productId}/variants/{variantId}/inventory',
-    ]);
+    expect(withKey.sort()).toEqual(
+      [
+        'POST /v1/admin/products/{productId}/images',
+        'POST /v1/admin/products/{productId}/inventory-adjustments',
+        'POST /v1/admin/products/{productId}/variants/{variantId}/inventory-adjustments',
+        'POST /v1/orders',
+        // Las dos rutas que usa el panel desde los dos modos. La clave es obligatoria ahí, y por eso
+        // el BFF la exige en el cuerpo antes de llamar: sin ella no hay reintento seguro.
+        'PUT /v1/admin/products/{productId}/inventory',
+        'PUT /v1/admin/products/{productId}/variants/{variantId}/inventory',
+        // Cuentas administrativas: cada mutación tiene un efecto en Firebase o en el correo, y
+        // repetirla con la misma clave termina la operación en lugar de lanzar otra.
+        'PATCH /v1/admin/users/{userId}/role',
+        'POST /v1/admin/users',
+        'POST /v1/admin/users/{userId}/disable',
+        'POST /v1/admin/users/{userId}/reactivate',
+        'POST /v1/admin/users/{userId}/resend-invitation',
+      ].sort(),
+    );
   });
 
   it('el producto administrativo publica la preparación para publicar', () => {

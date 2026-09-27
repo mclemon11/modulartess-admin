@@ -17,11 +17,18 @@ import 'server-only';
 
 import { backendClient } from './backend-client';
 import { BackendFailure, catalogFailure } from './errors';
-import type { components } from './generated/schema';
+import type { components, paths } from './generated/schema';
 import { ADMIN_SESSION_HEADER } from './session-material';
 
 export type AdminProduct = components['schemas']['AdminProductDto'];
 export type AdminProductPage = components['schemas']['AdminProductPageDto'];
+/**
+ * Vista del listado, tal como la publica el contrato: `current` (borradores y activos, lo que el
+ * backend devuelve sin indicarla), `archived` o `all`. El backend la filtra **antes** de paginar.
+ */
+export type ProductListView = NonNullable<
+  NonNullable<paths['/v1/admin/products']['get']['parameters']['query']>['view']
+>;
 /**
  * Alta de producto.
  *
@@ -151,9 +158,17 @@ function toFailure(error: unknown): BackendFailure {
 
 export async function listProducts(
   sessionMaterial: string,
-  options: { readonly pageToken?: string; readonly pageSize?: number } = {},
+  options: {
+    readonly pageToken?: string;
+    readonly pageSize?: number;
+    readonly view?: ProductListView;
+  } = {},
 ): Promise<AdminProductPage> {
-  const query: { pageToken?: string; pageSize?: number } = {};
+  const query: { pageToken?: string; pageSize?: number; view?: ProductListView } = {};
+
+  if (options.view !== undefined) {
+    query.view = options.view;
+  }
 
   if (options.pageToken !== undefined && options.pageToken !== '') {
     query.pageToken = options.pageToken;

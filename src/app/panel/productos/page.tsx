@@ -7,6 +7,7 @@ import { PanelPageHeader } from '@/features/panel/panel-page-header';
 import { EmptyState, ErrorState } from '@/features/panel/panel-states';
 import { ProductMobileCard } from '@/features/panel/product-mobile-card';
 import { ProductsTable } from '@/features/panel/products-table';
+import { RemovalNoticeProvider } from '@/features/panel/remove-from-catalog';
 import { RefreshButton } from '@/features/panel/refresh-button';
 import { resolvePanelSession } from '@/features/panel/session-context';
 import { can } from '@/features/session/permissions';
@@ -53,17 +54,25 @@ export default async function ProductsPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const pageToken = firstValue(params.pageToken);
+  /*
+   * Dos vistas, y las dos las filtra el backend antes de paginar: el catálogo con el que se
+   * trabaja —borradores y activos— y lo eliminado del catálogo, que es lo archivado. Cualquier
+   * otro valor cae en la vista normal en lugar de mostrarlo todo.
+   */
+  const archivedView = firstValue(params.view) === 'archived';
   const canCreate = can(session.session.role, 'products.create');
   const canEdit = can(session.session.role, 'products.update');
+  const canArchive = can(session.session.role, 'products.archive');
+  const viewQuery = archivedView ? 'view=archived&' : '';
   const trail = [{ href: '/panel', label: 'Panel' }, { label: 'Productos' }];
 
   let page;
 
   try {
-    page = await listProducts(
-      session.session.sessionMaterial,
-      pageToken === undefined ? {} : { pageToken },
-    );
+    page = await listProducts(session.session.sessionMaterial, {
+      view: archivedView ? 'archived' : 'current',
+      ...(pageToken === undefined ? {} : { pageToken }),
+    });
   } catch (error) {
     const message = isBackendFailure(error)
       ? describeBackendFailure(error.code)
@@ -107,40 +116,71 @@ export default async function ProductsPage({ searchParams }: PageProps) {
               ) : null}
             </>
           }
-          lead="Publicados, borradores y archivados de tu tienda, ordenados por última actualización. En los borradores se indica lo que el backend pide para poder publicarlos."
+          lead={
+            archivedView
+              ? 'Productos eliminados del catálogo: no aparecen en la tienda ni se pueden comprar. Conservan sus pedidos, su auditoría, su SKU y su enlace interno.'
+              : 'Publicados y borradores de tu tienda, ordenados por última actualización. En los borradores se indica lo que el backend pide para poder publicarlos.'
+          }
           title="Productos"
         />
 
+        <nav aria-label="Vista del catálogo" className={styles.viewTabs}>
+          <Link
+            aria-current={archivedView ? undefined : 'page'}
+            className={archivedView ? styles.viewTab : styles.viewTabActive}
+            href="/panel/productos"
+          >
+            Catálogo
+          </Link>
+          <Link
+            aria-current={archivedView ? 'page' : undefined}
+            className={archivedView ? styles.viewTabActive : styles.viewTab}
+            href="/panel/productos?view=archived"
+          >
+            Eliminados (archivados)
+          </Link>
+        </nav>
+
         {page.items.length === 0 ? (
-          <CatalogEmpty canCreate={canCreate} />
+          archivedView ? (
+            <ArchivedEmpty />
+          ) : (
+            <CatalogEmpty canCreate={canCreate} />
+          )
         ) : (
-          <section className={styles.listSurface}>
-            <ProductsTable canEdit={canEdit} products={page.items} />
+          <RemovalNoticeProvider>
+            <section className={styles.listSurface}>
+              <ProductsTable canArchive={canArchive} canEdit={canEdit} products={page.items} />
 
-            <ul className={styles.cardList}>
-              {page.items.map((product) => (
-                <li key={product.id}>
-                  <ProductMobileCard canEdit={canEdit} product={product} />
-                </li>
-              ))}
-            </ul>
+              <ul className={styles.cardList}>
+                {page.items.map((product) => (
+                  <li key={product.id}>
+                    <ProductMobileCard
+                      canArchive={canArchive}
+                      canEdit={canEdit}
+                      product={product}
+                    />
+                  </li>
+                ))}
+              </ul>
 
-            <div className={styles.pagination}>
-              <p className={styles.paginationNote}>
-                Mostrando {page.items.length} producto{page.items.length === 1 ? '' : 's'}.
-              </p>
-              {page.nextPageToken === null ? (
-                <p className={styles.paginationNote}>No hay más páginas.</p>
-              ) : (
-                <Link
-                  className={styles.buttonSecondary}
-                  href={`/panel/productos?pageToken=${encodeURIComponent(page.nextPageToken)}`}
-                >
-                  Cargar más productos
-                </Link>
-              )}
-            </div>
-          </section>
+              <div className={styles.pagination}>
+                <p className={styles.paginationNote}>
+                  Mostrando {page.items.length} producto{page.items.length === 1 ? '' : 's'}.
+                </p>
+                {page.nextPageToken === null ? (
+                  <p className={styles.paginationNote}>No hay más páginas.</p>
+                ) : (
+                  <Link
+                    className={styles.buttonSecondary}
+                    href={`/panel/productos?${viewQuery}pageToken=${encodeURIComponent(page.nextPageToken)}`}
+                  >
+                    Cargar más productos
+                  </Link>
+                )}
+              </div>
+            </section>
+          </RemovalNoticeProvider>
         )}
       </div>
     </>
@@ -164,6 +204,15 @@ function CatalogEmpty({ canCreate }: { readonly canCreate: boolean }) {
     >
       El catálogo está vacío. Un producto nuevo nace como borrador y no es visible en la tienda
       hasta que se publica.
+    </EmptyState>
+  );
+}
+
+function ArchivedEmpty() {
+  return (
+    <EmptyState icon="productos" title="No hay productos eliminados del catálogo">
+      Cuando elimines un producto del catálogo aparecerá aquí. No se borra: deja de verse en la
+      tienda y conserva sus pedidos, su SKU y su enlace interno.
     </EmptyState>
   );
 }

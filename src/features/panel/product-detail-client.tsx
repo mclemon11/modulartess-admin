@@ -57,6 +57,7 @@ import { PublicationChecklist } from './publication-checklist';
 import { describeReadiness, SECTION_IDS } from './publication-readiness';
 import { SectionHeading } from './section-icon';
 import { StatusBadge } from './status-badge';
+import { RemoveFromCatalogButton, REMOVED_NOTICE } from './remove-from-catalog';
 
 /**
  * Detalle, edición y acciones de un producto.
@@ -243,7 +244,7 @@ export function ProductDetailClient({
     });
   }
 
-  async function handleTransition(transition: 'publish' | 'archive') {
+  async function handleTransition(transition: 'publish') {
     if (!begin()) {
       return;
     }
@@ -252,7 +253,7 @@ export function ProductDetailClient({
 
     settle(result, (updated) => {
       applyProduct(updated);
-      setNotice(transition === 'publish' ? 'Producto publicado.' : 'Producto archivado.');
+      setNotice('Producto publicado.');
     });
   }
 
@@ -544,15 +545,22 @@ export function ProductDetailClient({
                       Publicar
                     </button>
                   ) : null}
+                  {/* Archivar, con el nombre con que se busca: «Eliminar del catálogo». Pide
+                      confirmación y no borra nada; ver `remove-from-catalog.tsx`. */}
                   {permissions.canArchive && product.status !== 'archived' ? (
-                    <button
-                      className={styles.buttonDanger}
-                      disabled={busy}
-                      onClick={() => void handleTransition('archive')}
-                      type="button"
-                    >
-                      Archivar producto
-                    </button>
+                    <RemoveFromCatalogButton
+                      onFailure={(message, versionConflict) => {
+                        setNotice(null);
+                        setFailure(message);
+                        setConflict(versionConflict);
+                      }}
+                      onRemoved={(updated) => {
+                        applyProduct(updated);
+                        setNotice(REMOVED_NOTICE);
+                      }}
+                      product={product}
+                      variant="danger"
+                    />
                   ) : null}
                   <PreviewDialog>
                     {primaryImage === undefined ? (
@@ -589,7 +597,9 @@ export function ProductDetailClient({
                   </p>
                 ) : null}
                 {permissions.canPublish ? null : (
-                  <p className={styles.hint}>Tu rol no incluye publicar ni archivar.</p>
+                  <p className={styles.hint}>
+                    Tu rol no incluye publicar ni eliminar del catálogo.
+                  </p>
                 )}
                 <dl className={styles.definition}>
                   <dt>Destacado</dt>

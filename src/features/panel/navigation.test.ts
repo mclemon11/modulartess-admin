@@ -1,22 +1,34 @@
 import { describe, expect, it } from 'vitest';
 
-import { isActive, NAVIGATION } from './navigation';
+import { isActive, NAVIGATION, navigationFor } from './navigation';
 
 /**
- * La navegación es un acuerdo, no una lista que crece sola: seis entradas, en este orden. Si
- * alguien añade una séptima —o quita una— esta prueba lo dice antes de que llegue a la barra
- * lateral.
+ * La navegación es un acuerdo, no una lista que crece sola: siete entradas, en este orden. Si
+ * alguien añade una octava —o quita una— esta prueba lo dice antes de que llegue a la barra
+ * lateral. «Usuarios» solo la ve quien tiene `admin_users.read`.
  */
 describe('navegación del panel', () => {
-  it('tiene exactamente las seis entradas acordadas, en orden', () => {
+  it('tiene exactamente las siete entradas acordadas, en orden', () => {
     expect(NAVIGATION.map((item) => [item.label, item.href])).toEqual([
       ['Dashboard', '/panel'],
       ['Pedidos', '/panel/pedidos'],
       ['Productos', '/panel/productos'],
       ['Envíos', '/panel/envios'],
       ['Wallet', '/panel/wallet'],
+      ['Usuarios', '/panel/usuarios'],
       ['Configuración', '/panel/configuracion'],
     ]);
+  });
+
+  it('«Usuarios» solo aparece con admin_users.read', () => {
+    const hrefs = (role: string) => navigationFor(role).map((item) => item.href);
+
+    expect(hrefs('super_admin')).toContain('/panel/usuarios');
+    expect(hrefs('master_admin')).toContain('/panel/usuarios');
+    expect(hrefs('moderator')).not.toContain('/panel/usuarios');
+    expect(hrefs('rol_desconocido')).not.toContain('/panel/usuarios');
+    // El resto de entradas no depende del rol.
+    expect(hrefs('moderator')).toHaveLength(NAVIGATION.length - 1);
   });
 
   it('cada entrada declara su icono', () => {

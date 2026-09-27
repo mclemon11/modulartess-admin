@@ -8,6 +8,7 @@ import { ReadinessPill, StockCell } from './products-table';
 import { StatusBadge } from './status-badge';
 
 import type { AdminProduct } from '@/lib/api/catalog';
+import { RemoveFromCatalogButton } from './remove-from-catalog';
 
 /**
  * El producto como tarjeta, para cuando la tabla deja de caber.
@@ -20,9 +21,11 @@ import type { AdminProduct } from '@/lib/api/catalog';
 export function ProductMobileCard({
   product,
   canEdit,
+  canArchive = false,
 }: {
   readonly product: AdminProduct;
   readonly canEdit: boolean;
+  readonly canArchive?: boolean;
 }) {
   return (
     <article className={styles.productCard}>
@@ -50,6 +53,7 @@ export function ProductMobileCard({
           <Link className={styles.rowAction} href={`/panel/productos/${product.id}`}>
             {canEdit ? 'Editar' : 'Ver producto'} <span aria-hidden="true">→</span>
           </Link>
+          {canArchive ? <RemoveFromCatalogButton product={product} /> : null}
         </div>
       </div>
     </article>

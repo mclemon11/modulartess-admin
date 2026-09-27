@@ -615,6 +615,14 @@
   letter-spacing: -0.01em;
 }
 
+/* Acciones de una fila del listado: «Editar» y, con permiso, «Eliminar del catálogo». */
+.rowActions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+}
+
 .productCardFooter {
   display: flex;
   flex-wrap: wrap;
@@ -2620,4 +2628,41 @@
   flex-wrap: wrap;
   gap: var(--space-sm);
   margin-left: auto;
+}
+
+/* Pestañas de vista del listado de productos: catálogo y eliminados (archivados). */
+.viewTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+
+.viewTab {
+  padding: 0.4375rem 0.875rem;
+  border: 1px solid var(--color-panel-border);
+  border-radius: 999px;
+  background-color: var(--color-panel-surface);
+  color: var(--color-panel-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.viewTab:hover {
+  border-color: var(--color-brand-border);
+  color: var(--color-brand-strong);
+}
+
+.viewTab:focus-visible,
+.viewTabActive:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-brand-ring);
+  outline: none;
+}
+
+.viewTabActive {
+  composes: viewTab;
+  border-color: var(--color-brand);
+  background-color: var(--color-brand-soft);
+  color: var(--color-brand-strong);
 }

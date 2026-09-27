@@ -1,3 +1,5 @@
+import { can, type Permission } from '@/features/session/permissions';
+
 /**
  * Navegación del panel.
  *
@@ -10,11 +12,19 @@ export type NavigationItem = {
   readonly href: string;
   readonly label: string;
   /** Icono de `section-icon`, para que la barra lateral tenga la misma iconografía que las tarjetas. */
-  readonly icon: 'panel' | 'productos' | 'pedidos' | 'envios' | 'wallet' | 'configuracion';
+  readonly icon:
+    'panel' | 'productos' | 'pedidos' | 'envios' | 'wallet' | 'usuarios' | 'configuracion';
+  /**
+   * Permiso sin el que la entrada no se pinta. Ausente = la ve cualquier rol.
+   *
+   * Es usabilidad: la pantalla vuelve a comprobarlo, y el backend rechaza igual una petición
+   * fabricada.
+   */
+  readonly permission?: Permission;
 };
 
 /**
- * Las seis entradas del panel, en este orden.
+ * Las siete entradas del panel, en este orden.
  *
  * Envíos y Wallet todavía no tienen contrato: sus pantallas existen, lo dicen y no fingen datos.
  * Están en la navegación porque el enlace lleva a un sitio real que explica en qué punto está, no a
@@ -30,8 +40,20 @@ export const NAVIGATION: readonly NavigationItem[] = [
   { href: '/panel/productos', label: 'Productos', icon: 'productos' },
   { href: '/panel/envios', label: 'Envíos', icon: 'envios' },
   { href: '/panel/wallet', label: 'Wallet', icon: 'wallet' },
+  // Solo quien puede ver cuentas: `super_admin` y `master_admin`. `moderator` no la ve.
+  {
+    href: '/panel/usuarios',
+    label: 'Usuarios',
+    icon: 'usuarios',
+    permission: 'admin_users.read',
+  },
   { href: '/panel/configuracion', label: 'Configuración', icon: 'configuracion' },
 ];
+
+/** Las entradas que este rol puede ver. Un rol desconocido solo ve las que no piden permiso. */
+export function navigationFor(role: string): readonly NavigationItem[] {
+  return NAVIGATION.filter((item) => item.permission === undefined || can(role, item.permission));
+}
 
 /**
  * ¿Esta entrada corresponde a la ruta actual?

@@ -9,7 +9,7 @@ import { describeRole } from '@/features/session/role-labels';
 import { SignOutButton } from '@/features/session/sign-out-button';
 
 import { BrandLogo } from './brand-logo';
-import { isActive, NAVIGATION } from './navigation';
+import { isActive, navigationFor } from './navigation';
 import styles from './panel-shell.module.css';
 import { Icon } from './section-icon';
 
@@ -131,7 +131,7 @@ export function PanelChrome({
             <p className={styles.brandCaption}>MODULARTESS Admin</p>
 
             <nav aria-label="Secciones del panel" className={styles.nav}>
-              {NAVIGATION.map((item) => {
+              {navigationFor(role).map((item) => {
                 const active = isActive(item.href, pathname);
 
                 return (

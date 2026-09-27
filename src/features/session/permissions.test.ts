@@ -10,11 +10,14 @@ const EXPECTED: Readonly<Record<string, readonly string[]>> = {
   // Todo menos el simulador de pagos y la gestión de integraciones: las dos las reserva el
   // contrato a `super_admin`, y una escala «master_admin ≥ moderator» las habría arrastrado.
   // Tampoco el recordatorio manual al cliente, que el contrato reserva igualmente a `super_admin`.
+  // Y de las cuentas, solo ve y administra las `moderator` (ADR 0019 del backend).
   master_admin: [...PERMISSIONS].filter(
     (permission) =>
       permission !== 'payments.simulate' &&
       permission !== 'integrations.manage' &&
-      permission !== 'notifications.send_reminder',
+      permission !== 'notifications.send_reminder' &&
+      permission !== 'admin_users.manage_masters' &&
+      permission !== 'admin_users.manage_super_admins',
   ),
   moderator: [
     'dashboard.read',

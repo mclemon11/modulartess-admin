@@ -314,7 +314,8 @@ describe('edición con el mismo editor', () => {
       'Portada',
       'Galería',
       'Publicar',
-      'Archivar producto',
+      // Archivar se presenta como «Eliminar del catálogo»: es lo que se busca, y no borra nada.
+      'Eliminar del catálogo',
     ]) {
       expect(EDIT, text).toContain(text);
     }

@@ -51,7 +51,7 @@ export function readFailurePayload(payload: unknown): MutationFailure | null {
     : { ok: false, code };
 }
 
-async function send<T>(
+export async function send<T>(
   url: string,
   method: 'POST' | 'PATCH' | 'PUT',
   body: unknown,

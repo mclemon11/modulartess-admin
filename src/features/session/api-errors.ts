@@ -33,6 +33,12 @@ export const SESSION_ERROR_CODES = [
   'category_version_conflict',
   'category_invalid',
   'conflict_unrecognized',
+  'account_email_taken',
+  'last_super_admin',
+  'account_self_change',
+  'account_state_conflict',
+  'invitation_recently_sent',
+  'account_sync_pending',
   'refund_required',
   'status_reminder_not_allowed',
   'notifications_unavailable',
@@ -83,6 +89,16 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
   category_version_conflict: 'La categoría cambió mientras la editabas.',
   category_invalid: 'El nombre o el slug de la categoría no tienen una forma válida.',
   conflict_unrecognized: 'El backend rechazó la operación por un conflicto.',
+  account_email_taken:
+    'Ese correo no se puede usar para una cuenta nueva: ya pertenece a otra cuenta o a otra identidad.',
+  last_super_admin: 'Tiene que quedar al menos un super administrador activo. No se cambió nada.',
+  account_self_change: 'No puedes deshabilitar tu propia cuenta ni cambiarte el rol.',
+  account_state_conflict:
+    'Esa acción no aplica a la cuenta en su estado actual. Recarga para ver cómo está.',
+  invitation_recently_sent:
+    'La invitación se envió hace menos de un minuto. Espera un poco antes de reenviarla.',
+  account_sync_pending:
+    'El cambio quedó registrado y la cuenta ya no puede entrar, pero falta terminar de aplicarlo. Vuelve a intentarlo.',
   refund_required:
     'Este pedido ya está pagado y cancelarlo exigiría devolver el dinero. El flujo de reembolso todavía no está disponible.',
   status_reminder_not_allowed: 'Este pedido está cancelado: no admite un recordatorio de estado.',
@@ -132,6 +148,12 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   category_version_conflict: 409,
   category_invalid: 400,
   conflict_unrecognized: 409,
+  account_email_taken: 409,
+  last_super_admin: 409,
+  account_self_change: 409,
+  account_state_conflict: 409,
+  invitation_recently_sent: 409,
+  account_sync_pending: 503,
   refund_required: 409,
   status_reminder_not_allowed: 409,
   notifications_unavailable: 503,
@@ -206,6 +228,18 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'category_invalid';
     case 'backend_conflict_unrecognized':
       return 'conflict_unrecognized';
+    case 'backend_admin_user_email_taken':
+      return 'account_email_taken';
+    case 'backend_admin_user_last_super_admin':
+      return 'last_super_admin';
+    case 'backend_admin_user_self_change':
+      return 'account_self_change';
+    case 'backend_admin_user_state_conflict':
+      return 'account_state_conflict';
+    case 'backend_admin_user_invitation_recently_sent':
+      return 'invitation_recently_sent';
+    case 'backend_admin_user_sync_pending':
+      return 'account_sync_pending';
     case 'backend_refund_required':
       return 'refund_required';
     case 'backend_status_reminder_not_allowed':

@@ -92,6 +92,7 @@ describe('shell', () => {
       '/panel/productos',
       '/panel/envios',
       '/panel/wallet',
+      '/panel/usuarios',
       '/panel/configuracion',
     ]);
   });
