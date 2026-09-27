@@ -9,7 +9,7 @@
  * datos del pedido viven en memoria mientras la pantalla está abierta y desaparecen con ella.
  */
 
-import type { AdminOrder } from '@/lib/api/orders';
+import type { AdminOrder, OrderShipmentInput } from '@/lib/api/orders';
 
 export type OrderMutationResult =
   | { readonly ok: true; readonly data: AdminOrder }
@@ -81,10 +81,12 @@ export function changeOrderStatus(
   orderId: string,
   status: string,
   expectedVersion: number,
+  shipment?: OrderShipmentInput,
 ): Promise<OrderMutationResult> {
   return post(`/api/admin/orders/${encodeURIComponent(orderId)}/status`, {
     expectedVersion,
     status,
+    ...(shipment === undefined ? {} : { shipment }),
   });
 }
 

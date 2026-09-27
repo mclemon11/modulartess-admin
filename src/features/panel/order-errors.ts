@@ -43,6 +43,8 @@ export const ORDER_MESSAGES: Readonly<Record<string, string>> = {
     'Los pagos reales están bloqueados en este despliegue. No es una casilla de configuración.',
   incident_not_found: 'Esa incidencia ya no existe.',
   provider_unavailable: 'La pasarela no respondió. Inténtalo de nuevo en unos momentos.',
+  shipment_invalid:
+    'Revisa el envío: hacen falta la transportadora, el número de guía y un enlace https de seguimiento.',
   refund_required:
     'Este pedido ya está pagado y cancelarlo exigiría devolver el dinero. El flujo de reembolso todavía no está disponible.',
   invalid_origin: 'La petición no proviene de un origen autorizado.',

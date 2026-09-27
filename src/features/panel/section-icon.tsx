@@ -32,6 +32,7 @@ export type IconName =
   | 'envios'
   | 'wallet'
   | 'usuarios'
+  | 'bandeja'
   | 'pago'
   | 'notificaciones'
   | 'simulador'
@@ -66,6 +67,8 @@ const PATHS: Readonly<Record<IconName, readonly string[]>> = {
     'M16 4.5a3.5 3.5 0 010 6.5',
     'M18 14.8c2.1.6 3.5 2.3 3.5 5.2',
   ],
+  // Bandeja de entrada.
+  bandeja: ['M3 13l3-8h12l3 8v6H3z', 'M3 13h5l1.5 2.5h5L16 13h5'],
   direccion: [
     'M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z',
     'M12 13a3 3 0 100-6 3 3 0 000 6z',

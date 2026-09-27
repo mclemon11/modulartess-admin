@@ -12,10 +12,16 @@ import { PanelChrome } from './panel-chrome';
  */
 export function PanelShell({
   role,
+  badges = {},
   children,
 }: {
   readonly role: string;
+  readonly badges?: Readonly<Record<string, number>>;
   readonly children: ReactNode;
 }) {
-  return <PanelChrome role={role}>{children}</PanelChrome>;
+  return (
+    <PanelChrome badges={badges} role={role}>
+      {children}
+    </PanelChrome>
+  );
 }

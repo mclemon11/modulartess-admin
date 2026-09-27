@@ -51,9 +51,12 @@ export function useDrawer(): DrawerContext {
 
 export function PanelChrome({
   role,
+  badges = {},
   children,
 }: {
   readonly role: string;
+  /** Contadores por entrada (`href` → número), ya calculados por el backend. */
+  readonly badges?: Readonly<Record<string, number>>;
   readonly children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -144,6 +147,7 @@ export function PanelChrome({
                   >
                     <Icon className={styles.navIcon} name={item.icon} />
                     {item.label}
+                    <NavBadge count={badges[item.href]} />
                   </Link>
                 );
               })}
@@ -171,5 +175,19 @@ export function PanelChrome({
         </div>
       </div>
     </Drawer.Provider>
+  );
+}
+
+/** Contador de una entrada. Cero o ausente no pinta nada; más de 99 se resume. */
+function NavBadge({ count }: { readonly count: number | undefined }) {
+  if (count === undefined || count <= 0) {
+    return null;
+  }
+
+  return (
+    <span className={styles.navBadge}>
+      <span aria-hidden="true">{count > 99 ? '99+' : count}</span>
+      <span className="sr-only">{count === 1 ? '1 sin leer' : `${count} sin leer`}</span>
+    </span>
   );
 }

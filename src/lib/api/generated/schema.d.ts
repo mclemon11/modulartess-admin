@@ -45,6 +45,208 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/communications/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List conversations
+         * @description Filtered by queue, status, assignee and unread in the query itself, before paginating. Newest activity first. The unclassified queue needs communications.review_unclassified. No search: it is not supported. Requires communications.read.
+         */
+        get: operations["AdminCommunicationsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/communications/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read one conversation. Requires communications.read. */
+        get: operations["AdminCommunicationsController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/communications/conversations/{conversationId}/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assign or unassign. Requires expectedVersion and communications.assign. */
+        post: operations["AdminCommunicationsController_assign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/communications/conversations/{conversationId}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Messages of a conversation, oldest first. Requires communications.read. */
+        get: operations["AdminCommunicationsController_messages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/communications/conversations/{conversationId}/messages/{messageId}/attachments/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a stored attachment
+         * @description Bytes from the private bucket, as an attachment with nosniff. No public URL exists. Requires communications.read, and is audited.
+         */
+        get: operations["AdminCommunicationsController_attachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/communications/conversations/{conversationId}/order-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link or unlink an order
+         * @description Informative only: it never changes the order. The order must exist. Requires expectedVersion and communications.manage.
+         */
+        post: operations["AdminCommunicationsController_linkOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/communications/conversations/{conversationId}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark as read. Does not change the version. Requires communications.read. */
+        post: operations["AdminCommunicationsController_markRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/communications/conversations/{conversationId}/reclassification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move an unclassified conversation to a queue
+         * @description Only for communications.review_unclassified and communications.manage. Its held attachments are then fetched under the normal policy.
+         */
+        post: operations["AdminCommunicationsController_reclassify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/communications/conversations/{conversationId}/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reply to a conversation
+         * @description Plain text, sent from the queue alias to the conversation counterpart, keeping the thread with In-Reply-To and References. Queued in a durable outbox and attempted at once; delivered is only ever set by a real provider event. Not allowed on the unclassified queue. Requires expectedVersion, an Idempotency-Key and communications.reply. Queues: orders, shipping, support, complaints, information.
+         */
+        post: operations["AdminCommunicationsController_reply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/communications/conversations/{conversationId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move between open, pending and resolved. Requires expectedVersion and communications.manage. */
+        post: operations["AdminCommunicationsController_setStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/communications/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Unread conversations per queue. Requires communications.read. */
+        get: operations["AdminCommunicationsController_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/dashboard/summary": {
         parameters: {
             query?: never;
@@ -954,6 +1156,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/webhooks/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive a signed Resend event
+         * @description No administrative session: authenticity comes only from the Svix signature over the raw body, with a five-minute timestamp window and replay protection by event id. email.received stores the message in the inbox; delivery events update outbound replies. An inbound email never changes an order. Answers 404 while INBOUND_MODE=disabled.
+         */
+        post: operations["ResendWebhookController_receive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/webhooks/wompi": {
         parameters: {
             query?: never;
@@ -1041,6 +1263,8 @@ export interface components {
             /** @description Whether the staging payment simulator is switched on in this deployment. When false the simulation route answers as if it did not exist. */
             paymentSimulationEnabled: boolean;
             publicId: string;
+            /** @description Carrier, tracking number and link, written when the order moved to shipped. Null before that, and for orders shipped before this field existed. */
+            shipment: components["schemas"]["OrderShipmentDto"] | null;
             shippingAddress: components["schemas"]["OrderShippingAddressDto"];
             /**
              * Format: int32
@@ -1384,6 +1608,11 @@ export interface components {
         AdminUserTransitionDto: {
             expectedVersion: number;
         };
+        AssignConversationRequestDto: {
+            /** @description An active administrative account that can read the inbox, or null to unassign. */
+            assignedAdminId: string | null;
+            expectedVersion: number;
+        };
         CancelOrderRequestDto: {
             expectedVersion: number;
         };
@@ -1516,6 +1745,107 @@ export interface components {
             quantity: number;
             /** @example var_001 */
             variantId: string;
+        };
+        CommunicationAddressDto: {
+            email: string;
+            /** @description Display name as sent. Plain text; may be empty. */
+            name: string;
+        };
+        CommunicationAttachmentDto: {
+            contentType: string;
+            /** @description Sanitised file name. */
+            filename: string;
+            id: string;
+            /** @description Stable reason code for rejected or held. */
+            reason: string | null;
+            size: number;
+            /**
+             * @description stored: downloadable through the authenticated route. rejected: type, size or content not allowed. held: in the unclassified queue until reviewed. pending: not fetched yet.
+             * @enum {string}
+             */
+            status: "stored" | "rejected" | "held" | "pending";
+        };
+        CommunicationDeliveryDto: {
+            lastErrorCode: string | null;
+            /**
+             * @description received for inbound. For outbound: queued, sending, accepted (the provider took it), then delivered or bounced ONLY from a real provider event, or failed.
+             * @enum {string}
+             */
+            state: "received" | "queued" | "sending" | "accepted" | "delivered" | "bounced" | "failed";
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CommunicationMessageDto: {
+            attachments: components["schemas"]["CommunicationAttachmentDto"][];
+            /** @description Who replied, for outbound messages. */
+            authorAdminId: string | null;
+            cc: components["schemas"]["CommunicationAddressDto"][];
+            conversationId: string;
+            /** Format: date-time */
+            createdAt: string;
+            delivery: components["schemas"]["CommunicationDeliveryDto"];
+            /** @enum {string} */
+            direction: "inbound" | "outbound";
+            from: components["schemas"]["CommunicationAddressDto"];
+            id: string;
+            /** @description Plain text. Inbound HTML is converted to text server side and never stored or rendered. */
+            plainText: string;
+            subject: string;
+            to: components["schemas"]["CommunicationAddressDto"][];
+        };
+        CommunicationMessagePageDto: {
+            items: components["schemas"]["CommunicationMessageDto"][];
+            nextPageToken: string | null;
+        };
+        CommunicationsSummaryDto: {
+            /** @description Conversations with unread messages, per queue. */
+            unread: components["schemas"]["CommunicationsUnreadDto"];
+        };
+        CommunicationsUnreadDto: {
+            complaints: number;
+            information: number;
+            orders: number;
+            shipping: number;
+            support: number;
+            /** @description Only for communications.review_unclassified. */
+            unclassified?: number;
+        };
+        ConversationDto: {
+            assignedAdminId: string | null;
+            /**
+             * @description orders, shipping, support, complaints, information, or unclassified (mail to an unknown address of the domain, only for super_admin).
+             * @enum {string}
+             */
+            channel: "orders" | "shipping" | "support" | "complaints" | "information" | "unclassified";
+            counterpart: components["schemas"]["CommunicationAddressDto"];
+            /** Format: date-time */
+            createdAt: string;
+            id: string;
+            /** @description Alias the mail arrived through. */
+            inboundAddress: string;
+            /** Format: date-time */
+            lastMessageAt: string;
+            messageCount: number;
+            /** @description Informative link to an order. An inbound mail never changes an order. */
+            relatedOrderId: string | null;
+            /** @enum {string} */
+            status: "open" | "pending" | "resolved";
+            /** @description Plain text. Never rendered as HTML. */
+            subject: string;
+            unreadCount: number;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Send it back as expectedVersion. */
+            version: number;
+        };
+        ConversationPageDto: {
+            items: components["schemas"]["ConversationDto"][];
+            nextPageToken: string | null;
+        };
+        ConversationStatusRequestDto: {
+            expectedVersion: number;
+            /** @enum {string} */
+            status: "open" | "pending" | "resolved";
         };
         CreateAdminUserDto: {
             displayName: string;
@@ -1944,6 +2274,10 @@ export interface components {
              */
             quantity: number | null;
         };
+        LinkConversationOrderRequestDto: {
+            expectedVersion: number;
+            orderId: string | null;
+        };
         OrderCreatedDto: {
             /** Format: date-time */
             createdAt: string;
@@ -2174,6 +2508,34 @@ export interface components {
             statusLabel: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        OrderShipmentDto: {
+            /** @example Servientrega */
+            carrierName: string;
+            /** Format: date-time */
+            deliveredAt: string | null;
+            /** Format: date-time */
+            shippedAt: string;
+            /** @example 1234567890 */
+            trackingNumber: string;
+            /**
+             * Format: uri
+             * @description HTTPS only, no credentials, a real host name. It is shown to the customer as a link.
+             * @example https://www.servientrega.com/rastreo
+             */
+            trackingUrl: string;
+        };
+        OrderShipmentInputDto: {
+            /** @example Servientrega */
+            carrierName: string;
+            /** @example 1234567890 */
+            trackingNumber: string;
+            /**
+             * Format: uri
+             * @description HTTPS only, no credentials, a real host name. It is shown to the customer as a link.
+             * @example https://www.servientrega.com/rastreo
+             */
+            trackingUrl: string;
         };
         OrderShippingAddressDto: {
             /** @example Calle 10 #43-20, apto 501 */
@@ -2538,6 +2900,11 @@ export interface components {
             priceCop: number;
             sku: string;
         };
+        ReclassifyConversationRequestDto: {
+            /** @enum {string} */
+            channel: "orders" | "shipping" | "support" | "complaints" | "information";
+            expectedVersion: number;
+        };
         ReconcilePaymentRequestDto: {
             /**
              * @description The opaque reference of the payment attempt, which is the last segment of the return URL the provider sent the browser back to. It carries NO personal data: it is random and says nothing about the order or the buyer. It exists so the result page can recover the attempt without the shop having to ask for the email again, keep it in the browser or put it in a URL.
@@ -2576,6 +2943,15 @@ export interface components {
             expectedVersion: number;
             /** @example Tocadores y espejos */
             name: string;
+        };
+        ReplyConversationRequestDto: {
+            expectedVersion: number;
+            /** @description Plain text. Sent from the queue alias to the conversation counterpart; neither can be chosen. */
+            text: string;
+        };
+        ReplyConversationResultDto: {
+            conversation: components["schemas"]["ConversationDto"];
+            message: components["schemas"]["CommunicationMessageDto"];
         };
         ResolvePaymentIncidentRequestDto: {
             /** @description The version just read. A stale value is rejected with a conflict. */
@@ -2643,6 +3019,8 @@ export interface components {
         UpdateOrderStatusRequestDto: {
             /** @description Version the caller last read. */
             expectedVersion: number;
+            /** @description Required to move to shipped: carrier, tracking number and an HTTPS tracking link, which the shipped email shows. Rejected with order_shipment_invalid on any other transition. An inbound email never changes an order. */
+            shipment?: components["schemas"]["OrderShipmentInputDto"];
             /**
              * @description Only paid→preparing, preparing→ready_to_ship, ready_to_ship→shipped and shipped→delivered are allowed. preparing→shipped is NOT allowed any more: between producing and dispatching there is a real state, and skipping it lost the only signal that tells an order still in the workshop from a finished one waiting for the carrier. Orders whose history already contains preparing→shipped keep reading fine; this governs what can be written from now on. No skips, no going back, and pending_payment→paid is applied by the payment outcome, never here.
              * @example preparing
@@ -3078,6 +3456,774 @@ export interface operations {
                 headers: {
                     /** @description Always no-store on this surface, including error responses. */
                     "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminCommunicationsController_list: {
+        parameters: {
+            query?: {
+                pageToken?: string;
+                pageSize?: number;
+                unread?: "true" | "false";
+                /** @description me, none or an account id. */
+                assigned?: string;
+                status?: "open" | "pending" | "resolved";
+                channel?: "orders" | "shipping" | "support" | "complaints" | "information" | "unclassified";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationPageDto"];
+                };
+            };
+            /** @description communications_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_authentication_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description communications_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminCommunicationsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation identifier. */
+                conversationId: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDto"];
+                };
+            };
+            /** @description admin_authentication_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description communications_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminCommunicationsController_assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation identifier. */
+                conversationId: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignConversationRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDto"];
+                };
+            };
+            /** @description communications_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_authentication_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_version_conflict or conversation_state_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description communications_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminCommunicationsController_messages: {
+        parameters: {
+            query?: {
+                pageToken?: string;
+                pageSize?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Conversation identifier. */
+                conversationId: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationMessagePageDto"];
+                };
+            };
+            /** @description communications_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_authentication_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description communications_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminCommunicationsController_attachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachmentId: unknown;
+                messageId: unknown;
+                /** @description Conversation identifier. */
+                conversationId: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description admin_authentication_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description attachment_unavailable */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description communications_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminCommunicationsController_linkOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation identifier. */
+                conversationId: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkConversationOrderRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDto"];
+                };
+            };
+            /** @description communications_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_authentication_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_version_conflict or conversation_state_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description communications_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminCommunicationsController_markRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation identifier. */
+                conversationId: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDto"];
+                };
+            };
+            /** @description admin_authentication_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description communications_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminCommunicationsController_reclassify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation identifier. */
+                conversationId: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReclassifyConversationRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDto"];
+                };
+            };
+            /** @description communications_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_authentication_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_version_conflict or conversation_state_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description communications_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminCommunicationsController_reply: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 8-128 characters [A-Za-z0-9._:-]. The same key with the same body returns the queued reply instead of sending another one; with a different body it is idempotency_conflict. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description Conversation identifier. */
+                conversationId: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplyConversationRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplyConversationResultDto"];
+                };
+            };
+            /** @description communications_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_authentication_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_version_conflict, conversation_state_conflict or idempotency_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description communications_reply_unavailable or communications_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminCommunicationsController_setStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation identifier. */
+                conversationId: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversationStatusRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDto"];
+                };
+            };
+            /** @description communications_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_authentication_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description conversation_version_conflict or conversation_state_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description communications_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminCommunicationsController_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationsSummaryDto"];
+                };
+            };
+            /** @description admin_authentication_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description communications_unavailable */
+            503: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -6495,6 +7641,55 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponseDto"];
                 };
             };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ResendWebhookController_receive: {
+        parameters: {
+            query?: never;
+            header: {
+                "svix-signature": string;
+                "svix-timestamp": string;
+                "svix-id": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event processed, already seen, or ignored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description webhook_rejected */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description Inbox disabled. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description communications_unavailable; the provider retries. */
             503: {
                 headers: {
                     [name: string]: unknown;

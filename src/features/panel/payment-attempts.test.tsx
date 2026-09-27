@@ -78,6 +78,7 @@ function order(overrides: Partial<AdminOrder> = {}): AdminOrder {
     notifications: [],
     paymentSimulationEnabled: false,
     availableSimulationEvents: [],
+    shipment: null,
     ...overrides,
   } as AdminOrder;
 }

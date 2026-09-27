@@ -34,6 +34,8 @@ export type AdminPaymentEvent = components['schemas']['AdminPaymentEventDto'];
 export type AdminPaymentAttempt = components['schemas']['AdminPaymentAttemptDto'];
 export type AdminNotification = components['schemas']['AdminNotificationDto'];
 export type UpdateOrderStatusRequest = components['schemas']['UpdateOrderStatusRequestDto'];
+export type OrderShipment = components['schemas']['OrderShipmentDto'];
+export type OrderShipmentInput = components['schemas']['OrderShipmentInputDto'];
 export type CancelOrderRequest = components['schemas']['CancelOrderRequestDto'];
 export type StatusReminderRequest = components['schemas']['StatusReminderRequestDto'];
 export type StatusReminderResponse = components['schemas']['StatusReminderResponseDto'];
@@ -149,6 +151,11 @@ export async function changeOrderStatus(
   }
 
   if (response.error !== undefined || response.data === undefined) {
+    // `shipped` sin transportadora, guía o enlace válidos: tiene su propio texto.
+    if (backendErrorCode(response.error) === 'order_shipment_invalid') {
+      throw new BackendFailure('backend_order_shipment_invalid');
+    }
+
     throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
   }
 

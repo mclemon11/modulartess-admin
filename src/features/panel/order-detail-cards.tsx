@@ -133,6 +133,42 @@ export function OrderAddressCard({ order }: { readonly order: AdminOrder }) {
 }
 
 /**
+ * Envío registrado al marcar el pedido como enviado.
+ *
+ * Antes de `shipped` no hay envío y la tarjeta no se pinta: un hueco con «sin guía» diría algo que
+ * el pedido todavía no tiene por qué tener. El enlace se abre fuera del panel y sin `referrer`.
+ */
+export function OrderShipmentCard({ order }: { readonly order: AdminOrder }) {
+  const { shipment } = order;
+
+  if (shipment === null) {
+    return null;
+  }
+
+  return (
+    <section className={`${catalog.card} ${catalog.cardPad}`}>
+      <SectionHeading icon="envios" title="Envío" />
+      <dl className={styles.facts}>
+        <Fact label="Transportadora" value={shipment.carrierName} />
+        <Fact label="Número de guía" value={shipment.trackingNumber} />
+        <div className={styles.fact}>
+          <dt className={styles.factLabel}>Seguimiento</dt>
+          <dd className={styles.factValue}>
+            <a href={shipment.trackingUrl} rel="noopener noreferrer" target="_blank">
+              Abrir seguimiento
+            </a>
+          </dd>
+        </div>
+        <Fact label="Enviado" value={formatDateTime(shipment.shippedAt)} />
+        {shipment.deliveredAt === null ? null : (
+          <Fact label="Entregado" value={formatDateTime(shipment.deliveredAt)} />
+        )}
+      </dl>
+    </section>
+  );
+}
+
+/**
  * Importes del pedido.
  *
  * Subtotal, envío y total: los tres que publica el contrato. La referencia añade «Descuento» y un

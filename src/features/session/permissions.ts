@@ -67,6 +67,16 @@ export const PERMISSIONS = [
   'admin_users.manage_moderators',
   'admin_users.manage_masters',
   'admin_users.manage_super_admins',
+  /*
+   * Bandeja de entrada (ADR 0020 del backend). Leer, responder, asignar y gestionar estado, enlace
+   * a pedido y colas. `moderator` no tiene ninguno: la bandeja trae correos de personas.
+   */
+  'communications.read',
+  'communications.reply',
+  'communications.assign',
+  'communications.manage',
+  /* La cola de revisión —correo a direcciones desconocidas— solo la ve `super_admin`. */
+  'communications.review_unclassified',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -105,6 +115,11 @@ const MASTER_ADMIN: readonly Permission[] = [
   // Ve y administra **solo** cuentas `moderator`. Ni `master_admin` ni `super_admin`.
   'admin_users.read',
   'admin_users.manage_moderators',
+  // Trabaja la bandeja completa, salvo la cola de revisión.
+  'communications.read',
+  'communications.reply',
+  'communications.assign',
+  'communications.manage',
 ];
 
 /** `super_admin` tiene acceso completo a lo que esta fase publica. */

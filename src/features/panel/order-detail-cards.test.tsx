@@ -6,8 +6,10 @@ import {
   OrderNotificationsCard,
   OrderPaymentCard,
   OrderPaymentHistoryCard,
+  OrderShipmentCard,
 } from './order-detail-cards';
 import { OrderProgress } from './order-progress';
+import { ShipmentForm } from './shipment-form';
 
 import type {
   AdminNotification,
@@ -428,5 +430,45 @@ describe('novedades', () => {
     );
 
     expect(html.split('Avisos de').length - 1).toBe(1);
+  });
+});
+
+describe('envío', () => {
+  it('antes de enviarse no pinta ninguna tarjeta de envío', () => {
+    expect(renderToStaticMarkup(<OrderShipmentCard order={order({ shipment: null })} />)).toBe('');
+  });
+
+  it('muestra transportadora, guía y un enlace que sale del panel sin referrer', () => {
+    const html = renderToStaticMarkup(
+      <OrderShipmentCard
+        order={order({
+          status: 'shipped',
+          shipment: {
+            carrierName: 'Servientrega',
+            trackingNumber: '1234567890',
+            trackingUrl: 'https://www.servientrega.com/rastreo?guia=1234567890',
+            shippedAt: '2026-09-27T12:00:00.000Z',
+            deliveredAt: null,
+          },
+        })}
+      />,
+    );
+
+    expect(html).toContain('Servientrega');
+    expect(html).toContain('1234567890');
+    expect(html).toContain('href="https://www.servientrega.com/rastreo?guia=1234567890"');
+    expect(html).toContain('rel="noopener noreferrer"');
+    expect(html).not.toContain('Entregado');
+  });
+
+  it('el formulario pide los tres datos que exige el backend', () => {
+    const html = renderToStaticMarkup(
+      <ShipmentForm busy={false} onCancel={() => undefined} onSubmit={() => undefined} />,
+    );
+
+    expect(html).toContain('Transportadora');
+    expect(html).toContain('Número de guía');
+    expect(html).toContain('Enlace de seguimiento');
+    expect(html).toContain('Confirmar envío');
   });
 });

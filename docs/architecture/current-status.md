@@ -195,6 +195,17 @@ justo lo que se vio en el primer despliegue. `deploy/deploy.test.ts` lo exige.
 - **Todavía no se ha invitado a nadie.** `admin.modulartess.com` ya está operativo y el
   `ADMIN_APP_URL` del backend apunta a él, así que las invitaciones regresan al dominio definitivo.
 
+### Bandeja y datos del envío
+
+[`ADR 0009`](../decisions/0009-inbox-and-order-shipment.md), sobre el ADR 0020 del backend.
+
+- **`/panel/bandeja`**, con `communications.read` y contador de no leídos: pestañas por cola,
+  filtros por URL, conversación en texto plano, asignación, estado, enlace a pedido, reclasificación
+  (solo `super_admin`) y respuesta con candado e `Idempotency-Key`. Adjuntos solo por el BFF.
+- **La entrada de correo está apagada en el backend** (`INBOUND_MODE=disabled`): la bandeja se ve
+  vacía hasta que se enciende. Sin clave de envío `.com`, responder da `503 reply_unavailable`.
+- **«Marcar enviado» exige transportadora, guía y enlace**, y la ficha muestra el envío.
+
 ### Dominio `admin.modulartess.com`
 
 El panel entra por un Load Balancer HTTPS externo —IP global `8.233.108.239`, NEG serverless y

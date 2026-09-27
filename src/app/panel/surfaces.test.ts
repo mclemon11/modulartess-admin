@@ -89,6 +89,7 @@ describe('shell', () => {
     expect(NAVIGATION.map((item) => item.href)).toEqual([
       '/panel',
       '/panel/pedidos',
+      '/panel/bandeja',
       '/panel/productos',
       '/panel/envios',
       '/panel/wallet',

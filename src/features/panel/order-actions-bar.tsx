@@ -9,7 +9,9 @@ import { describeOrderFailure, offersReload } from './order-errors';
 import { cancelOrder, changeOrderStatus } from './orders-client';
 import styles from './orders.module.css';
 
-import type { AdminOrder } from '@/lib/api/orders';
+import { ShipmentForm } from './shipment-form';
+
+import type { AdminOrder, OrderShipmentInput } from '@/lib/api/orders';
 
 /**
  * Acciones logísticas del detalle del pedido.
@@ -43,14 +45,22 @@ export function OrderActionsBar({
    * visual, y el estado de React no llega a tiempo para excluir un segundo clic.
    */
   const running = useRef(false);
+  /* «Marcar enviado» no dispara la transición: abre el formulario del envío, que la exige. */
+  const [shipping, setShipping] = useState(false);
 
   const actions = orderActions(role, {
     status: order.status,
     paymentStatus: order.payment.status,
   });
 
-  async function run(action: OrderAction): Promise<void> {
+  async function run(action: OrderAction, shipment?: OrderShipmentInput): Promise<void> {
     if (running.current) {
+      return;
+    }
+
+    if (action.kind === 'transition' && action.to === 'shipped' && shipment === undefined) {
+      setFailure(null);
+      setShipping(true);
       return;
     }
 
@@ -61,9 +71,10 @@ export function OrderActionsBar({
     const result =
       action.kind === 'cancel'
         ? await cancelOrder(order.id, order.version)
-        : await changeOrderStatus(order.id, action.to, order.version);
+        : await changeOrderStatus(order.id, action.to, order.version, shipment);
 
     if (result.ok) {
+      setShipping(false);
       onUpdated(result.data);
     } else {
       setFailure(result.code);
@@ -90,6 +101,24 @@ export function OrderActionsBar({
       </div>
 
       {actions.length === 0 ? <NoActions order={order} role={role} /> : null}
+
+      {shipping ? (
+        <ShipmentForm
+          busy={busy}
+          onCancel={() => {
+            setShipping(false);
+          }}
+          onSubmit={(shipment) => {
+            const action = actions.find(
+              (candidate) => candidate.kind === 'transition' && candidate.to === 'shipped',
+            );
+
+            if (action !== undefined) {
+              void run(action, shipment);
+            }
+          }}
+        />
+      ) : null}
 
       {failure === null ? null : (
         <p className={catalog.error} role="alert">

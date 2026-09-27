@@ -31,6 +31,11 @@ export const BACKEND_FAILURE_CODES = [
    */
   'backend_refund_required',
   /**
+   * 400 `order_shipment_invalid`: marcar enviado exige transportadora, número de guía y un enlace
+   * HTTPS de seguimiento válidos, y ninguna otra transición los acepta.
+   */
+  'backend_order_shipment_invalid',
+  /**
    * 409 `order_status_reminder_not_allowed`: el pedido está cancelado y no admite un recordatorio
    * de estado. Recargar no lo cambia, así que tiene su propio texto.
    */
@@ -182,6 +187,12 @@ export const BACKEND_FAILURE_CODES = [
    * «alguien modificó este producto» ante un SKU repetido. El código original viaja aparte, en
    * `BackendFailure.reference`, para poder diagnosticarlo.
    */
+  /** 409 `conversation_state_conflict`: la acción no cabe en el estado de la conversación. */
+  'backend_conversation_state_conflict',
+  /** 409 `attachment_unavailable`: el adjunto se rechazó, está retenido o aún no se guardó. */
+  'backend_attachment_unavailable',
+  /** 503 `communications_reply_unavailable`: este despliegue no tiene clave de envío para responder. */
+  'backend_reply_unavailable',
   'backend_conflict_unrecognized',
   /** 429 del backend: el intercambio está limitado por tasa. */
   'backend_rate_limited',
@@ -354,6 +365,35 @@ export function accountFailure(status: number, error: unknown): BackendFailure {
 
   if (code !== null && Object.hasOwn(ACCOUNT_CODES, code)) {
     return new BackendFailure(ACCOUNT_CODES[code] as BackendFailureCode);
+  }
+
+  if (status === 409) {
+    return new BackendFailure('backend_conflict_unrecognized', code);
+  }
+
+  return new BackendFailure(failureCodeFromStatus(status, { notFound: 'backend_not_found' }));
+}
+
+/**
+ * Códigos de la bandeja (`/v1/admin/communications/*`), uno a uno.
+ *
+ * `conversation_version_conflict` es el único que ofrece recargar. `communications_invalid`,
+ * `conversation_not_found` y `communications_unavailable` no necesitan fila: el estado ya los
+ * traduce bien.
+ */
+const COMMUNICATIONS_CODES: Readonly<Record<string, BackendFailureCode>> = {
+  conversation_version_conflict: 'backend_conflict',
+  conversation_state_conflict: 'backend_conversation_state_conflict',
+  attachment_unavailable: 'backend_attachment_unavailable',
+  communications_reply_unavailable: 'backend_reply_unavailable',
+  idempotency_conflict: 'backend_idempotency_conflict',
+};
+
+export function communicationsFailure(status: number, error: unknown): BackendFailure {
+  const code = upstreamErrorCode(error);
+
+  if (code !== null && Object.hasOwn(COMMUNICATIONS_CODES, code)) {
+    return new BackendFailure(COMMUNICATIONS_CODES[code] as BackendFailureCode);
   }
 
   if (status === 409) {

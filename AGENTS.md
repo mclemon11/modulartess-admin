@@ -97,9 +97,11 @@ Reglas de uso, también permanentes:
 ## 3. Contrato con el backend
 
 - **OpenAPI es el único contrato** entre el panel y el backend. El contrato publica hoy tres roles
-  (`super_admin`, `master_admin`, `moderator`) y dos superficies administrativas: el catálogo bajo
-  `/v1/admin/products` —producto, imágenes, inventario, variantes y transiciones de estado— y los
-  pedidos bajo `/v1/admin/orders`. Aquí no se fija cuántas operaciones tiene cada una: ese número
+  (`super_admin`, `master_admin`, `moderator`) y varias superficies administrativas, entre ellas el
+  catálogo bajo `/v1/admin/products` —producto, imágenes, inventario, variantes y transiciones de
+  estado—, los pedidos bajo `/v1/admin/orders`, las cuentas bajo `/v1/admin/users` y la bandeja bajo
+  `/v1/admin/communications`. El navegador nunca habla con Resend: correos, respuestas y adjuntos
+  pasan por el BFF. Aquí no se fija cuántas operaciones tiene cada una: ese número
   cambia con el backend, y la copia comiteada del contrato es la que manda. El estado vigente se
   describe en `docs/architecture/current-status.md`.
 - No se inventan endpoints, formas de respuesta ni campos que no estén en la especificación.

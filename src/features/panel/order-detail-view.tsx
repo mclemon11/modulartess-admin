@@ -14,6 +14,7 @@ import {
   OrderPaymentCard,
   OrderPaymentHistoryCard,
   OrderProductsCard,
+  OrderShipmentCard,
   OrderSummaryCard,
 } from './order-detail-cards';
 import { OrderProgress } from './order-progress';
@@ -98,6 +99,7 @@ export function OrderDetailView({
           <PaymentSimulator onUpdated={setOrder} order={order} role={role} />
           <OrderPaymentHistoryCard order={order} />
           <OrderCustomerCard order={order} />
+          <OrderShipmentCard order={order} />
           <OrderAddressCard order={order} />
           <OrderSummaryCard order={order} />
 

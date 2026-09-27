@@ -17,7 +17,9 @@ const EXPECTED: Readonly<Record<string, readonly string[]>> = {
       permission !== 'integrations.manage' &&
       permission !== 'notifications.send_reminder' &&
       permission !== 'admin_users.manage_masters' &&
-      permission !== 'admin_users.manage_super_admins',
+      permission !== 'admin_users.manage_super_admins' &&
+      // La cola de revisión de la bandeja es solo de `super_admin` (ADR 0020 del backend).
+      permission !== 'communications.review_unclassified',
   ),
   moderator: [
     'dashboard.read',

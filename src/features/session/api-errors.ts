@@ -33,6 +33,9 @@ export const SESSION_ERROR_CODES = [
   'category_version_conflict',
   'category_invalid',
   'conflict_unrecognized',
+  'conversation_state_conflict',
+  'attachment_unavailable',
+  'reply_unavailable',
   'account_email_taken',
   'last_super_admin',
   'account_self_change',
@@ -40,6 +43,7 @@ export const SESSION_ERROR_CODES = [
   'invitation_recently_sent',
   'account_sync_pending',
   'refund_required',
+  'shipment_invalid',
   'status_reminder_not_allowed',
   'notifications_unavailable',
   'payment_transition_invalid',
@@ -89,6 +93,11 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
   category_version_conflict: 'La categoría cambió mientras la editabas.',
   category_invalid: 'El nombre o el slug de la categoría no tienen una forma válida.',
   conflict_unrecognized: 'El backend rechazó la operación por un conflicto.',
+  conversation_state_conflict:
+    'Esa acción no aplica a la conversación en su estado actual. Recarga para ver cómo está.',
+  attachment_unavailable:
+    'Ese adjunto no se puede descargar: se rechazó, está retenido para revisión o aún no se guardó.',
+  reply_unavailable: 'Las respuestas están apagadas en este despliegue. No se envió nada.',
   account_email_taken:
     'Ese correo no se puede usar para una cuenta nueva: ya pertenece a otra cuenta o a otra identidad.',
   last_super_admin: 'Tiene que quedar al menos un super administrador activo. No se cambió nada.',
@@ -101,6 +110,8 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
     'El cambio quedó registrado y la cuenta ya no puede entrar, pero falta terminar de aplicarlo. Vuelve a intentarlo.',
   refund_required:
     'Este pedido ya está pagado y cancelarlo exigiría devolver el dinero. El flujo de reembolso todavía no está disponible.',
+  shipment_invalid:
+    'Revisa el envío: hacen falta la transportadora, el número de guía y un enlace https de seguimiento.',
   status_reminder_not_allowed: 'Este pedido está cancelado: no admite un recordatorio de estado.',
   notifications_unavailable:
     'La entrega de correo está apagada en este despliegue. No se registró ningún recordatorio.',
@@ -148,6 +159,9 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   category_version_conflict: 409,
   category_invalid: 400,
   conflict_unrecognized: 409,
+  conversation_state_conflict: 409,
+  attachment_unavailable: 409,
+  reply_unavailable: 503,
   account_email_taken: 409,
   last_super_admin: 409,
   account_self_change: 409,
@@ -155,6 +169,7 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   invitation_recently_sent: 409,
   account_sync_pending: 503,
   refund_required: 409,
+  shipment_invalid: 400,
   status_reminder_not_allowed: 409,
   notifications_unavailable: 503,
   payment_transition_invalid: 409,
@@ -228,6 +243,12 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'category_invalid';
     case 'backend_conflict_unrecognized':
       return 'conflict_unrecognized';
+    case 'backend_conversation_state_conflict':
+      return 'conversation_state_conflict';
+    case 'backend_attachment_unavailable':
+      return 'attachment_unavailable';
+    case 'backend_reply_unavailable':
+      return 'reply_unavailable';
     case 'backend_admin_user_email_taken':
       return 'account_email_taken';
     case 'backend_admin_user_last_super_admin':
@@ -242,6 +263,8 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'account_sync_pending';
     case 'backend_refund_required':
       return 'refund_required';
+    case 'backend_order_shipment_invalid':
+      return 'shipment_invalid';
     case 'backend_status_reminder_not_allowed':
       return 'status_reminder_not_allowed';
     case 'backend_notifications_unavailable':

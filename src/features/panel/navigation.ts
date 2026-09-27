@@ -13,7 +13,14 @@ export type NavigationItem = {
   readonly label: string;
   /** Icono de `section-icon`, para que la barra lateral tenga la misma iconografía que las tarjetas. */
   readonly icon:
-    'panel' | 'productos' | 'pedidos' | 'envios' | 'wallet' | 'usuarios' | 'configuracion';
+    | 'panel'
+    | 'productos'
+    | 'pedidos'
+    | 'bandeja'
+    | 'envios'
+    | 'wallet'
+    | 'usuarios'
+    | 'configuracion';
   /**
    * Permiso sin el que la entrada no se pinta. Ausente = la ve cualquier rol.
    *
@@ -24,7 +31,7 @@ export type NavigationItem = {
 };
 
 /**
- * Las siete entradas del panel, en este orden.
+ * Las ocho entradas del panel, en este orden.
  *
  * Envíos y Wallet todavía no tienen contrato: sus pantallas existen, lo dicen y no fingen datos.
  * Están en la navegación porque el enlace lleva a un sitio real que explica en qué punto está, no a
@@ -37,6 +44,13 @@ export type NavigationItem = {
 export const NAVIGATION: readonly NavigationItem[] = [
   { href: '/panel', label: 'Dashboard', icon: 'panel' },
   { href: '/panel/pedidos', label: 'Pedidos', icon: 'pedidos' },
+  // La bandeja trae correos de personas: `moderator` no la ve.
+  {
+    href: '/panel/bandeja',
+    label: 'Bandeja',
+    icon: 'bandeja',
+    permission: 'communications.read',
+  },
   { href: '/panel/productos', label: 'Productos', icon: 'productos' },
   { href: '/panel/envios', label: 'Envíos', icon: 'envios' },
   { href: '/panel/wallet', label: 'Wallet', icon: 'wallet' },

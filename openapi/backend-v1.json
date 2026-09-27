@@ -179,6 +179,16 @@
           "publicId": {
             "type": "string"
           },
+          "shipment": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderShipmentDto"
+              }
+            ],
+            "description": "Carrier, tracking number and link, written when the order moved to shipped. Null before that, and for orders shipped before this field existed.",
+            "nullable": true,
+            "type": "object"
+          },
           "shippingAddress": {
             "$ref": "#/components/schemas/OrderShippingAddressDto"
           },
@@ -239,6 +249,7 @@
           "statusLabel",
           "customer",
           "shippingAddress",
+          "shipment",
           "items",
           "subtotalCop",
           "shippingCop",
@@ -1088,6 +1099,24 @@
         ],
         "type": "object"
       },
+      "AssignConversationRequestDto": {
+        "properties": {
+          "assignedAdminId": {
+            "description": "An active administrative account that can read the inbox, or null to unassign.",
+            "nullable": true,
+            "type": "string"
+          },
+          "expectedVersion": {
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "assignedAdminId"
+        ],
+        "type": "object"
+      },
       "CancelOrderRequestDto": {
         "properties": {
           "expectedVersion": {
@@ -1436,6 +1465,358 @@
           "variantId",
           "quantity",
           "customer"
+        ],
+        "type": "object"
+      },
+      "CommunicationAddressDto": {
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name as sent. Plain text; may be empty.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "name"
+        ],
+        "type": "object"
+      },
+      "CommunicationAttachmentDto": {
+        "properties": {
+          "contentType": {
+            "type": "string"
+          },
+          "filename": {
+            "description": "Sanitised file name.",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "description": "Stable reason code for rejected or held.",
+            "nullable": true,
+            "type": "string"
+          },
+          "size": {
+            "type": "number"
+          },
+          "status": {
+            "description": "stored: downloadable through the authenticated route. rejected: type, size or content not allowed. held: in the unclassified queue until reviewed. pending: not fetched yet.",
+            "enum": [
+              "stored",
+              "rejected",
+              "held",
+              "pending"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "contentType",
+          "size",
+          "status",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "CommunicationDeliveryDto": {
+        "properties": {
+          "lastErrorCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "state": {
+            "description": "received for inbound. For outbound: queued, sending, accepted (the provider took it), then delivered or bounced ONLY from a real provider event, or failed.",
+            "enum": [
+              "received",
+              "queued",
+              "sending",
+              "accepted",
+              "delivered",
+              "bounced",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "updatedAt",
+          "lastErrorCode"
+        ],
+        "type": "object"
+      },
+      "CommunicationMessageDto": {
+        "properties": {
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/CommunicationAttachmentDto"
+            },
+            "type": "array"
+          },
+          "authorAdminId": {
+            "description": "Who replied, for outbound messages.",
+            "nullable": true,
+            "type": "string"
+          },
+          "cc": {
+            "items": {
+              "$ref": "#/components/schemas/CommunicationAddressDto"
+            },
+            "type": "array"
+          },
+          "conversationId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/CommunicationDeliveryDto"
+          },
+          "direction": {
+            "enum": [
+              "inbound",
+              "outbound"
+            ],
+            "type": "string"
+          },
+          "from": {
+            "$ref": "#/components/schemas/CommunicationAddressDto"
+          },
+          "id": {
+            "type": "string"
+          },
+          "plainText": {
+            "description": "Plain text. Inbound HTML is converted to text server side and never stored or rendered.",
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "to": {
+            "items": {
+              "$ref": "#/components/schemas/CommunicationAddressDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "conversationId",
+          "direction",
+          "from",
+          "to",
+          "cc",
+          "subject",
+          "plainText",
+          "attachments",
+          "delivery",
+          "authorAdminId",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "CommunicationMessagePageDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CommunicationMessageDto"
+            },
+            "type": "array"
+          },
+          "nextPageToken": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "nextPageToken"
+        ],
+        "type": "object"
+      },
+      "CommunicationsSummaryDto": {
+        "properties": {
+          "unread": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CommunicationsUnreadDto"
+              }
+            ],
+            "description": "Conversations with unread messages, per queue."
+          }
+        },
+        "required": [
+          "unread"
+        ],
+        "type": "object"
+      },
+      "CommunicationsUnreadDto": {
+        "properties": {
+          "complaints": {
+            "type": "number"
+          },
+          "information": {
+            "type": "number"
+          },
+          "orders": {
+            "type": "number"
+          },
+          "shipping": {
+            "type": "number"
+          },
+          "support": {
+            "type": "number"
+          },
+          "unclassified": {
+            "description": "Only for communications.review_unclassified.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "orders",
+          "shipping",
+          "support",
+          "complaints",
+          "information"
+        ],
+        "type": "object"
+      },
+      "ConversationDto": {
+        "properties": {
+          "assignedAdminId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "channel": {
+            "description": "orders, shipping, support, complaints, information, or unclassified (mail to an unknown address of the domain, only for super_admin).",
+            "enum": [
+              "orders",
+              "shipping",
+              "support",
+              "complaints",
+              "information",
+              "unclassified"
+            ],
+            "type": "string"
+          },
+          "counterpart": {
+            "$ref": "#/components/schemas/CommunicationAddressDto"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "inboundAddress": {
+            "description": "Alias the mail arrived through.",
+            "type": "string"
+          },
+          "lastMessageAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "messageCount": {
+            "type": "number"
+          },
+          "relatedOrderId": {
+            "description": "Informative link to an order. An inbound mail never changes an order.",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "pending",
+              "resolved"
+            ],
+            "type": "string"
+          },
+          "subject": {
+            "description": "Plain text. Never rendered as HTML.",
+            "type": "string"
+          },
+          "unreadCount": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "description": "Send it back as expectedVersion.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "inboundAddress",
+          "subject",
+          "counterpart",
+          "status",
+          "assignedAdminId",
+          "relatedOrderId",
+          "unreadCount",
+          "messageCount",
+          "lastMessageAt",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "ConversationPageDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationDto"
+            },
+            "type": "array"
+          },
+          "nextPageToken": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "nextPageToken"
+        ],
+        "type": "object"
+      },
+      "ConversationStatusRequestDto": {
+        "properties": {
+          "expectedVersion": {
+            "minimum": 1,
+            "type": "number"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "pending",
+              "resolved"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "status"
         ],
         "type": "object"
       },
@@ -2394,6 +2775,23 @@
         ],
         "type": "object"
       },
+      "LinkConversationOrderRequestDto": {
+        "properties": {
+          "expectedVersion": {
+            "minimum": 1,
+            "type": "number"
+          },
+          "orderId": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "orderId"
+        ],
+        "type": "object"
+      },
       "OrderCreatedDto": {
         "properties": {
           "createdAt": {
@@ -2890,6 +3288,75 @@
           "approvedAt",
           "approvedAtSource",
           "statusLabel"
+        ],
+        "type": "object"
+      },
+      "OrderShipmentDto": {
+        "properties": {
+          "carrierName": {
+            "example": "Servientrega",
+            "maxLength": 80,
+            "minLength": 2,
+            "type": "string"
+          },
+          "deliveredAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "shippedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "trackingNumber": {
+            "example": "1234567890",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "trackingUrl": {
+            "description": "HTTPS only, no credentials, a real host name. It is shown to the customer as a link.",
+            "example": "https://www.servientrega.com/rastreo",
+            "format": "uri",
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "carrierName",
+          "trackingNumber",
+          "trackingUrl",
+          "shippedAt",
+          "deliveredAt"
+        ],
+        "type": "object"
+      },
+      "OrderShipmentInputDto": {
+        "properties": {
+          "carrierName": {
+            "example": "Servientrega",
+            "maxLength": 80,
+            "minLength": 2,
+            "type": "string"
+          },
+          "trackingNumber": {
+            "example": "1234567890",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "trackingUrl": {
+            "description": "HTTPS only, no credentials, a real host name. It is shown to the customer as a link.",
+            "example": "https://www.servientrega.com/rastreo",
+            "format": "uri",
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "carrierName",
+          "trackingNumber",
+          "trackingUrl"
         ],
         "type": "object"
       },
@@ -3988,6 +4455,29 @@
         ],
         "type": "object"
       },
+      "ReclassifyConversationRequestDto": {
+        "properties": {
+          "channel": {
+            "enum": [
+              "orders",
+              "shipping",
+              "support",
+              "complaints",
+              "information"
+            ],
+            "type": "string"
+          },
+          "expectedVersion": {
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "channel"
+        ],
+        "type": "object"
+      },
       "ReconcilePaymentRequestDto": {
         "properties": {
           "reference": {
@@ -4101,6 +4591,40 @@
         "required": [
           "name",
           "expectedVersion"
+        ],
+        "type": "object"
+      },
+      "ReplyConversationRequestDto": {
+        "properties": {
+          "expectedVersion": {
+            "minimum": 1,
+            "type": "number"
+          },
+          "text": {
+            "description": "Plain text. Sent from the queue alias to the conversation counterpart; neither can be chosen.",
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "text"
+        ],
+        "type": "object"
+      },
+      "ReplyConversationResultDto": {
+        "properties": {
+          "conversation": {
+            "$ref": "#/components/schemas/ConversationDto"
+          },
+          "message": {
+            "$ref": "#/components/schemas/CommunicationMessageDto"
+          }
+        },
+        "required": [
+          "conversation",
+          "message"
         ],
         "type": "object"
       },
@@ -4261,6 +4785,14 @@
             "description": "Version the caller last read.",
             "minimum": 1,
             "type": "number"
+          },
+          "shipment": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderShipmentInputDto"
+              }
+            ],
+            "description": "Required to move to shipped: carrier, tracking number and an HTTPS tracking link, which the shipped email shows. Rejected with order_shipment_invalid on any other transition. An inbound email never changes an order."
           },
           "status": {
             "description": "Only paid→preparing, preparing→ready_to_ship, ready_to_ship→shipped and shipped→delivered are allowed. preparing→shipped is NOT allowed any more: between producing and dispatching there is a real state, and skipping it lost the only signal that tells an order still in the workshop from a finished one waiting for the carrier. Orders whose history already contains preparing→shipped keep reading fine; this governs what can be written from now on. No skips, no going back, and pending_payment→paid is applied by the payment outcome, never here.",
@@ -5224,6 +5756,1085 @@
         "summary": "Exchange a Firebase ID token for an administrative session",
         "tags": [
           "admin-auth"
+        ]
+      }
+    },
+    "/v1/admin/communications/conversations": {
+      "get": {
+        "description": "Filtered by queue, status, assignee and unread in the query itself, before paginating. Newest activity first. The unclassified queue needs communications.review_unclassified. No search: it is not supported. Requires communications.read.",
+        "operationId": "AdminCommunicationsController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageToken",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unread",
+            "required": false,
+            "schema": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "me, none or an account id.",
+            "in": "query",
+            "name": "assigned",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "open",
+                "pending",
+                "resolved"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "channel",
+            "required": false,
+            "schema": {
+              "enum": [
+                "orders",
+                "shipping",
+                "support",
+                "complaints",
+                "information",
+                "unclassified"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationPageDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "List conversations",
+        "tags": [
+          "admin-communications"
+        ]
+      }
+    },
+    "/v1/admin/communications/conversations/{conversationId}": {
+      "get": {
+        "operationId": "AdminCommunicationsController_get",
+        "parameters": [
+          {
+            "description": "Conversation identifier.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_not_found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read one conversation. Requires communications.read.",
+        "tags": [
+          "admin-communications"
+        ]
+      }
+    },
+    "/v1/admin/communications/conversations/{conversationId}/assignment": {
+      "post": {
+        "operationId": "AdminCommunicationsController_assign",
+        "parameters": [
+          {
+            "description": "Conversation identifier.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignConversationRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_version_conflict or conversation_state_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Assign or unassign. Requires expectedVersion and communications.assign.",
+        "tags": [
+          "admin-communications"
+        ]
+      }
+    },
+    "/v1/admin/communications/conversations/{conversationId}/messages": {
+      "get": {
+        "operationId": "AdminCommunicationsController_messages",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageToken",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "description": "Conversation identifier.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunicationMessagePageDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_not_found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Messages of a conversation, oldest first. Requires communications.read.",
+        "tags": [
+          "admin-communications"
+        ]
+      }
+    },
+    "/v1/admin/communications/conversations/{conversationId}/messages/{messageId}/attachments/{attachmentId}": {
+      "get": {
+        "description": "Bytes from the private bucket, as an attachment with nosniff. No public URL exists. Requires communications.read, and is audited.",
+        "operationId": "AdminCommunicationsController_attachment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attachmentId",
+            "required": true,
+            "schema": {}
+          },
+          {
+            "in": "path",
+            "name": "messageId",
+            "required": true,
+            "schema": {}
+          },
+          {
+            "description": "Conversation identifier.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The file."
+          },
+          "401": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_not_found"
+          },
+          "409": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "attachment_unavailable"
+          },
+          "503": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Download a stored attachment",
+        "tags": [
+          "admin-communications"
+        ]
+      }
+    },
+    "/v1/admin/communications/conversations/{conversationId}/order-link": {
+      "post": {
+        "description": "Informative only: it never changes the order. The order must exist. Requires expectedVersion and communications.manage.",
+        "operationId": "AdminCommunicationsController_linkOrder",
+        "parameters": [
+          {
+            "description": "Conversation identifier.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkConversationOrderRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_version_conflict or conversation_state_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Link or unlink an order",
+        "tags": [
+          "admin-communications"
+        ]
+      }
+    },
+    "/v1/admin/communications/conversations/{conversationId}/read": {
+      "post": {
+        "operationId": "AdminCommunicationsController_markRead",
+        "parameters": [
+          {
+            "description": "Conversation identifier.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_not_found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Mark as read. Does not change the version. Requires communications.read.",
+        "tags": [
+          "admin-communications"
+        ]
+      }
+    },
+    "/v1/admin/communications/conversations/{conversationId}/reclassification": {
+      "post": {
+        "description": "Only for communications.review_unclassified and communications.manage. Its held attachments are then fetched under the normal policy.",
+        "operationId": "AdminCommunicationsController_reclassify",
+        "parameters": [
+          {
+            "description": "Conversation identifier.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReclassifyConversationRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_version_conflict or conversation_state_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Move an unclassified conversation to a queue",
+        "tags": [
+          "admin-communications"
+        ]
+      }
+    },
+    "/v1/admin/communications/conversations/{conversationId}/replies": {
+      "post": {
+        "description": "Plain text, sent from the queue alias to the conversation counterpart, keeping the thread with In-Reply-To and References. Queued in a durable outbox and attempted at once; delivered is only ever set by a real provider event. Not allowed on the unclassified queue. Requires expectedVersion, an Idempotency-Key and communications.reply. Queues: orders, shipping, support, complaints, information.",
+        "operationId": "AdminCommunicationsController_reply",
+        "parameters": [
+          {
+            "description": "8-128 characters [A-Za-z0-9._:-]. The same key with the same body returns the queued reply instead of sending another one; with a different body it is idempotency_conflict.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Conversation identifier.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyConversationRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplyConversationResultDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_version_conflict, conversation_state_conflict or idempotency_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_reply_unavailable or communications_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Reply to a conversation",
+        "tags": [
+          "admin-communications"
+        ]
+      }
+    },
+    "/v1/admin/communications/conversations/{conversationId}/status": {
+      "post": {
+        "operationId": "AdminCommunicationsController_setStatus",
+        "parameters": [
+          {
+            "description": "Conversation identifier.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationStatusRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "conversation_version_conflict or conversation_state_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Move between open, pending and resolved. Requires expectedVersion and communications.manage.",
+        "tags": [
+          "admin-communications"
+        ]
+      }
+    },
+    "/v1/admin/communications/summary": {
+      "get": {
+        "operationId": "AdminCommunicationsController_summary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunicationsSummaryDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_authentication_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Unread conversations per queue. Requires communications.read.",
+        "tags": [
+          "admin-communications"
         ]
       }
     },
@@ -10240,6 +11851,77 @@
         ]
       }
     },
+    "/v1/webhooks/resend": {
+      "post": {
+        "description": "No administrative session: authenticity comes only from the Svix signature over the raw body, with a five-minute timestamp window and replay protection by event id. email.received stores the message in the inbox; delivery events update outbound replies. An inbound email never changes an order. Answers 404 while INBOUND_MODE=disabled.",
+        "operationId": "ResendWebhookController_receive",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "svix-signature",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "svix-timestamp",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "svix-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event processed, already seen, or ignored."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "webhook_rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "Inbox disabled."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "communications_unavailable; the provider retries."
+          }
+        },
+        "summary": "Receive a signed Resend event",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
     "/v1/webhooks/wompi": {
       "post": {
         "description": "No administrative session: authenticity comes from the Wompi signature. A valid event we do not process — anything other than transaction.updated — answers 200 and is ignored: an error would make the provider retry it forever and eventually disable the webhook. A signature-valid event whose commercial data does not match the attempt (amount, currency, environment, unknown reference, or a transaction already bound to another attempt) also answers 200, is NOT applied, and raises an audited mismatch: retrying would never fix it, a person has to look at it. An invalid signature or a corrupt body answers 401, which is what should make the provider retry and what can be alerted on. The same outcome received twice changes nothing: no second history entry, no second email, no move of the order and no change to the approval date.",
@@ -10328,6 +12010,14 @@
     {
       "description": "Administrative surface: the commercial summary the panel opens with. Read-only, server-to-server, and every figure comes from stored data: nothing is estimated or generated. Requires dashboard.read.",
       "name": "admin-dashboard"
+    },
+    {
+      "description": "Administrative surface: the unified inbox of the five queues (ADR 0020). Server-to-server only. Everything from an inbound mail is plain text; no HTML, no provider ids, no public attachment URLs. Requires communications.* permissions; moderator has none.",
+      "name": "admin-communications"
+    },
+    {
+      "description": "Public provider webhooks, reached only through the API Gateway. Authenticity comes from each provider's signature over the raw body, never from this layer.",
+      "name": "webhooks"
     },
     {
       "description": "Administrative surface: administrative accounts and invitations (ADR 0019). Server-to-server only. Lists only accounts registered as administrative, never other identities of the project. No credential, token, claim map or invitation link is ever accepted or returned. Requires admin_users.read to list and the permission to manage the target role to change an account.",

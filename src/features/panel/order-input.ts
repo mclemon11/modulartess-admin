@@ -11,6 +11,7 @@
 import type {
   StatusReminderRequest,
   CancelOrderRequest,
+  OrderShipmentInput,
   SimulatePaymentRequest,
   UpdateOrderStatusRequest,
 } from '@/lib/api/orders';
@@ -62,6 +63,57 @@ function expectedVersion(raw: unknown): number | null {
   return typeof raw === 'number' && Number.isInteger(raw) && raw >= 1 ? raw : null;
 }
 
+/** Texto de una línea, recortado, dentro de los límites que publica el contrato. */
+function boundedText(raw: unknown, min: number, max: number): string | null {
+  if (typeof raw !== 'string') {
+    return null;
+  }
+
+  const value = raw.trim();
+
+  const hasControl = [...value].some((char) => {
+    const code = char.charCodeAt(0);
+
+    return code < 0x20 || code === 0x7f;
+  });
+
+  return value.length >= min && value.length <= max && !hasControl ? value : null;
+}
+
+/**
+ * El envío que acompaña a `shipped`: exactamente las tres claves del contrato.
+ *
+ * Aquí solo se comprueba la forma. Si la URL es aceptable como seguimiento —HTTPS, host real, sin
+ * credenciales— lo decide el backend; el panel solo descarta lo que no empieza por `https://`.
+ */
+export function parseShipmentInput(raw: unknown): OrderShipmentInput | null {
+  const body = record(raw);
+
+  if (
+    body === null ||
+    Object.keys(body).some(
+      (key) => key !== 'carrierName' && key !== 'trackingNumber' && key !== 'trackingUrl',
+    )
+  ) {
+    return null;
+  }
+
+  const carrierName = boundedText(body.carrierName, 2, 80);
+  const trackingNumber = boundedText(body.trackingNumber, 1, 64);
+  const trackingUrl = boundedText(body.trackingUrl, 9, 500);
+
+  if (
+    carrierName === null ||
+    trackingNumber === null ||
+    trackingUrl === null ||
+    !trackingUrl.toLowerCase().startsWith('https://')
+  ) {
+    return null;
+  }
+
+  return { carrierName, trackingNumber, trackingUrl };
+}
+
 export function parseOrderStatusChange(raw: unknown): UpdateOrderStatusRequest | null {
   const body = record(raw);
 
@@ -76,7 +128,13 @@ export function parseOrderStatusChange(raw: unknown): UpdateOrderStatusRequest |
     return null;
   }
 
-  return { expectedVersion: version, status };
+  if (body.shipment === undefined) {
+    return { expectedVersion: version, status };
+  }
+
+  const shipment = parseShipmentInput(body.shipment);
+
+  return shipment === null ? null : { expectedVersion: version, status, shipment };
 }
 
 /**

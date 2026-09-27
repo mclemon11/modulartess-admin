@@ -241,7 +241,7 @@ describe('copia versionada del contrato', () => {
     ).toEqual(['attributes', 'expectedVersion', 'priceCop']);
   });
 
-  it('solo inventario, imágenes y las mutaciones de cuentas exigen Idempotency-Key', () => {
+  it('solo inventario, imágenes, cuentas y las respuestas de la bandeja exigen Idempotency-Key', () => {
     const withKey: string[] = [];
 
     for (const [path, node] of Object.entries(contract.paths)) {
@@ -278,6 +278,8 @@ describe('copia versionada del contrato', () => {
         'POST /v1/admin/users/{userId}/disable',
         'POST /v1/admin/users/{userId}/reactivate',
         'POST /v1/admin/users/{userId}/resend-invitation',
+        // Responder manda un correo: repetir con la misma clave devuelve la respuesta encolada.
+        'POST /v1/admin/communications/conversations/{conversationId}/replies',
       ].sort(),
     );
   });

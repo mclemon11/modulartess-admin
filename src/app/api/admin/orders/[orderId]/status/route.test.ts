@@ -115,6 +115,62 @@ describe('POST /api/admin/orders/[orderId]/status', () => {
     await expect(response.json()).resolves.toMatchObject({ code: 'version_conflict' });
   });
 
+  const SHIPMENT = {
+    carrierName: 'Servientrega',
+    trackingNumber: '1234567890',
+    trackingUrl: 'https://www.servientrega.com/rastreo',
+  };
+
+  it('pasa el envío al marcar enviado, recortado y con sus tres claves', async () => {
+    changeOrderStatus.mockResolvedValue({ id: 'ord_abc' });
+
+    const response = await POST(
+      request({
+        body: {
+          expectedVersion: 4,
+          status: 'shipped',
+          shipment: { ...SHIPMENT, carrierName: '  Servientrega ' },
+        },
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(200);
+    expect(changeOrderStatus).toHaveBeenCalledWith(MATERIAL, 'ord_abc', {
+      expectedVersion: 4,
+      status: 'shipped',
+      shipment: SHIPMENT,
+    });
+  });
+
+  it.each([
+    ['sin enlace', { carrierName: 'X Y', trackingNumber: '1' }],
+    ['con enlace http', { ...SHIPMENT, trackingUrl: 'http://rastreo.example.invalid' }],
+    ['con enlace javascript', { ...SHIPMENT, trackingUrl: 'javascript:alert(1)' }],
+    ['con una clave de más', { ...SHIPMENT, deliveredAt: '2026-01-01T00:00:00.000Z' }],
+    ['con un control en la guía', { ...SHIPMENT, trackingNumber: '12\n34' }],
+  ])('rechaza un envío %s sin llamar al backend', async (_case, shipment) => {
+    const response = await POST(
+      request({ body: { expectedVersion: 4, status: 'shipped', shipment } }),
+      context,
+    );
+
+    expect(response.status).toBe(400);
+    expect(changeOrderStatus).not.toHaveBeenCalled();
+  });
+
+  it('traduce order_shipment_invalid a su propio código', async () => {
+    changeOrderStatus.mockRejectedValue(new BackendFailure('backend_order_shipment_invalid'));
+
+    const response = await POST(
+      request({ body: { expectedVersion: 4, status: 'shipped', shipment: SHIPMENT } }),
+      context,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ code: 'shipment_invalid' });
+  });
+
   it('no propaga el mensaje del backend en un fallo inesperado', async () => {
     changeOrderStatus.mockRejectedValue(new Error('backend en https://interno.invalid falló'));
 

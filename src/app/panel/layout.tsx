@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
+import { inboxBadge } from '@/features/inbox/inbox-badge';
 import { PanelShell } from '@/features/panel/panel-shell';
 import { resolvePanelSession } from '@/features/panel/session-context';
 import { SessionCleanup } from '@/features/session/session-cleanup';
@@ -33,5 +34,11 @@ export default async function PanelLayout({ children }: { readonly children: Rea
     return <PanelUnavailable />;
   }
 
-  return <PanelShell role={result.session.role}>{children}</PanelShell>;
+  const badges = await inboxBadge(result.session.role, result.session.sessionMaterial);
+
+  return (
+    <PanelShell badges={badges} role={result.session.role}>
+      {children}
+    </PanelShell>
+  );
 }

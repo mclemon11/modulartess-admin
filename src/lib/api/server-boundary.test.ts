@@ -58,6 +58,8 @@ const SERVER_ONLY_MODULES = [
   'src/lib/api/integrations.ts',
   'src/lib/api/payment-incidents.ts',
   'src/lib/api/identity-token.ts',
+  'src/lib/api/communications.ts',
+  'src/features/inbox/inbox-badge.ts',
   'src/features/panel/session-context.ts',
   'src/features/session/mutation-route.ts',
   'src/features/session/query-route.ts',
@@ -95,6 +97,13 @@ const SERVER_ONLY_MODULES = [
   'src/app/api/admin/users/[userId]/disable/route.ts',
   'src/app/api/admin/users/[userId]/reactivate/route.ts',
   'src/app/api/admin/users/[userId]/resend-invitation/route.ts',
+  'src/app/api/admin/communications/conversations/[conversationId]/read/route.ts',
+  'src/app/api/admin/communications/conversations/[conversationId]/assignment/route.ts',
+  'src/app/api/admin/communications/conversations/[conversationId]/status/route.ts',
+  'src/app/api/admin/communications/conversations/[conversationId]/order-link/route.ts',
+  'src/app/api/admin/communications/conversations/[conversationId]/reclassification/route.ts',
+  'src/app/api/admin/communications/conversations/[conversationId]/replies/route.ts',
+  'src/app/api/admin/communications/conversations/[conversationId]/messages/[messageId]/attachments/[attachmentId]/route.ts',
 ];
 
 describe('módulos server-only', () => {
