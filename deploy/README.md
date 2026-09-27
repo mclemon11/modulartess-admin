@@ -114,22 +114,27 @@ un commit no es auditable.
 
 ## 4. Configuración del servicio
 
-| Parámetro         | Valor                         |
-| ----------------- | ----------------------------- |
-| Servicio          | `modulartess-admin-staging`   |
-| Puerto            | `8080`                        |
-| CPU / memoria     | `1` / `512Mi`                 |
-| Concurrencia      | `40`                          |
-| Timeout           | `60s`                         |
-| Instancias        | min `0`, max `1`              |
-| Entorno           | `gen1`, con startup CPU boost |
-| Ingress           | `all`                         |
-| Autenticación GCP | `--allow-unauthenticated`     |
+| Parámetro         | Valor                               |
+| ----------------- | ----------------------------------- |
+| Servicio          | `modulartess-admin-staging`         |
+| Puerto            | `8080`                              |
+| CPU / memoria     | `1` / `512Mi`                       |
+| Concurrencia      | `40`                                |
+| Timeout           | `60s`                               |
+| Instancias        | min `0`, max `1`                    |
+| Entorno           | `gen1`, con startup CPU boost       |
+| Ingress           | `internal-and-cloud-load-balancing` |
+| Autenticación GCP | `--allow-unauthenticated`           |
 
 ### Por qué el servicio acepta tráfico sin autenticar
 
 El navegador tiene que poder **cargar el formulario de acceso**. Si Cloud Run exigiera un identity
-token para servir la página, nadie podría llegar a iniciar sesión.
+token para servir la página, nadie podría llegar a iniciar sesión, y el NEG serverless del Load
+Balancer invoca el servicio sin identidad.
+
+Sin autenticar no significa accesible por cualquier camino: el ingress es
+`internal-and-cloud-load-balancing`, así que la URL de Cloud Run **no responde desde internet** y la
+única entrada pública es `https://admin.modulartess.com`, por el Load Balancer.
 
 Eso no abre el panel. La autorización funcional sigue cerrada por tres capas independientes:
 

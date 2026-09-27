@@ -281,6 +281,10 @@ describe('origen administrativo canónico', () => {
     expect(STAGING_SH).toContain('no puede ser la URL de Cloud Run');
   });
 
+  it('el ingress deja entrar solo tráfico interno y del Load Balancer', () => {
+    expect(VARS).toMatch(/^SERVICE_INGRESS=internal-and-cloud-load-balancing$/m);
+  });
+
   it('verify entra por el dominio y comprueba la puerta run.app', () => {
     expect(STAGING_SH).toContain('local url="${ADMIN_ORIGIN}"');
     expect(STAGING_SH).toContain('-H "origin: $(cloud_run_origin)"');

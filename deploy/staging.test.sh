@@ -313,7 +313,7 @@ OUT="$(sut deploy --yes --dry-run)"; RC=$?
 expect_ok "${RC}" "deploy en vista previa termina bien"
 for flag in "--port=8080" "--cpu=1" "--memory=512Mi" "--concurrency=40" "--timeout=60s" \
             "--min-instances=0" "--max-instances=1" "--execution-environment=gen1" \
-            "--cpu-boost" "--ingress=all" "--allow-unauthenticated" \
+            "--cpu-boost" "--ingress=internal-and-cloud-load-balancing" "--allow-unauthenticated" \
             "--service-account=modulartess-admin-stg-run@modulartessweb-250f5.iam.gserviceaccount.com"; do
   expect_has "${OUT}" "${flag}" "deploy pasa ${flag}"
 done
@@ -443,7 +443,12 @@ expect_has "${OUT}" "ya no es una entrada pública" "lo confirma"
 
 OUT="$(SHIM_DIRECT_STATUS=200 sut_fixed verify)"; RC=$?
 expect_fail "${RC}" "con el ingress cerrado, run.app respondiendo 200 falla"
+
 set_ingress "all"
+OUT="$(SHIM_DIRECT_STATUS=200 sut_fixed verify)"; RC=$?
+expect_ok "${RC}" "con ingress all (transición) run.app abierto solo avisa"
+expect_has "${OUT}" "todavía responde" "avisa de que sigue abierto"
+set_ingress "internal-and-cloud-load-balancing"
 
 group "los valores de Firebase nunca se imprimen"
 FB_SENTINEL="${WORK}/sentinel.env"
