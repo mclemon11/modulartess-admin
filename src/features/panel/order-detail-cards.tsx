@@ -490,7 +490,8 @@ function NotificationRow({ notification }: { readonly notification: AdminNotific
 
       <dl className={styles.notificationDates}>
         <NotificationDate label="Creado" value={notification.createdAt} />
-        <NotificationDate label="Enviado" value={notification.sentAt} />
+        {/* `sentAt` es cuándo lo aceptó el proveedor, no cuándo llegó al buzón. */}
+        <NotificationDate label="Aceptado por el proveedor" value={notification.sentAt} />
         <NotificationDate label="Próximo intento" value={notification.nextAttemptAt} />
       </dl>
 

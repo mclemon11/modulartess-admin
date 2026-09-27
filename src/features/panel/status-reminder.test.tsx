@@ -244,9 +244,9 @@ async function track(sequence: Array<AdminOrder | null>, maxPolls = 10) {
 
 describe('seguimiento hasta el estado real', () => {
   it.each([
-    ['sent', 'Aceptado por el proveedor de correo.'],
-    ['suppressed', 'No enviado.'],
-    ['dead_letter', 'No se pudo enviar.'],
+    ['sent', 'Aceptado por el proveedor de correo'],
+    ['suppressed', 'No enviado'],
+    ['dead_letter', 'No se pudo enviar'],
   ])('pending → sending → %s', async (terminal, label) => {
     const { result, progress, updated } = await track([
       withReminder('pending'),
@@ -261,7 +261,7 @@ describe('seguimiento hasta el estado real', () => {
     expect(result).toEqual({ kind: 'status', status: terminal, terminal: true });
     // Cada lectura sustituye la ficha: la tarjeta se actualiza sin recargar la página.
     expect(updated).toHaveLength(3);
-    expect(trackingMessage(result)).toBe(`Estado del recordatorio: ${label}`);
+    expect(trackingMessage(result)).toBe(`Estado del recordatorio: ${label}.`);
   });
 
   it('un fallo transitorio del proveedor no es terminal: se sigue consultando', async () => {
@@ -279,7 +279,7 @@ describe('seguimiento hasta el estado real', () => {
     expect(polls).toBe(4);
     expect(result).toEqual({ kind: 'timeout', lastStatus: 'pending' });
     const message = trackingMessage(result) ?? '';
-    expect(message).toContain('Pendiente de envío.');
+    expect(message).toContain('Pendiente de envío');
     expect(message.toLowerCase()).not.toMatch(/enviado|entregado|aceptado/);
   });
 
@@ -309,11 +309,11 @@ describe('seguimiento hasta el estado real', () => {
 
 describe('estados de los avisos', () => {
   it.each([
-    ['pending', 'Pendiente de envío.'],
-    ['sending', 'Enviando.'],
-    ['sent', 'Aceptado por el proveedor de correo.'],
-    ['suppressed', 'No enviado.'],
-    ['dead_letter', 'No se pudo enviar.'],
+    ['pending', 'Pendiente de envío'],
+    ['sending', 'Enviando'],
+    ['sent', 'Aceptado por el proveedor de correo'],
+    ['suppressed', 'No enviado'],
+    ['dead_letter', 'No se pudo enviar'],
   ])('%s se llama «%s»', (status, label) => {
     expect(describeNotificationStatus(status)).toBe(label);
   });
@@ -347,7 +347,7 @@ describe('estados de los avisos', () => {
         })}
       />,
     );
-    expect(html).toContain('No se pudo enviar.');
+    expect(html).toContain('No se pudo enviar');
     expect(html).not.toContain('provider_credentials_rejected');
     expect(html).not.toContain('ntf_630e7cfa');
   });
@@ -413,5 +413,83 @@ describe('contrato', () => {
     const client = readFileSync('src/features/panel/orders-client.ts', 'utf8');
     expect(client).toContain('/api/admin/orders/');
     expect(client).not.toMatch(/run\.app|MODULARTESS_BACKEND|openapi-fetch/);
+  });
+});
+
+describe('ningún texto de avisos dice «Enviado» ni «Entregado»', () => {
+  const STATUSES = [
+    'pending',
+    'sending',
+    'sent',
+    'failed',
+    'dead_letter',
+    'previewed',
+    'suppressed',
+  ];
+  const EVENTS = [
+    'order_received',
+    'payment_reminder',
+    'payment_processing',
+    'payment_approved',
+    'payment_declined',
+    'payment_voided',
+    'payment_expired',
+    'payment_error',
+    'order_preparing',
+    'order_ready_to_ship',
+    'order_shipped',
+    'order_delivered',
+    'order_cancelled',
+    'order_status_reminder',
+  ];
+
+  it('ni en los estados, ni en las notas, ni en los nombres de los avisos', () => {
+    for (const status of STATUSES) {
+      const text = `${describeNotificationStatus(status)} ${notificationNote(status) ?? ''}`;
+      expect(text, status).not.toMatch(/\b(Enviado|Entregado)\b/);
+    }
+    for (const event of EVENTS) {
+      expect(describeNotificationEvent(event), event).not.toMatch(/^(Enviado|Entregado)$/);
+    }
+    expect(describeNotificationEvent('order_shipped')).toBe('Pedido enviado');
+    expect(describeNotificationEvent('order_delivered')).toBe('Pedido entregado');
+  });
+
+  it('la tarjeta nombra la fecha del proveedor como aceptación, no como envío', () => {
+    const html = renderToStaticMarkup(
+      <OrderNotificationsCard
+        order={order({
+          notifications: STATUSES.map(
+            (status, index) =>
+              ({
+                id: `ntf_${index}`,
+                eventKey: 'order_status_reminder',
+                audience: 'customer',
+                template: 'customer_order_status_reminder',
+                templateVersion: 1,
+                deliveryMode: 'provider',
+                status,
+                attempts: 1,
+                createdAt: '2026-09-27T16:33:32.000Z',
+                updatedAt: '2026-09-27T16:34:04.000Z',
+                nextAttemptAt: null,
+                sentAt: status === 'sent' ? '2026-09-27T16:34:04.000Z' : null,
+                lastErrorCode: null,
+              }) as AdminNotification,
+          ),
+        })}
+      />,
+    );
+    expect(html).toContain('Aceptado por el proveedor');
+    expect(html).not.toMatch(/>(Enviado|Entregado)</);
+    for (const label of [
+      'Pendiente de envío',
+      'Enviando',
+      'Aceptado por el proveedor de correo',
+      'No enviado',
+      'No se pudo enviar',
+    ]) {
+      expect(html).toContain(label);
+    }
   });
 });

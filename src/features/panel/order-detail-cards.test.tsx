@@ -232,7 +232,7 @@ describe('notificaciones', () => {
       />,
     );
 
-    expect(html).toContain('No enviado.');
+    expect(html).toContain('No enviado');
     expect(html).toContain('El envío estaba deshabilitado para este entorno.');
     expect(html).toContain('Deshabilitado');
   });
@@ -288,11 +288,11 @@ describe('notificaciones', () => {
   });
 
   it.each([
-    ['sent', 'Aceptado por el proveedor de correo.'],
-    ['pending', 'Pendiente de envío.'],
-    ['suppressed', 'No enviado.'],
-    ['failed', 'Falló.'],
-    ['dead_letter', 'No se pudo enviar.'],
+    ['sent', 'Aceptado por el proveedor de correo'],
+    ['pending', 'Pendiente de envío'],
+    ['suppressed', 'No enviado'],
+    ['failed', 'Falló'],
+    ['dead_letter', 'No se pudo enviar'],
   ] as const)(
     'muestra un recordatorio de pago %s con los componentes de siempre',
     (status, label) => {

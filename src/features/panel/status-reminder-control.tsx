@@ -132,9 +132,9 @@ export function trackingMessage(tracking: ReminderTracking | null): string | nul
   if (tracking.kind === 'timeout') {
     return tracking.lastStatus === null
       ? 'Todavía no vemos el recordatorio en la ficha. Vuelve a consultarla en unos minutos.'
-      : `Estado del recordatorio: ${describeNotificationStatus(tracking.lastStatus)} Sigue sin terminar; el trabajador de correo lo procesará en su próxima pasada.`;
+      : `Estado del recordatorio: ${describeNotificationStatus(tracking.lastStatus)}. Sigue sin terminar; el trabajador de correo lo procesará en su próxima pasada.`;
   }
-  return `Estado del recordatorio: ${describeNotificationStatus(tracking.status)}`;
+  return `Estado del recordatorio: ${describeNotificationStatus(tracking.status)}.`;
 }
 
 /**

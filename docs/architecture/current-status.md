@@ -1408,12 +1408,17 @@ Pedir no es enviar: `queued` dice «Recordatorio programado para envío.» y `al
 existe un recordatorio para este estado.»; ninguno dice «enviado». Después la tarjeta **sigue el
 aviso**, releyendo la ficha cada 5 s —36 veces como mucho, pasada y media del trabajador—, hasta un
 estado terminal, y enseña el estado real sin recargar la página. Si se agota el límite lo dice. Los
-estados se nombran por lo que sabemos: «Pendiente de envío.», «Enviando.», «Aceptado por el
-proveedor de correo.» —con la nota de que no hay confirmación de entrega—, «No enviado.» y «No se
-pudo enviar.». No existe «Entregado»: el contrato no publica ningún estado de entrega. Un conflicto
+estados se nombran por lo que sabemos: «Pendiente de envío», «Enviando», «Aceptado por el
+proveedor de correo» —con la nota de que no hay confirmación de entrega—, «No enviado» y «No se
+pudo enviar». No existe «Entregado»: el contrato no publica ningún estado de entrega. Un conflicto
 de versión pide recargar. Un pedido cancelado
 no ofrece la acción. El aviso aparece como «Recordatorio manual de estado». Quién lo pidió queda en
 la auditoría del backend, que el contrato no publica al panel: la tarjeta no lo enseña ni lo deduce.
+
+La fecha `sentAt` se rotula «Aceptado por el proveedor», y los avisos de `order_shipped` y
+`order_delivered` se llaman «Pedido enviado» y «Pedido entregado»: en la tarjeta de avisos, un
+«Enviado» o un «Entregado» a secas se leería como que el correo llegó. Ningún texto de avisos dice
+«Enviado» ni «Entregado»; el contrato no publica eventos de entrega del proveedor.
 
 Las supresiones que el backend escribe a propósito se explican en la tarjeta en lugar de enseñarse
 como un fallo: sustituido por un recordatorio manual, escrito con otro ambiente de pago que el del

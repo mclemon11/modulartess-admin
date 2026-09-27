@@ -36,8 +36,9 @@ const EVENTS: Readonly<Record<NotificationEventKey, string>> = {
   payment_error: 'Error en el pago',
   order_preparing: 'En producción',
   order_ready_to_ship: 'Listo para envío',
-  order_shipped: 'Enviado',
-  order_delivered: 'Entregado',
+  // «Pedido …» para que en la tarjeta de avisos no se lea como que el correo se entregó.
+  order_shipped: 'Pedido enviado',
+  order_delivered: 'Pedido entregado',
   order_cancelled: 'Pedido cancelado',
   // Lo pidió una persona desde el panel. Recuerda un estado: no es que haya vuelto a ocurrir.
   order_status_reminder: 'Recordatorio manual de estado',
@@ -78,13 +79,13 @@ export function describeDeliveryMode(mode: string): string {
  * existe «Enviado» ni «Entregado»: decirlo prometería algo que nadie ha comprobado.
  */
 const STATUSES: Readonly<Record<NotificationStatus, string>> = {
-  pending: 'Pendiente de envío.',
-  sending: 'Enviando.',
-  sent: 'Aceptado por el proveedor de correo.',
-  failed: 'Falló.',
-  dead_letter: 'No se pudo enviar.',
-  previewed: 'Previsualizado.',
-  suppressed: 'No enviado.',
+  pending: 'Pendiente de envío',
+  sending: 'Enviando',
+  sent: 'Aceptado por el proveedor de correo',
+  failed: 'Falló',
+  dead_letter: 'No se pudo enviar',
+  previewed: 'Previsualizado',
+  suppressed: 'No enviado',
 };
 
 /** Estados en los que un aviso ya no se mueve solo. `failed` vuelve a `pending` y reintenta. */

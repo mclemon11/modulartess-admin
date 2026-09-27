@@ -78,14 +78,14 @@ describe('modo de entrega', () => {
 
 describe('estado del aviso', () => {
   it.each([
-    ['pending', 'Pendiente de envío.'],
-    ['sending', 'Enviando.'],
+    ['pending', 'Pendiente de envío'],
+    ['sending', 'Enviando'],
     // Aceptado no es entregado: el backend no recibe confirmaciones de entrega.
-    ['sent', 'Aceptado por el proveedor de correo.'],
-    ['failed', 'Falló.'],
-    ['dead_letter', 'No se pudo enviar.'],
-    ['previewed', 'Previsualizado.'],
-    ['suppressed', 'No enviado.'],
+    ['sent', 'Aceptado por el proveedor de correo'],
+    ['failed', 'Falló'],
+    ['dead_letter', 'No se pudo enviar'],
+    ['previewed', 'Previsualizado'],
+    ['suppressed', 'No enviado'],
   ])('%s se lee «%s»', (value, label) => {
     expect(describeNotificationStatus(value)).toBe(label);
   });
