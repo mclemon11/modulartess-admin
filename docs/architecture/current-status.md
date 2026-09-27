@@ -56,23 +56,24 @@ y **no se han activado**: queda para que una persona lo confirme desde el panel.
 
 Esto es lo que ya existe fuera de este repositorio, y no debe describirse como pendiente:
 
-| Hecho                                    | Estado                                                 |
-| ---------------------------------------- | ------------------------------------------------------ |
-| Firebase Authentication                  | Habilitado                                             |
-| Primera cuenta administrativa            | Creada, con el correo **verificado**                   |
-| Claim `super_admin` de esa cuenta        | **Ya asignado**                                        |
-| Bootstrap del backend                    | `completed`; **no puede repetirse**                    |
-| Roles admitidos por backend y OpenAPI    | `super_admin`, `master_admin`, `moderator`             |
-| `master_admin` y `moderator`             | Implementados y publicados en el contrato              |
-| Cuentas existentes                       | La `super_admin` del bootstrap                         |
-| Backend desplegado                       | **`ADMIN_AUTH_MODE=firebase`**, `/v1/admin/*` activa   |
-| Backend `modulartess-backend-staging`    | Ready, privado por IAM                                 |
-| `modulartess-admin-stg-run`              | Creada                                                 |
-| `roles/run.invoker` para el panel        | Concedido sobre el backend de staging                  |
-| Servicio `modulartess-admin-staging`     | **Desplegado**                                         |
-| Dominio del panel                        | **`https://admin.modulartess.com`**, por Load Balancer |
-| Certificado gestionado                   | `ACTIVE` (Google Trust Services)                       |
-| `admin.modulartess.com` en Firebase Auth | Autorizado                                             |
+| Hecho                                    | Estado                                                              |
+| ---------------------------------------- | ------------------------------------------------------------------- |
+| Firebase Authentication                  | Habilitado                                                          |
+| Primera cuenta administrativa            | Creada, con el correo **verificado**                                |
+| Claim `super_admin` de esa cuenta        | **Ya asignado**                                                     |
+| Bootstrap del backend                    | `completed`; **no puede repetirse**                                 |
+| Roles admitidos por backend y OpenAPI    | `super_admin`, `master_admin`, `moderator`                          |
+| `master_admin` y `moderator`             | Implementados y publicados en el contrato                           |
+| Cuentas existentes                       | La `super_admin` del bootstrap                                      |
+| Backend desplegado                       | **`ADMIN_AUTH_MODE=firebase`**, `/v1/admin/*` activa                |
+| Backend `modulartess-backend-staging`    | Ready, privado por IAM                                              |
+| `modulartess-admin-stg-run`              | Creada                                                              |
+| `roles/run.invoker` para el panel        | Concedido sobre el backend de staging                               |
+| Servicio `modulartess-admin-staging`     | **Desplegado**                                                      |
+| Dominio del panel                        | **`https://admin.modulartess.com`**, por Load Balancer              |
+| Certificado gestionado                   | `ACTIVE` (Google Trust Services)                                    |
+| `admin.modulartess.com` en Firebase Auth | Autorizado                                                          |
+| Ingress del panel                        | `internal-and-cloud-load-balancing`: `run.app` ya no es una entrada |
 
 ## Implementado
 
