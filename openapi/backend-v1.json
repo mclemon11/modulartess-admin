@@ -1,6 +1,57 @@
 {
   "components": {
     "schemas": {
+      "AdminCardDetailsDto": {
+        "properties": {
+          "brand": {
+            "description": "Card network code as reported by the provider, validated. null when not reported.",
+            "example": "VISA",
+            "nullable": true,
+            "type": "string"
+          },
+          "brandLabel": {
+            "example": "Visa",
+            "nullable": true,
+            "type": "string"
+          },
+          "cardType": {
+            "description": "credit or debit ONLY when the provider states it. null means unknown: the card must not be called a credit card.",
+            "enum": [
+              "credit",
+              "debit"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "cardTypeLabel": {
+            "example": "Crédito",
+            "nullable": true,
+            "type": "string"
+          },
+          "installments": {
+            "example": 1,
+            "minimum": 1,
+            "nullable": true,
+            "type": "number"
+          },
+          "lastFour": {
+            "description": "Exactly the last four digits, or null. Never a longer or masked number.",
+            "example": "4242",
+            "nullable": true,
+            "pattern": "^[0-9]{4}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "brand",
+          "brandLabel",
+          "lastFour",
+          "cardType",
+          "cardTypeLabel",
+          "installments"
+        ],
+        "type": "object"
+      },
       "AdminNotificationDto": {
         "properties": {
           "attempts": {
@@ -176,6 +227,16 @@
             "description": "Whether the staging payment simulator is switched on in this deployment. When false the simulation route answers as if it did not exist.",
             "type": "boolean"
           },
+          "paymentSummary": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminPaymentSummaryDto"
+              }
+            ],
+            "description": "How the approved payment was made: provider, environment and safe method summary. null while the payment is not approved. The per-attempt detail is in paymentAttempts.",
+            "nullable": true,
+            "type": "object"
+          },
           "publicId": {
             "type": "string"
           },
@@ -262,7 +323,108 @@
           "paymentSimulationEnabled",
           "availableSimulationEvents",
           "notifications",
-          "paymentAttempts"
+          "paymentAttempts",
+          "paymentSummary"
+        ],
+        "type": "object"
+      },
+      "AdminOrderListItemDto": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "customerName": {
+            "example": "Ana Pérez",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "itemCount": {
+            "description": "Total number of lines in the order. The panel subtracts one from it to say \"and N more products\"; the backend does not compose that text.",
+            "minimum": 1,
+            "type": "number"
+          },
+          "paymentStatus": {
+            "description": "Payment state, so the list can tell a pending order from a declined one without opening each. It is already in the order document: the row costs no extra read.",
+            "enum": [
+              "pending",
+              "processing",
+              "approved",
+              "declined",
+              "voided",
+              "expired",
+              "error"
+            ],
+            "type": "string"
+          },
+          "paymentSummary": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminPaymentSummaryDto"
+              }
+            ],
+            "description": "How the payment was made, ONLY when the payment is approved; null otherwise, and null for an approved order with no attempt backing it.",
+            "nullable": true,
+            "type": "object"
+          },
+          "previewLine": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminOrderPreviewLineDto"
+              }
+            ],
+            "description": "First line of the order, from its snapshot. Lets the list show the product photo and name without fetching each order. Always present: a valid order always has at least one line."
+          },
+          "publicId": {
+            "example": "MZ-7KQ2R9DA",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending_payment",
+              "paid",
+              "preparing",
+              "ready_to_ship",
+              "shipped",
+              "delivered",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "statusLabel": {
+            "example": "Pendiente de pago",
+            "type": "string"
+          },
+          "totalCop": {
+            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as \"$ 1.450.000\".",
+            "format": "int32",
+            "type": "number"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "publicId",
+          "status",
+          "statusLabel",
+          "paymentStatus",
+          "version",
+          "customerName",
+          "itemCount",
+          "previewLine",
+          "totalCop",
+          "createdAt",
+          "updatedAt",
+          "paymentSummary"
         ],
         "type": "object"
       },
@@ -270,7 +432,7 @@
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/AdminOrderSummaryDto"
+              "$ref": "#/components/schemas/AdminOrderListItemDto"
             },
             "type": "array"
           },
@@ -432,6 +594,24 @@
             "description": "Whether the provider has bound a transaction to this attempt. The identifier itself is never published.",
             "type": "boolean"
           },
+          "paymentMethod": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminPaymentMethodDto"
+              }
+            ],
+            "description": "Safe method summary captured from the provider for THIS attempt's transaction, or null when the provider has not reported it. Older attempts read as null.",
+            "nullable": true,
+            "type": "object"
+          },
+          "provider": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminPaymentProviderDto"
+              }
+            ],
+            "description": "The attempt's real provider. Attempts are only opened with a gateway; simulated outcomes have no attempt."
+          },
           "status": {
             "enum": [
               "created",
@@ -451,7 +631,9 @@
           "createdAt",
           "attemptNumber",
           "expiresAt",
-          "hasTransactionId"
+          "hasTransactionId",
+          "provider",
+          "paymentMethod"
         ],
         "type": "object"
       },
@@ -523,6 +705,108 @@
           "source",
           "reasonCode",
           "publicMessage"
+        ],
+        "type": "object"
+      },
+      "AdminPaymentMethodDto": {
+        "properties": {
+          "card": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminCardDetailsDto"
+              }
+            ],
+            "description": "Only for code=card, and only when the provider reported at least one safe detail. Other methods carry no details.",
+            "nullable": true,
+            "type": "object"
+          },
+          "code": {
+            "enum": [
+              "card",
+              "pse",
+              "nequi",
+              "daviplata",
+              "bancolombia_transfer",
+              "bancolombia_collect",
+              "bancolombia_qr",
+              "bancolombia_bnpl",
+              "su_plus",
+              "puntos_colombia",
+              "other"
+            ],
+            "example": "card",
+            "type": "string"
+          },
+          "label": {
+            "description": "Public Spanish label.",
+            "example": "Tarjeta",
+            "type": "string"
+          },
+          "providerType": {
+            "description": "The provider's own method type, validated. Useful when code is other.",
+            "example": "CARD",
+            "pattern": "^[A-Z][A-Z0-9_]{1,39}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "providerType",
+          "label",
+          "card"
+        ],
+        "type": "object"
+      },
+      "AdminPaymentProviderDto": {
+        "properties": {
+          "code": {
+            "description": "Stable provider code. simulator is the staging simulator, where NO real charge happened; it is never reported as wompi.",
+            "enum": [
+              "wompi",
+              "simulator"
+            ],
+            "example": "wompi",
+            "type": "string"
+          },
+          "label": {
+            "example": "Wompi",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label"
+        ],
+        "type": "object"
+      },
+      "AdminPaymentSummaryDto": {
+        "properties": {
+          "environment": {
+            "description": "Provider vocabulary. production is real money; sandbox is a test environment or the simulator.",
+            "enum": [
+              "sandbox",
+              "production"
+            ],
+            "type": "string"
+          },
+          "paymentMethod": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminPaymentMethodDto"
+              }
+            ],
+            "description": "null when the provider did not report the method (the panel says 'Medio no informado por Wompi'), and always null for the simulator. It is never guessed.",
+            "nullable": true,
+            "type": "object"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/AdminPaymentProviderDto"
+          }
+        },
+        "required": [
+          "provider",
+          "environment",
+          "paymentMethod"
         ],
         "type": "object"
       },
@@ -7159,7 +7443,7 @@
     },
     "/v1/admin/orders": {
       "get": {
-        "description": "Ordered by createdAt descending. Rows carry no address, email or phone: those are on the detail. Requires orders.read.",
+        "description": "Ordered by createdAt descending. Rows carry no address, email or phone: those are on the detail. Paid rows carry paymentSummary (provider and safe method summary); reading it costs one extra query per 30 paid rows, never one per row. Requires orders.read.",
         "operationId": "AdminOrdersController_list",
         "parameters": [
           {

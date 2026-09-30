@@ -35,10 +35,10 @@ function firstValue(value: string | string[] | undefined): string | undefined {
  * Lo que las referencias muestran y **no** está aquí, porque OpenAPI no lo publica: las cinco
  * tarjetas de métricas con su variación mensual —`Total pedidos 48`, `Pendientes 12`…—, el
  * buscador, los chips por estado con sus conteos, el rango «Últimos 30 días», la exportación, la
- * selección múltiple, el **método** de pago, el correo del cliente, y las dos columnas de la
- * derecha —«Pedidos que requieren atención» y «Últimos pedidos»—. `GET /v1/admin/orders` solo
- * admite `pageToken` y `pageSize`, y `AdminOrderSummaryDto` no publica ni el método de pago ni el
- * correo: deducir un total global de la página cargada sería inventarlo.
+ * selección múltiple, el correo del cliente, y las dos columnas de la derecha —«Pedidos que
+ * requieren atención» y «Últimos pedidos»—. `GET /v1/admin/orders` solo admite `pageToken` y
+ * `pageSize`, y la fila no publica el correo: deducir un total global de la página cargada sería
+ * inventarlo. El **medio** de pago sí está: cada fila lleva `paymentSummary` con el pago aprobado.
  *
  * La paginación tampoco puede ser numérica: el contrato devuelve un `pageToken` opaco, que permite
  * avanzar pero no saltar a una página concreta ni saber cuántas hay.

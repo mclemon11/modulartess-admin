@@ -320,7 +320,7 @@ export interface paths {
         };
         /**
          * List orders for the panel
-         * @description Ordered by createdAt descending. Rows carry no address, email or phone: those are on the detail. Requires orders.read.
+         * @description Ordered by createdAt descending. Rows carry no address, email or phone: those are on the detail. Paid rows carry paymentSummary (provider and safe method summary); reading it costs one extra query per 30 paid rows, never one per row. Requires orders.read.
          */
         get: operations["AdminOrdersController_list"];
         put?: never;
@@ -1200,6 +1200,29 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdminCardDetailsDto: {
+            /**
+             * @description Card network code as reported by the provider, validated. null when not reported.
+             * @example VISA
+             */
+            brand: string | null;
+            /** @example Visa */
+            brandLabel: string | null;
+            /**
+             * @description credit or debit ONLY when the provider states it. null means unknown: the card must not be called a credit card.
+             * @enum {string|null}
+             */
+            cardType: "credit" | "debit" | null;
+            /** @example Crédito */
+            cardTypeLabel: string | null;
+            /** @example 1 */
+            installments: number | null;
+            /**
+             * @description Exactly the last four digits, or null. Never a longer or masked number.
+             * @example 4242
+             */
+            lastFour: string | null;
+        };
         AdminNotificationDto: {
             attempts: number;
             /**
@@ -1262,6 +1285,8 @@ export interface components {
             paymentEvents: components["schemas"]["AdminPaymentEventDto"][];
             /** @description Whether the staging payment simulator is switched on in this deployment. When false the simulation route answers as if it did not exist. */
             paymentSimulationEnabled: boolean;
+            /** @description How the approved payment was made: provider, environment and safe method summary. null while the payment is not approved. The per-attempt detail is in paymentAttempts. */
+            paymentSummary: components["schemas"]["AdminPaymentSummaryDto"] | null;
             publicId: string;
             /** @description Carrier, tracking number and link, written when the order moved to shipped. Null before that, and for orders shipped before this field existed. */
             shipment: components["schemas"]["OrderShipmentDto"] | null;
@@ -1295,8 +1320,40 @@ export interface components {
             /** @description Mutations require it as expectedVersion. */
             version: number;
         };
+        AdminOrderListItemDto: {
+            /** Format: date-time */
+            createdAt: string;
+            /** @example Ana Pérez */
+            customerName: string;
+            id: string;
+            /** @description Total number of lines in the order. The panel subtracts one from it to say "and N more products"; the backend does not compose that text. */
+            itemCount: number;
+            /**
+             * @description Payment state, so the list can tell a pending order from a declined one without opening each. It is already in the order document: the row costs no extra read.
+             * @enum {string}
+             */
+            paymentStatus: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+            /** @description How the payment was made, ONLY when the payment is approved; null otherwise, and null for an approved order with no attempt backing it. */
+            paymentSummary: components["schemas"]["AdminPaymentSummaryDto"] | null;
+            /** @description First line of the order, from its snapshot. Lets the list show the product photo and name without fetching each order. Always present: a valid order always has at least one line. */
+            previewLine: components["schemas"]["AdminOrderPreviewLineDto"];
+            /** @example MZ-7KQ2R9DA */
+            publicId: string;
+            /** @enum {string} */
+            status: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
+            /** @example Pendiente de pago */
+            statusLabel: string;
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
+             */
+            totalCop: number;
+            /** Format: date-time */
+            updatedAt: string;
+            version: number;
+        };
         AdminOrderPageDto: {
-            items: components["schemas"]["AdminOrderSummaryDto"][];
+            items: components["schemas"]["AdminOrderListItemDto"][];
             /** @description Opaque cursor for the next page, or null when there are no more. Page size defaults to 20 and tops out at 50. */
             nextPageToken: string | null;
         };
@@ -1360,6 +1417,10 @@ export interface components {
             expiresAt: string;
             /** @description Whether the provider has bound a transaction to this attempt. The identifier itself is never published. */
             hasTransactionId: boolean;
+            /** @description Safe method summary captured from the provider for THIS attempt's transaction, or null when the provider has not reported it. Older attempts read as null. */
+            paymentMethod: components["schemas"]["AdminPaymentMethodDto"] | null;
+            /** @description The attempt's real provider. Attempts are only opened with a gateway; simulated outcomes have no attempt. */
+            provider: components["schemas"]["AdminPaymentProviderDto"];
             /** @enum {string} */
             status: "created" | "processing" | "approved" | "declined" | "voided" | "error" | "expired";
         };
@@ -1387,6 +1448,45 @@ export interface components {
             source: "payment_simulator" | "provider_webhook" | "provider_reconciliation";
             /** @enum {string} */
             status: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+        };
+        AdminPaymentMethodDto: {
+            /** @description Only for code=card, and only when the provider reported at least one safe detail. Other methods carry no details. */
+            card: components["schemas"]["AdminCardDetailsDto"] | null;
+            /**
+             * @example card
+             * @enum {string}
+             */
+            code: "card" | "pse" | "nequi" | "daviplata" | "bancolombia_transfer" | "bancolombia_collect" | "bancolombia_qr" | "bancolombia_bnpl" | "su_plus" | "puntos_colombia" | "other";
+            /**
+             * @description Public Spanish label.
+             * @example Tarjeta
+             */
+            label: string;
+            /**
+             * @description The provider's own method type, validated. Useful when code is other.
+             * @example CARD
+             */
+            providerType: string;
+        };
+        AdminPaymentProviderDto: {
+            /**
+             * @description Stable provider code. simulator is the staging simulator, where NO real charge happened; it is never reported as wompi.
+             * @example wompi
+             * @enum {string}
+             */
+            code: "wompi" | "simulator";
+            /** @example Wompi */
+            label: string;
+        };
+        AdminPaymentSummaryDto: {
+            /**
+             * @description Provider vocabulary. production is real money; sandbox is a test environment or the simulator.
+             * @enum {string}
+             */
+            environment: "sandbox" | "production";
+            /** @description null when the provider did not report the method (the panel says 'Medio no informado por Wompi'), and always null for the simulator. It is never guessed. */
+            paymentMethod: components["schemas"]["AdminPaymentMethodDto"] | null;
+            provider: components["schemas"]["AdminPaymentProviderDto"];
         };
         AdminPrincipalDto: {
             /**

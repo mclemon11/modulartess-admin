@@ -25,6 +25,12 @@ import { ADMIN_SESSION_HEADER } from './session-material';
 export type AdminOrder = components['schemas']['AdminOrderDto'];
 export type AdminOrderPage = components['schemas']['AdminOrderPageDto'];
 export type AdminOrderSummary = components['schemas']['AdminOrderSummaryDto'];
+/** Fila del listado de pedidos: el resumen más cómo se cobró, solo con el pago aprobado. */
+export type AdminOrderListItem = components['schemas']['AdminOrderListItemDto'];
+export type AdminPaymentSummary = components['schemas']['AdminPaymentSummaryDto'];
+export type AdminPaymentProvider = components['schemas']['AdminPaymentProviderDto'];
+export type AdminPaymentMethod = components['schemas']['AdminPaymentMethodDto'];
+export type AdminCardDetails = components['schemas']['AdminCardDetailsDto'];
 export type OrderLine = components['schemas']['OrderLineDto'];
 export type OrderCustomer = components['schemas']['OrderCustomerDto'];
 export type OrderShippingAddress = components['schemas']['OrderShippingAddressDto'];

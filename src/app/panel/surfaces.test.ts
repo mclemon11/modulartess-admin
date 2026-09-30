@@ -250,11 +250,19 @@ describe('listado de pedidos', () => {
     expect(source).not.toContain('listProducts');
   });
 
-  /* Ni tarjeta, ni entidad, ni referencia: el resumen publica el estado del pago y nada más. */
-  it('no inventa un método de pago en el listado', () => {
+  /*
+   * El medio de pago existe en el listado exactamente cuando la fila publica `paymentSummary`, y sus
+   * etiquetas son las del backend: el código del panel no escribe ni «Visa», ni «Tarjeta», ni
+   * «Transferencia», ni ningún otro nombre de medio.
+   */
+  it('el medio del listado sale de paymentSummary y no se escribe en el panel', () => {
     const source = rendered(ORDERS_TABLE) + rendered(ORDERS_CARD);
 
-    for (const needle of ['Visa', 'Tarjeta', 'Método de pago', 'Transferencia']) {
+    expect(publishes('AdminOrderListItemDto', 'paymentSummary')).toBe(true);
+    expect(publishes('AdminOrderSummaryDto', 'paymentSummary')).toBe(false);
+    expect(source).toContain('order.paymentSummary');
+
+    for (const needle of ['Visa', 'Tarjeta', 'Método de pago', 'Transferencia', 'PSE', 'Nequi']) {
       expect(source, needle).not.toContain(needle);
     }
   });
@@ -321,17 +329,20 @@ describe('detalle del pedido', () => {
   });
 
   /*
-   * El contrato publica `payment`, así que la tarjeta de pago existe. Lo que **no** publica es el
-   * método: ni tarjeta, ni cuatro últimos dígitos, ni referencia bancaria, ni fecha de cobro real.
-   * Un método de pago inventado en un panel administrativo se toma por bueno.
+   * El contrato publica `payment` y `paymentSummary`, así que la tarjeta de pago existe y dice cómo
+   * se cobró. Lo que **no** publica es el número completo, la referencia bancaria ni la fecha de
+   * cobro real, y las etiquetas del medio las pone el backend: el panel no escribe ninguna.
    */
   it('publica el pago y el panel lo muestra sin inventar el método', () => {
     expect(publishes('AdminOrderDto', 'payment')).toBe(true);
+    expect(publishes('AdminOrderDto', 'paymentSummary')).toBe(true);
+    expect(publishes('AdminPaymentAttemptDto', 'paymentMethod')).toBe(true);
 
     const source = rendered(ORDER_DETAIL) + rendered(ORDER_CARDS);
 
     expect(source).toContain('Información de pago');
     expect(source).toContain('payment.statusLabel');
+    expect(source).toContain('order.paymentSummary');
 
     for (const needle of [
       'Tarjeta de crédito',

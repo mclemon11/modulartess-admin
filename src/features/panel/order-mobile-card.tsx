@@ -3,13 +3,14 @@ import Link from 'next/link';
 import catalog from './catalog.module.css';
 import { formatDateTime } from './format';
 import { formatCop } from './money';
+import { OrderPaymentSummary } from './order-payment-summary';
 import { OrderPreviewThumb } from './order-preview-thumb';
 import { extraLabel, unitLabel } from './order-preview';
 import { OrderStatusBadge } from './order-status-badge';
 import { PaymentStatusBadge } from './payment-status-badge';
 import styles from './orders.module.css';
 
-import type { AdminOrderSummary } from '@/lib/api/orders';
+import type { AdminOrderListItem } from '@/lib/api/orders';
 
 /**
  * El pedido como tarjeta, para cuando la tabla deja de caber.
@@ -20,9 +21,9 @@ import type { AdminOrderSummary } from '@/lib/api/orders';
  * resumen, es la misma información en otra forma.
  *
  * Las dos pastillas van juntas y en ese orden —primero el pago, después el pedido—, que es el orden
- * causal: el pago es lo que hace avanzar al pedido.
+ * causal: el pago es lo que hace avanzar al pedido. Debajo, con el pago aprobado, cómo se cobró.
  */
-export function OrderMobileCard({ order }: { readonly order: AdminOrderSummary }) {
+export function OrderMobileCard({ order }: { readonly order: AdminOrderListItem }) {
   const extra = extraLabel(order.itemCount);
 
   return (
@@ -38,6 +39,12 @@ export function OrderMobileCard({ order }: { readonly order: AdminOrderSummary }
           <PaymentStatusBadge status={order.paymentStatus} />
           <OrderStatusBadge label={order.statusLabel} status={order.status} />
         </p>
+        {order.paymentSummary === null ? null : (
+          <p className={styles.orderCardPayment}>
+            <span className={styles.orderCardPaymentLabel}>Medio de pago</span>
+            <OrderPaymentSummary summary={order.paymentSummary} />
+          </p>
+        )}
         <p className={styles.orderCardCustomer}>{order.customerName}</p>
         <p className={styles.orderCardProduct}>{order.previewLine.name}</p>
         <p className={styles.orderCardMeta}>

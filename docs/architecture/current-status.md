@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-09-27 (usuarios y «Eliminar del catálogo»).
+Última actualización: 2026-09-30 (proveedor y medio de pago de Wompi).
 
 ## Fase
 
@@ -205,6 +205,21 @@ justo lo que se vio en el primer despliegue. `deploy/deploy.test.ts` lo exige.
 - **La entrada de correo está apagada en el backend** (`INBOUND_MODE=disabled`): la bandeja se ve
   vacía hasta que se enciende. Sin clave de envío `.com`, responder da `503 reply_unavailable`.
 - **«Marcar enviado» exige transportadora, guía y enlace**, y la ficha muestra el envío.
+
+### Proveedor y medio de pago
+
+Sobre el contrato que publica `paymentSummary` (ficha y fila del listado) y `provider` y
+`paymentMethod` en cada intento. Las etiquetas —«Wompi», «Tarjeta», «Visa», «PSE»…— son las del
+backend; el panel solo decide qué filas enseñar (`src/features/panel/payment-method.ts`).
+
+- **Ficha**: «Información de pago» añade proveedor, medio y, en tarjetas, franquicia, terminación
+  `•••• 1234` (se lee «terminada en 1234»), tipo y cuotas **solo cuando existen**. Sin medio
+  informado: «No informado por Wompi». Crédito o débito aparece solo si el backend lo publica.
+- **Intentos**: cada uno dice su proveedor y, si tiene transacción, su medio.
+- **Listado**: columna «Medio de pago» con «Wompi · Visa •••• 1234», «Wompi · PSE» o «Wompi · Medio
+  no informado»; en móvil va dentro de la tarjeta. Sin pago aprobado no hay resumen.
+- **Simulación**: el proveedor es «Simulador (sin cobro)» y nunca se dice Wompi.
+- El identificador de transacción sigue sin publicarse.
 
 ### Dominio `admin.modulartess.com`
 
@@ -1311,9 +1326,9 @@ se realizó un cobro real». El contrato es explícito al respecto, y dejarlo im
 cómo alguien acaba creyendo que un pedido está cobrado. Con `attemptNumber` en cero se explica que
 «todavía no se ha iniciado un intento de pago» en lugar de dejar un cero suelto.
 
-**No hay método de pago**: ni tarjeta, ni marca, ni cuatro últimos dígitos, ni referencia bancaria,
-ni fecha de cobro real. El contrato no publica ninguna de esas cosas, y en un panel administrativo
-un dato inventado se toma por bueno.
+El **medio de pago** sale de `paymentSummary` (ver «Proveedor y medio de pago»). No hay número
+completo, referencia bancaria ni fecha de cobro real: el contrato no los publica, y en un panel
+administrativo un dato inventado se toma por bueno.
 
 El **historial de pago** va en su propia tarjeta, agrupado por intento —dos intentos son dos
 historias, y aplanarlos haría leer un rechazo del primero como si fuera del segundo—. De cada

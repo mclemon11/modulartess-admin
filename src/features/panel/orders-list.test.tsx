@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { OrderMobileCard } from './order-mobile-card';
 import { OrdersTable } from './orders-table';
 
-import type { AdminOrderSummary } from '@/lib/api/orders';
+import type { AdminOrderListItem } from '@/lib/api/orders';
 
 /**
  * El listado de pedidos, comprobado sobre el HTML que React produce de verdad.
@@ -15,7 +15,7 @@ import type { AdminOrderSummary } from '@/lib/api/orders';
  * pierde ninguno de los dos.
  */
 
-function summary(overrides: Partial<AdminOrderSummary> = {}): AdminOrderSummary {
+function summary(overrides: Partial<AdminOrderListItem> = {}): AdminOrderListItem {
   return {
     id: 'ord_abc',
     publicId: 'MZ-7KQ2R9DA',
@@ -34,11 +34,12 @@ function summary(overrides: Partial<AdminOrderSummary> = {}): AdminOrderSummary 
     totalCop: 1450000,
     createdAt: '2026-09-05T15:24:00.000Z',
     updatedAt: '2026-09-05T19:30:00.000Z',
+    paymentSummary: null,
     ...overrides,
-  } as AdminOrderSummary;
+  } as AdminOrderListItem;
 }
 
-function table(orders: readonly AdminOrderSummary[]): string {
+function table(orders: readonly AdminOrderListItem[]): string {
   return renderToStaticMarkup(<OrdersTable orders={orders} />);
 }
 
@@ -67,7 +68,7 @@ describe('columnas', () => {
     ['expired', 'Vencido'],
     ['error', 'Error técnico'],
   ])('un pago %s se lee «%s»', (paymentStatus, label) => {
-    expect(table([summary({ paymentStatus } as Partial<AdminOrderSummary>)])).toContain(label);
+    expect(table([summary({ paymentStatus } as Partial<AdminOrderListItem>)])).toContain(label);
   });
 
   /* El color nunca es el único portador: las dos pastillas llevan su texto. */
@@ -76,7 +77,7 @@ describe('columnas', () => {
       summary({
         paymentStatus: 'declined',
         statusLabel: 'Pendiente de pago',
-      } as Partial<AdminOrderSummary>),
+      } as Partial<AdminOrderListItem>),
     ]);
 
     expect(html).toContain('Rechazado');
@@ -102,7 +103,7 @@ describe('tarjeta de móvil', () => {
 });
 
 describe('lo que la lista no afirma', () => {
-  it('no inventa un método de pago', () => {
+  it('sin resumen del backend no inventa un medio de pago', () => {
     const html = table([summary()]) + renderToStaticMarkup(<OrderMobileCard order={summary()} />);
 
     for (const needle of ['Visa', 'Tarjeta', 'Método de pago', 'Transferencia']) {
@@ -116,7 +117,10 @@ describe('lo que la lista no afirma', () => {
    * no lo admite: la prueba describe un contrato futuro, no uno vigente.
    */
   it('un estado de pago que el panel no conoce no rompe la fila', () => {
-    const unpublished = { ...summary(), paymentStatus: 'refunded' } as unknown as AdminOrderSummary;
+    const unpublished = {
+      ...summary(),
+      paymentStatus: 'refunded',
+    } as unknown as AdminOrderListItem;
 
     expect(table([unpublished])).toContain('refunded');
   });

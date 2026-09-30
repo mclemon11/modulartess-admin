@@ -34,6 +34,8 @@ function attempt(overrides: Partial<AdminPaymentAttempt> = {}): AdminPaymentAtte
     expiresAt: AFTER,
     hasTransactionId: false,
     status: 'created',
+    provider: { code: 'wompi', label: 'Wompi' },
+    paymentMethod: null,
     ...overrides,
   };
 }
@@ -78,6 +80,7 @@ function order(overrides: Partial<AdminOrder> = {}): AdminOrder {
     notifications: [],
     paymentSimulationEnabled: false,
     availableSimulationEvents: [],
+    paymentSummary: null,
     shipment: null,
     ...overrides,
   } as AdminOrder;

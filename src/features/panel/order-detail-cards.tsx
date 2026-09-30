@@ -20,6 +20,7 @@ import {
   presentAttempt,
   presentCheckoutState,
 } from './payment-attempts';
+import { attemptPaymentFacts, paymentCardSummary, paymentMethodFacts } from './payment-method';
 import { PaymentStatusBadge } from './payment-status-badge';
 import styles from './orders.module.css';
 import { SectionHeading } from './section-icon';
@@ -211,10 +212,14 @@ export function OrderSummaryCard({ order }: { readonly order: AdminOrder }) {
 /**
  * Información de pago.
  *
- * Lo que publica `OrderPaymentDto` y nada más: estado con su etiqueta autoritativa, entorno,
- * número de intentos y última actualización. **No hay método de pago**, ni tarjeta, ni cuatro
- * últimos dígitos, ni referencia bancaria, ni fecha de cobro real: el contrato no publica ninguna
- * de esas cosas, y en un panel administrativo un dato inventado se toma por bueno.
+ * Lo que publican `OrderPaymentDto` y `paymentSummary` y nada más: estado con su etiqueta
+ * autoritativa, entorno, proveedor, medio, número de intentos y última actualización.
+ *
+ * El **medio** sale del resumen que publica el backend —proveedor, medio y, en tarjetas, franquicia,
+ * terminación, tipo y cuotas cuando existen— y no se deduce de nada más. Sin medio informado se
+ * dice «No informado por Wompi». Sin pago aprobado se usa el intento más reciente con transacción;
+ * sin transacción no hay medio que contar. Ni referencia bancaria ni número completo: no se
+ * publican.
  *
  * Cada dato sale de **una** fuente, sin deducirlo de otra:
  *
@@ -239,6 +244,7 @@ export function OrderPaymentCard({
   const { payment, paymentAttempts } = order;
   const latest = paymentAttempts[0];
   const checkout = presentCheckoutState(paymentAttempts, payment.status, now);
+  const charged = paymentCardSummary(order.paymentSummary, paymentAttempts);
 
   return (
     <section className={`${catalog.card} ${catalog.cardPad}`}>
@@ -261,6 +267,19 @@ export function OrderPaymentCard({
 
       <dl className={styles.facts}>
         <Fact label="Entorno" value={describePaymentEnvironment(payment.environment)} />
+        {charged === null ? null : (
+          <>
+            <Fact label="Proveedor" value={charged.provider.label} />
+            {paymentMethodFacts(charged.provider, charged.method).map((fact) => (
+              <Fact
+                key={fact.label}
+                label={fact.label}
+                spokenValue={fact.spokenValue}
+                value={fact.value}
+              />
+            ))}
+          </>
+        )}
         <Fact
           label="Intentos de pago"
           value={paymentAttempts.length === 0 ? 'Ninguno' : String(paymentAttempts.length)}
@@ -307,9 +326,10 @@ const CHECKOUT_TONE_CLASS = {
 /**
  * Intentos de pago, del más reciente al más antiguo, en el orden en que los entrega el contrato.
  *
- * De cada intento se muestra solo lo publicado y útil: ambiente, estado presentado, fechas, número
- * informativo y si hay transacción. La referencia, el identificador de la transacción, la URL de
- * redirección, la llave pública y las firmas no se publican y no se piden.
+ * De cada intento se muestra solo lo publicado y útil: ambiente, estado presentado, proveedor, medio
+ * de pago cuando hay transacción, fechas, número informativo y si hay transacción. La referencia, el
+ * identificador de la transacción, la URL de redirección, la llave pública y las firmas no se
+ * publican y no se piden.
  */
 export function OrderPaymentAttemptsCard({
   order,
@@ -346,6 +366,14 @@ export function OrderPaymentAttemptsCard({
                   </span>
                 </div>
                 <dl className={styles.attemptFacts}>
+                  {attemptPaymentFacts(attempt).map((fact) => (
+                    <Fact
+                      key={fact.label}
+                      label={fact.label}
+                      spokenValue={fact.spokenValue}
+                      value={fact.value}
+                    />
+                  ))}
                   <Fact label="Creado" value={formatDateTime(attempt.createdAt)} />
                   <Fact label="Vence" value={formatDateTime(attempt.expiresAt)} />
                   <Fact label="Intento n.º" value={String(attempt.attemptNumber)} />
@@ -601,11 +629,29 @@ export function OrderActivityCard({ order }: { readonly order: AdminOrder }) {
   );
 }
 
-function Fact({ label, value }: { readonly label: string; readonly value: string }) {
+function Fact({
+  label,
+  value,
+  spokenValue,
+}: {
+  readonly label: string;
+  readonly value: string;
+  /** Lo que oye un lector de pantalla cuando el texto visible no se lee bien, como `•••• 1234`. */
+  readonly spokenValue?: string | undefined;
+}) {
   return (
     <div className={styles.fact}>
       <dt className={styles.factLabel}>{label}</dt>
-      <dd className={styles.factValue}>{value}</dd>
+      <dd className={styles.factValue}>
+        {spokenValue === undefined ? (
+          value
+        ) : (
+          <>
+            <span aria-hidden="true">{value}</span>
+            <span className="sr-only">{spokenValue}</span>
+          </>
+        )}
+      </dd>
     </div>
   );
 }

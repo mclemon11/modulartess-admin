@@ -488,6 +488,40 @@
   font-size: 0.9375rem;
 }
 
+/* ------------------------------------------------------ medio de pago del pedido */
+
+/*
+ * Resumen del cobro en el listado: «Wompi · Visa •••• 1234». Se parte por palabras y, si hace
+ * falta, por cualquier punto: un nombre de medio largo no puede ensanchar la tabla ni la tarjeta.
+ */
+.paymentSummaryCell {
+  min-width: 9rem;
+  max-width: 14rem;
+}
+
+.paymentSummary {
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+
+.paymentSummaryEmpty {
+  color: var(--color-panel-muted);
+}
+
+.orderCardPayment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.orderCardPaymentLabel {
+  color: var(--color-panel-muted);
+  font-weight: 600;
+}
+
 /* ------------------------------------------------- primer producto del pedido */
 
 /*

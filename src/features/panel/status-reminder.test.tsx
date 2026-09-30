@@ -60,6 +60,7 @@ function order(overrides: Partial<AdminOrder> = {}): AdminOrder {
     notifications: [],
     paymentSimulationEnabled: false,
     availableSimulationEvents: [],
+    paymentSummary: null,
     ...overrides,
   } as AdminOrder;
 }
