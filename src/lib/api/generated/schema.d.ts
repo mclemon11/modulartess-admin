@@ -2763,12 +2763,66 @@ export interface components {
             key: string;
             /** @example Acabado */
             label: string;
+            /** @description Declared options, in display order. Always empty for a text axis. */
+            options: components["schemas"]["ProductAttributeOptionDto"][];
+            /**
+             * @description text: a textual option such as a size; its values come from the variants and the axis declares no options. swatch: a colour or finish shown as a swatch; the axis declares its options and variants may only use declared ones. Axes stored before this field read as text.
+             * @enum {string}
+             */
+            presentation: "text" | "swatch";
+        };
+        ProductAttributeDefinitionInputDto: {
+            /**
+             * @description Lowercase identifier.
+             * @example finish
+             */
+            key: string;
+            /** @example Acabado */
+            label: string;
+            /** @description Required and non-empty for swatch; must be empty or absent for text. Every value used by an active variant must stay declared. */
+            options?: components["schemas"]["ProductAttributeOptionInputDto"][];
+            /**
+             * @description text: a textual option such as a size; its values come from the variants and the axis declares no options. swatch: a colour or finish shown as a swatch; the axis declares its options and variants may only use declared ones. Axes stored before this field read as text. Omitted means text.
+             * @enum {string}
+             */
+            presentation?: "text" | "swatch";
         };
         ProductAttributeDto: {
             /** @example Acabado */
             name: string;
             /** @example Roble claro */
             value: string;
+        };
+        ProductAttributeOptionDto: {
+            /** @description Active variants that use this option. While it is not empty the option cannot be removed: archive those variants first (product_attribute_option_in_use). */
+            activeVariantIds: string[];
+            /**
+             * @description Swatch colour as #RRGGBB, always upper case on output. No alpha, no short form and no CSS colour names.
+             * @example #C8A27A
+             */
+            hex: string;
+            /** @description Active images of THIS product that illustrate the option. Archiving an image detaches it from every option in the same operation. */
+            imageIds: string[];
+            /** @example Roble natural */
+            label: string;
+            /** @description Display order, from 0 with no gaps. */
+            position: number;
+            /**
+             * @description Stable identity of the option. Fixed when the option is created; changing label or hex never changes it. Two options of an axis never share it, ignoring case, spaces and accents.
+             * @example roble-natural
+             */
+            value: string;
+        };
+        ProductAttributeOptionInputDto: {
+            /** @description Swatch colour as #RRGGBB, always upper case on output. No alpha, no short form and no CSS colour names. */
+            hex: string;
+            /** @description Identifiers of ACTIVE images of this same product. Anything else is rejected. */
+            imageIds?: string[];
+            label: string;
+            /** @description Display order. Positions must be distinct; they are renumbered from 0. */
+            position: number;
+            /** @description Omit ONLY when creating the option: the backend derives it from the label. Send it back unchanged afterwards; it is the option's identity. */
+            value?: string;
         };
         ProductCategoryDto: {
             /** @description Of those, the ones in status active. null has the same meaning as above. */
@@ -2904,6 +2958,34 @@ export interface components {
             /** @example Acabado: Roble claro · Ancho: 80 cm · Espejo: Redondo */
             variantLabel: string;
         };
+        PublicProductAttributeDto: {
+            /** @example finish */
+            key: string;
+            /** @example Acabado */
+            label: string;
+            options: components["schemas"]["PublicProductAttributeOptionDto"][];
+            /** @enum {string} */
+            presentation: "text" | "swatch";
+        };
+        PublicProductAttributeOptionDto: {
+            /**
+             * @description Swatch colour for a swatch axis; null for a text axis.
+             * @example #C8A27A
+             */
+            hex: string | null;
+            /** @description URLs of the product images that illustrate this option, as in images[].url. */
+            imageUrls: string[];
+            /** @example Roble natural */
+            label: string;
+            position: number;
+            /**
+             * @description Stable value, as in variant.attributes.
+             * @example roble-natural
+             */
+            value: string;
+            /** @description Ids of the ACTIVE variants that use this option, as in variants[].id. */
+            variantIds: string[];
+        };
         PublicProductCardDto: {
             /** @enum {string} */
             availability: "in_stock" | "out_of_stock";
@@ -2927,6 +3009,8 @@ export interface components {
             updatedAt: string;
         };
         PublicProductDto: {
+            /** @description Axes with the options used by ACTIVE variants, and how to present them. Empty when the product has no active variants, and on projections written before this field. */
+            attributes: components["schemas"]["PublicProductAttributeDto"][];
             /**
              * @example in_stock
              * @enum {string}
@@ -3138,8 +3222,8 @@ export interface components {
             position?: number;
         };
         UpdateProductRequestDto: {
-            /** @description Replaces the declared axes. Existing variants are not rewritten. */
-            attributes?: components["schemas"]["ProductAttributeDefinitionDto"][];
+            /** @description Replaces the declared axes. A text axis may become swatch keeping its key, provided its options cover every value its active variants use. Removing an option used by an active variant answers 409 product_attribute_option_in_use. Renaming an option rewrites the label of its ACTIVE variants in the same operation; values, SKU, price and inventory never change. */
+            attributes?: components["schemas"]["ProductAttributeDefinitionInputDto"][];
             care?: string;
             /** @description null clears the category. Omitting the field leaves it unchanged. */
             category?: components["schemas"]["ProductTaxonomyDto"] | null;

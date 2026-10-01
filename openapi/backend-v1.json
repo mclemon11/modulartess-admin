@@ -3987,6 +3987,58 @@
           "label": {
             "example": "Acabado",
             "type": "string"
+          },
+          "options": {
+            "description": "Declared options, in display order. Always empty for a text axis.",
+            "items": {
+              "$ref": "#/components/schemas/ProductAttributeOptionDto"
+            },
+            "maxItems": 24,
+            "type": "array"
+          },
+          "presentation": {
+            "description": "text: a textual option such as a size; its values come from the variants and the axis declares no options. swatch: a colour or finish shown as a swatch; the axis declares its options and variants may only use declared ones. Axes stored before this field read as text.",
+            "enum": [
+              "text",
+              "swatch"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "presentation",
+          "options"
+        ],
+        "type": "object"
+      },
+      "ProductAttributeDefinitionInputDto": {
+        "properties": {
+          "key": {
+            "description": "Lowercase identifier.",
+            "example": "finish",
+            "type": "string"
+          },
+          "label": {
+            "example": "Acabado",
+            "type": "string"
+          },
+          "options": {
+            "description": "Required and non-empty for swatch; must be empty or absent for text. Every value used by an active variant must stay declared.",
+            "items": {
+              "$ref": "#/components/schemas/ProductAttributeOptionInputDto"
+            },
+            "maxItems": 24,
+            "type": "array"
+          },
+          "presentation": {
+            "description": "text: a textual option such as a size; its values come from the variants and the axis declares no options. swatch: a colour or finish shown as a swatch; the axis declares its options and variants may only use declared ones. Axes stored before this field read as text. Omitted means text.",
+            "enum": [
+              "text",
+              "swatch"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -4009,6 +4061,93 @@
         "required": [
           "name",
           "value"
+        ],
+        "type": "object"
+      },
+      "ProductAttributeOptionDto": {
+        "properties": {
+          "activeVariantIds": {
+            "description": "Active variants that use this option. While it is not empty the option cannot be removed: archive those variants first (product_attribute_option_in_use).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "hex": {
+            "description": "Swatch colour as #RRGGBB, always upper case on output. No alpha, no short form and no CSS colour names.",
+            "example": "#C8A27A",
+            "pattern": "^#[0-9A-F]{6}$",
+            "type": "string"
+          },
+          "imageIds": {
+            "description": "Active images of THIS product that illustrate the option. Archiving an image detaches it from every option in the same operation.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          },
+          "label": {
+            "example": "Roble natural",
+            "maxLength": 60,
+            "type": "string"
+          },
+          "position": {
+            "description": "Display order, from 0 with no gaps.",
+            "minimum": 0,
+            "type": "number"
+          },
+          "value": {
+            "description": "Stable identity of the option. Fixed when the option is created; changing label or hex never changes it. Two options of an axis never share it, ignoring case, spaces and accents.",
+            "example": "roble-natural",
+            "maxLength": 60,
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label",
+          "hex",
+          "position",
+          "imageIds",
+          "activeVariantIds"
+        ],
+        "type": "object"
+      },
+      "ProductAttributeOptionInputDto": {
+        "properties": {
+          "hex": {
+            "description": "Swatch colour as #RRGGBB, always upper case on output. No alpha, no short form and no CSS colour names.",
+            "pattern": "^#[0-9A-Fa-f]{6}$",
+            "type": "string"
+          },
+          "imageIds": {
+            "description": "Identifiers of ACTIVE images of this same product. Anything else is rejected.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          },
+          "label": {
+            "maxLength": 60,
+            "type": "string"
+          },
+          "position": {
+            "description": "Display order. Positions must be distinct; they are renumbered from 0.",
+            "minimum": 0,
+            "type": "number"
+          },
+          "value": {
+            "description": "Omit ONLY when creating the option: the backend derives it from the label. Send it back unchanged afterwards; it is the option's identity.",
+            "maxLength": 60,
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "hex",
+          "position"
         ],
         "type": "object"
       },
@@ -4430,6 +4569,85 @@
         ],
         "type": "object"
       },
+      "PublicProductAttributeDto": {
+        "properties": {
+          "key": {
+            "example": "finish",
+            "type": "string"
+          },
+          "label": {
+            "example": "Acabado",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/PublicProductAttributeOptionDto"
+            },
+            "type": "array"
+          },
+          "presentation": {
+            "enum": [
+              "text",
+              "swatch"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "presentation",
+          "options"
+        ],
+        "type": "object"
+      },
+      "PublicProductAttributeOptionDto": {
+        "properties": {
+          "hex": {
+            "description": "Swatch colour for a swatch axis; null for a text axis.",
+            "example": "#C8A27A",
+            "nullable": true,
+            "pattern": "^#[0-9A-F]{6}$",
+            "type": "string"
+          },
+          "imageUrls": {
+            "description": "URLs of the product images that illustrate this option, as in images[].url.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "label": {
+            "example": "Roble natural",
+            "type": "string"
+          },
+          "position": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "value": {
+            "description": "Stable value, as in variant.attributes.",
+            "example": "roble-natural",
+            "type": "string"
+          },
+          "variantIds": {
+            "description": "Ids of the ACTIVE variants that use this option, as in variants[].id.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "value",
+          "label",
+          "hex",
+          "position",
+          "variantIds",
+          "imageUrls"
+        ],
+        "type": "object"
+      },
       "PublicProductCardDto": {
         "properties": {
           "availability": {
@@ -4514,6 +4732,13 @@
       },
       "PublicProductDto": {
         "properties": {
+          "attributes": {
+            "description": "Axes with the options used by ACTIVE variants, and how to present them. Empty when the product has no active variants, and on projections written before this field.",
+            "items": {
+              "$ref": "#/components/schemas/PublicProductAttributeDto"
+            },
+            "type": "array"
+          },
           "availability": {
             "enum": [
               "in_stock",
@@ -4649,7 +4874,8 @@
           "measurements",
           "warranty",
           "care",
-          "variants"
+          "variants",
+          "attributes"
         ],
         "type": "object"
       },
@@ -5128,9 +5354,9 @@
       "UpdateProductRequestDto": {
         "properties": {
           "attributes": {
-            "description": "Replaces the declared axes. Existing variants are not rewritten.",
+            "description": "Replaces the declared axes. A text axis may become swatch keeping its key, provided its options cover every value its active variants use. Removing an option used by an active variant answers 409 product_attribute_option_in_use. Renaming an option rewrites the label of its ACTIVE variants in the same operation; values, SKU, price and inventory never change.",
             "items": {
-              "$ref": "#/components/schemas/ProductAttributeDefinitionDto"
+              "$ref": "#/components/schemas/ProductAttributeDefinitionInputDto"
             },
             "maxItems": 6,
             "type": "array"

@@ -1,0 +1,326 @@
+/*
+ * Colores y acabados. Tokens compartidos de `globals.css`; nada de colores de marca inventados
+ * aquí. El único color libre de esta hoja es el de cada muestra, que llega del contrato.
+ */
+
+.editor,
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.axisHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-md);
+}
+
+.axisHead > .field {
+  flex: 1 1 14rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.hint {
+  color: var(--color-panel-muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.key {
+  align-self: flex-start;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: 0.375rem;
+  background-color: var(--color-panel-subtle);
+  font-size: 0.875rem;
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.5625rem 0.75rem;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-panel-surface);
+  color: var(--color-panel-text);
+  font: inherit;
+}
+
+.keyChoice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.keyButtons,
+.customKey,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.customKey .input {
+  flex: 1 1 10rem;
+  max-width: 16rem;
+}
+
+.button,
+.danger {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: 0.375rem;
+  background-color: var(--color-panel-surface);
+  color: var(--color-panel-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.button:disabled,
+.danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.problems {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--color-danger);
+  font-size: 0.8125rem;
+}
+
+.error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 0.8125rem;
+}
+
+/*
+ * Opciones como **tarjetas** en todos los anchos: en escritorio se reparten en rejilla y en móvil
+ * quedan una debajo de otra, sin tabla que desborde.
+ */
+.options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  gap: var(--space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+  padding: var(--space-md);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-panel-surface);
+}
+
+.option[data-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.optionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.optionName {
+  flex: 1 1 8rem;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.usage {
+  color: var(--color-panel-muted);
+  font-size: 0.75rem;
+}
+
+/* La muestra lleva **siempre** borde; en los colores claros, uno más marcado. */
+.swatch {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: 50%;
+}
+
+.swatchLight {
+  border: 2px solid var(--color-panel-text);
+}
+
+.optionFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: var(--space-sm);
+}
+
+.hexRow {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.hexInput {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  text-transform: uppercase;
+}
+
+.picker {
+  flex: none;
+  width: 2.75rem;
+  height: 2.5rem;
+  padding: 0.125rem;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-panel-surface);
+  cursor: pointer;
+}
+
+.images {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.imageList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: var(--space-xs);
+  margin: var(--space-xs) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.imageChoice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--color-panel-border);
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.imageChosen {
+  border: 2px solid var(--color-brand-border, var(--color-panel-text));
+}
+
+.thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 0.25rem;
+  object-fit: cover;
+}
+
+.imageAlt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.8125rem;
+}
+
+/* ---------------------------------------------------------------- matriz */
+
+.matrixScroll {
+  overflow-x: auto;
+}
+
+.matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.matrix th,
+.matrix td {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--color-panel-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.cellVariant {
+  background-color: var(--color-panel-subtle);
+}
+
+.cellMissing {
+  border-style: dashed;
+  color: var(--color-danger);
+}
+
+.matrixRowHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.matrixRowHead .swatch {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.missingList {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.8125rem;
+}
+
+/* En móvil la matriz pasa a lista por color: una tarjeta por fila, sin scroll horizontal. */
+.matrixCards {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 40rem) {
+  .matrixScroll {
+    display: none;
+  }
+
+  .matrixCards {
+    display: grid;
+    gap: var(--space-sm);
+  }
+
+  .hexRow {
+    flex-wrap: wrap;
+  }
+}

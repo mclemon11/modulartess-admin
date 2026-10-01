@@ -195,8 +195,9 @@
 /* ------------------------------------------------------------------ móvil */
 
 @media (max-width: 60rem) {
+  /* minmax(0, …): con 1fr la pista crece hasta el min-content de la tarjeta y desborda a 360px. */
   .shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     background-color: var(--color-canvas-light);
   }
 

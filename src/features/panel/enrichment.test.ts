@@ -23,7 +23,7 @@ const fields = (overrides: Partial<EnrichmentFields> = {}): EnrichmentFields => 
   ...overrides,
 });
 
-const AXES = [{ key: 'finish', label: 'Acabado' }];
+const AXES = [{ key: 'finish', label: 'Acabado', presentation: 'text' as const }];
 
 const TOCADORES = {
   kind: 'catalog',
@@ -105,10 +105,15 @@ describe('cuerpo del PATCH al editar', () => {
     expect(body?.warranty).toBe('2 años');
   });
 
-  it('conserva los ejes declarados', () => {
+  it('conserva los ejes declarados, con su presentación', () => {
     expect(enrichmentBody(EMPTY_ENRICHMENT, AXES, 'edit')?.attributes).toEqual([
-      { key: 'finish', label: 'Acabado' },
+      { key: 'finish', label: 'Acabado', presentation: 'text' },
     ]);
+  });
+
+  /* Guardar el contenido de la ficha no reenvía los ejes: lo haría como texto y borraría colores. */
+  it('sin ejes (null) no envía attributes', () => {
+    expect(enrichmentBody(EMPTY_ENRICHMENT, null, 'edit')).not.toHaveProperty('attributes');
   });
 });
 

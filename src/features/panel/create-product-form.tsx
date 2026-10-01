@@ -94,6 +94,17 @@ import {
   type VariantDraft,
 } from './variant-draft';
 import { VariantDraftEditor } from './variant-draft-editor';
+import { CombinationMatrixView } from './combination-matrix';
+import { SwatchAxisEditor } from './swatch-axis-editor';
+import {
+  attributesBody,
+  combinationMatrix,
+  draftsForMissing,
+  hasSwatchIssues,
+  swatchAsAxis,
+  validateSwatch,
+  type SwatchAxisDraft,
+} from './swatch-draft';
 
 /** Campos que se pueden marcar con un error, en el orden en que aparecen en pantalla. */
 export const CREATE_FIELD_ORDER = [
@@ -207,6 +218,12 @@ export function CreateProductForm({
   const [enrichment, setEnrichment] = useState<EnrichmentFields>(EMPTY_ENRICHMENT);
   const [categories, setCategories] = useState<readonly CategoryOption[]>(initialCategories);
   const [axes, setAxes] = useState<readonly AxisDraft[]>([]);
+  /**
+   * Colores y acabados. En el alta se declaran nombre, color y orden, y viajan en el mismo `PATCH`
+   * que los demás ejes, **antes** de crear las variantes que los usan. Las imágenes no: hasta que
+   * el producto existe no hay identificadores reales que asociar.
+   */
+  const [swatch, setSwatch] = useState<SwatchAxisDraft | null>(null);
   const [variants, setVariants] = useState<readonly VariantDraft[]>([]);
   /**
    * Inventario del producto base.
@@ -377,7 +394,17 @@ export function CreateProductForm({
 
   /** El precio se convierte una sola vez por render: valida, se envía y se pinta desde aquí. */
   const price = parseCop(fields.priceCop);
-  const axisProblems = validateAxes(axes);
+  const swatchValidation =
+    swatch === null ? { byOption: {}, general: [] } : validateSwatch(swatch, null);
+  const axisProblems = [
+    ...validateAxes(axes),
+    ...(swatch !== null && axes.some((axis) => axis.key.trim() === swatch.key)
+      ? [`«${swatch.key}» ya es el eje de colores: quítalo de los ejes de texto.`]
+      : []),
+  ];
+  /** Todos los ejes que llevará cada variante: los de texto y, si lo hay, el de colores. */
+  const variantAxes = swatch === null ? axes : [...axes, swatchAsAxis(swatch)];
+  const axesBody = attributesBody(declaredAxes(axes), swatch);
   /**
    * Solo se validan las variantes que faltan por crear, contra lo que el backend ya tiene.
    *
@@ -386,8 +413,11 @@ export function CreateProductForm({
    */
   const variantValidation = validateVariantDrafts(
     variants.filter((draft) => !lockedDraftIds.includes(draft.draftId)),
-    declaredAxes(axes),
+    declaredAxes(variantAxes),
     created?.variants ?? [],
+    swatch === null
+      ? null
+      : { key: swatch.key, values: swatch.options.map((option) => option.value.trim()) },
   );
   const enrichmentIssues = enrichmentProblems(enrichment);
   const inventoryIssues = inventoryProblems(inventory);
@@ -453,6 +483,7 @@ export function CreateProductForm({
 
     if (
       axisProblems.length > 0 ||
+      hasSwatchIssues(swatchValidation) ||
       hasEnrichmentProblems(enrichmentIssues) ||
       variantValidation.general.length > 0 ||
       Object.keys(variantValidation.byDraft).length > 0
@@ -486,7 +517,7 @@ export function CreateProductForm({
           : { shortDescription: fields.shortDescription.trim() }),
         ...(fields.description.trim() === '' ? {} : { description: fields.description.trim() }),
       },
-      enrichment: enrichmentBody(enrichment, declaredAxes(axes), 'create'),
+      enrichment: enrichmentBody(enrichment, axesBody, 'create'),
       queue,
       primaryEntryId: chosenPrimary,
       variants,
@@ -577,7 +608,7 @@ export function CreateProductForm({
   const summary = describeProgress(progress, { queue, variants });
   /** Hay clasificación o contenido escrito que todavía no ha llegado al backend. */
   const enrichmentPending =
-    !progress.enriched && enrichmentBody(enrichment, declaredAxes(axes), 'create') !== null;
+    !progress.enriched && enrichmentBody(enrichment, axesBody, 'create') !== null;
   const pendingImages = summary.pendingImages.length;
   const pendingVariants = summary.pendingVariants.length;
   const hasPending =
@@ -841,6 +872,64 @@ export function CreateProductForm({
                       describirlos, van en «Detalles»: convertir texto libre en variantes crea
                       artículos que nadie puede comprar.
                     </p>
+                    <section className={styles.card} aria-label="Colores y acabados">
+                      <div className={styles.cardPad}>
+                        <h3 className={styles.sectionTitle}>Colores y acabados</h3>
+                        <SwatchAxisEditor
+                          attributes={[]}
+                          disabled={busy || progress.enriched}
+                          images={null}
+                          newId={() => crypto.randomUUID()}
+                          onChange={setSwatch}
+                          swatch={swatch}
+                          validation={swatchValidation}
+                          variants={[]}
+                        />
+                        {swatch === null || swatch.options.length === 0 ? null : (
+                          <>
+                            <p className={styles.hint}>
+                              Cada color se vende como variante. Prepara las combinaciones y escribe
+                              el SKU, el precio y el inventario de cada una.
+                            </p>
+                            <CombinationMatrixView
+                              disabled={busy}
+                              hexOf={(value) =>
+                                swatch.options.find((option) => option.value === value)?.hex ??
+                                '#FFFFFF'
+                              }
+                              matrix={combinationMatrix(
+                                swatch,
+                                axes,
+                                created?.variants ?? [],
+                                variants,
+                              )}
+                              onPrepareMissing={() =>
+                                setVariants((current) => [
+                                  ...current,
+                                  ...draftsForMissing(
+                                    combinationMatrix(
+                                      swatch,
+                                      axes,
+                                      created?.variants ?? [],
+                                      current,
+                                    ),
+                                    {
+                                      activeCount:
+                                        created?.variants.filter(
+                                          (variant) => variant.status === 'active',
+                                        ).length ?? 0,
+                                      draftCount: current.length,
+                                      newId: () => crypto.randomUUID(),
+                                    },
+                                  ).drafts,
+                                ])
+                              }
+                              room={Math.max(0, VARIANT_MAX_ACTIVE - variants.length)}
+                            />
+                          </>
+                        )}
+                      </div>
+                    </section>
                     <AttributeAxesEditor
                       axes={axes}
                       disabled={busy || progress.enriched}
@@ -853,19 +942,21 @@ export function CreateProductForm({
                         created?.variants.filter((variant) => variant.status === 'active').length ??
                         0
                       }
-                      axes={axes}
+                      axes={variantAxes}
                       disabled={busy}
                       drafts={variants}
                       lockedDraftIds={lockedDraftIds}
+                      swatch={swatch}
                       onAdd={() =>
                         setVariants((current) => [
                           ...current,
                           {
                             draftId: crypto.randomUUID(),
                             sku: '',
-                            priceCop: fields.priceCop,
+                            // Sin precio copiado del producto: cada variante exige el suyo.
+                            priceCop: '',
                             inventory: EMPTY_INVENTORY_DRAFT,
-                            attributes: declaredAxes(axes).map((axis) => ({
+                            attributes: declaredAxes(variantAxes).map((axis) => ({
                               key: axis.key,
                               value: '',
                               label: '',
@@ -877,10 +968,8 @@ export function CreateProductForm({
                       onGenerate={() =>
                         setVariants((current) => [
                           ...current,
-                          ...generateCombinations(axes, {
+                          ...generateCombinations(variantAxes, {
                             existing: current.map((draft) => combinationKey(draft.attributes)),
-                            baseSku: fields.sku,
-                            basePriceCop: fields.priceCop,
                             newId: () => crypto.randomUUID(),
                             limit: Math.max(0, VARIANT_MAX_ACTIVE - current.length),
                           }),

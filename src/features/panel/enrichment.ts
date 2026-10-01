@@ -16,7 +16,7 @@
  *     navegador, no un valor: nunca se guarda ni se envía en su lugar.
  */
 
-import type { ProductAttributeDefinition, ProductTaxonomy } from '@/lib/api/catalog';
+import type { ProductAttributeDefinitionInput, ProductTaxonomy } from '@/lib/api/catalog';
 import {
   SPECIFICATION_MAX_LENGTH,
   TAXONOMY_SLUG_MAX_LENGTH,
@@ -98,7 +98,12 @@ function taxonomy(name: string, slug: string): ProductTaxonomy | null {
  */
 export function enrichmentBody(
   fields: EnrichmentFields,
-  axes: readonly ProductAttributeDefinition[],
+  /**
+   * `null` = los ejes **no** viajan. Es lo que pasa la ficha al guardar su contenido: los ejes se
+   * declaran en la sección de variantes, y reenviarlos desde aquí como `{ key, label }` convertiría
+   * un eje de colores en uno de texto y borraría sus opciones.
+   */
+  axes: readonly ProductAttributeDefinitionInput[] | null,
   mode: 'create' | 'edit',
 ): Record<string, unknown> | null {
   const body: Record<string, unknown> = {};
@@ -118,8 +123,9 @@ export function enrichmentBody(
     }
   }
 
-  if (axes.length > 0 || mode === 'edit') {
-    body.attributes = axes.map((axis) => ({ key: axis.key, label: axis.label }));
+  if (axes !== null && (axes.length > 0 || mode === 'edit')) {
+    // Tal cual: con su presentación y, en un eje de colores, con sus opciones.
+    body.attributes = axes.map((axis) => ({ ...axis }));
   }
 
   return Object.keys(body).length === 0 ? null : body;

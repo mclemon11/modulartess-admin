@@ -7,6 +7,7 @@ import { VARIANT_MAX_ACTIVE } from '@/lib/api/variant-limits';
 import styles from './catalog.module.css';
 import { CopField } from './cop-field';
 import { InventoryFields } from './inventory-fields';
+import type { SwatchAxisDraft } from './swatch-draft';
 import type { AxisDraft, VariantDraft, VariantValidation } from './variant-draft';
 
 /**
@@ -29,8 +30,14 @@ export function VariantDraftEditor({
   onChange,
   onGenerate,
   onAdd,
+  swatch = null,
 }: {
   readonly axes: readonly AxisDraft[];
+  /**
+   * El eje de colores **guardado**. Su valor no se escribe: se elige entre las opciones declaradas,
+   * que son las únicas que el backend admite en una variante.
+   */
+  readonly swatch?: SwatchAxisDraft | null;
   readonly drafts: readonly VariantDraft[];
   readonly validation: VariantValidation;
   readonly disabled: boolean;
@@ -143,29 +150,62 @@ export function VariantDraftEditor({
                       >
                         {axisLabel(axes, attribute.key)}
                       </label>
-                      <input
-                        className={styles.input}
-                        disabled={disabled}
-                        id={`${fieldId}-${draft.draftId}-${attribute.key}`}
-                        onChange={(event) =>
-                          update(draft.draftId, (current) => ({
-                            ...current,
-                            attributes: current.attributes.map((entry) =>
-                              entry.key === attribute.key
-                                ? {
-                                    ...entry,
-                                    value: event.target.value,
-                                    // La etiqueta es lo que lee quien compra: solo se rellena sola
-                                    // cuando todavía no hay ninguna.
-                                    label: entry.label === '' ? event.target.value : entry.label,
-                                  }
-                                : entry,
-                            ),
-                          }))
-                        }
-                        type="text"
-                        value={attribute.value}
-                      />
+                      {swatch !== null && attribute.key === swatch.key ? (
+                        <select
+                          className={styles.input}
+                          disabled={disabled}
+                          id={`${fieldId}-${draft.draftId}-${attribute.key}`}
+                          onChange={(event) => {
+                            const chosen = swatch.options.find(
+                              (option) => option.value === event.target.value,
+                            );
+                            update(draft.draftId, (current) => ({
+                              ...current,
+                              attributes: current.attributes.map((entry) =>
+                                entry.key === attribute.key
+                                  ? {
+                                      ...entry,
+                                      value: event.target.value,
+                                      label: chosen?.label ?? '',
+                                    }
+                                  : entry,
+                              ),
+                            }));
+                          }}
+                          value={attribute.value}
+                        >
+                          <option value="">Elige un color</option>
+                          {swatch.options.map((option) => (
+                            <option key={option.optionId} value={option.value}>
+                              {option.label} ({option.hex})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          className={styles.input}
+                          disabled={disabled}
+                          id={`${fieldId}-${draft.draftId}-${attribute.key}`}
+                          onChange={(event) =>
+                            update(draft.draftId, (current) => ({
+                              ...current,
+                              attributes: current.attributes.map((entry) =>
+                                entry.key === attribute.key
+                                  ? {
+                                      ...entry,
+                                      value: event.target.value,
+                                      // La etiqueta es lo que lee quien compra: solo se rellena sola
+                                      // cuando todavía no hay ninguna.
+                                      label: entry.label === '' ? event.target.value : entry.label,
+                                    }
+                                  : entry,
+                              ),
+                            }))
+                          }
+                          type="text"
+                          value={attribute.value}
+                        />
+                      )}
                       <span className={styles.hint}>
                         {attribute.label === '' ? 'Valor normalizado.' : attribute.label}
                       </span>

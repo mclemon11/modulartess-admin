@@ -51,6 +51,20 @@ import {
   type VariantDraft,
 } from './variant-draft';
 import { SectionHeading } from './section-icon';
+import { CombinationMatrixView } from './combination-matrix';
+import { SwatchAxisEditor } from './swatch-axis-editor';
+import {
+  attributesBody,
+  combinationMatrix,
+  draftsForMissing,
+  hasSwatchIssues,
+  rebaseSwatch,
+  swatchAsAxis,
+  swatchChanged,
+  swatchFromProduct,
+  validateSwatch,
+  type SwatchAxisDraft,
+} from './swatch-draft';
 import { VariantDraftEditor } from './variant-draft-editor';
 import { createVariantsSequentially } from './variant-creation';
 
@@ -80,6 +94,7 @@ export function ProductVariants({
   readonly onProduct: (next: AdminProduct) => void;
 }) {
   const router = useRouter();
+  const sectionId = useId();
   const lock = useRef(createOperationLock());
   /**
    * Claves de idempotencia vivas, una por variante.
@@ -98,6 +113,47 @@ export function ProductVariants({
     axesFromProduct(product.attributes, () => crypto.randomUUID()),
   );
   const [drafts, setDrafts] = useState<readonly VariantDraft[]>([]);
+  /**
+   * Colores y acabados: el borrador que edita la persona y el eje **guardado** en el backend.
+   *
+   * Las variantes solo pueden usar opciones guardadas, así que la generación, la validación y la
+   * matriz miran `saved`, no el borrador.
+   */
+  const saved = swatchFromProduct(product.attributes);
+  const [swatch, setSwatch] = useState<SwatchAxisDraft | null>(() =>
+    swatchFromProduct(product.attributes),
+  );
+  const [swatchFailure, setSwatchFailure] = useState<string | null>(null);
+  const [swatchConflict, setSwatchConflict] = useState(false);
+  const [swatchNotice, setSwatchNotice] = useState<string | null>(null);
+
+  /*
+   * Cuando llega una versión nueva del producto —al guardar, o al recargar tras un conflicto— el
+   * borrador **no se reinicia**: se reajusta sobre lo que dice el backend. Así un conflicto no hace
+   * perder el formulario.
+   */
+  const [rebasedFor, setRebasedFor] = useState(product.attributes);
+
+  if (rebasedFor !== product.attributes) {
+    setRebasedFor(product.attributes);
+    setSwatch((current) =>
+      current === null
+        ? swatchFromProduct(product.attributes)
+        : rebaseSwatch(current, swatchFromProduct(product.attributes)),
+    );
+  }
+
+  const activeImages = product.images.filter((image) => image.status === 'active');
+  const swatchValidation =
+    swatch === null
+      ? { byOption: {}, general: [] }
+      : validateSwatch(
+          swatch,
+          activeImages.map((image) => image.id),
+        );
+  const swatchPending = swatchChanged(swatch, saved);
+  const textAxesSaved = product.attributes.filter((axis) => axis.presentation !== 'swatch');
+  const variantAxes = saved === null ? axes : [...axes, swatchAsAxis(saved)];
 
   const active = product.variants.filter((variant) => variant.status === 'active');
   const archived = product.variants.filter((variant) => variant.status === 'archived');
@@ -108,7 +164,12 @@ export function ProductVariants({
    * Si alguien añade un eje y todavía no lo ha guardado, el backend rechazaría la variante por no
    * llevar exactamente los ejes declarados. Avisarlo aquí es más útil que descubrirlo en el 400.
    */
-  const validation = validateVariantDrafts(drafts, product.attributes, product.variants);
+  const validation = validateVariantDrafts(
+    drafts,
+    product.attributes,
+    product.variants,
+    saved === null ? null : { key: saved.key, values: saved.options.map((option) => option.value) },
+  );
 
   function begin(): boolean {
     if (!acquire(lock.current)) {
@@ -146,13 +207,50 @@ export function ProductVariants({
     settle(
       await updateProduct(product.id, {
         expectedVersion: product.version,
-        attributes: declaredAxes(axes).map((axis) => ({ key: axis.key, label: axis.label })),
+        // El eje de colores guardado viaja tal cual: enviarlo como `{ key, label }` lo convertiría
+        // en texto y borraría sus opciones.
+        attributes: attributesBody(declaredAxes(axes), saved),
       }),
       (updated) => {
         onProduct(updated);
         setNotice('Ejes de variación guardados.');
       },
     );
+  }
+
+  /**
+   * Guarda colores y acabados. Los ejes de texto viajan **como están guardados**, no como estén en
+   * el editor de ejes: guardar colores no puede colar un cambio de ejes que nadie confirmó ahí.
+   *
+   * Un `409` de versión conserva el borrador; uno de opción en uso lo explica sin tocar nada.
+   */
+  async function handleSaveSwatch() {
+    if (swatch === null || !acquire(lock.current)) {
+      return;
+    }
+
+    setBusy(true);
+    setSwatchFailure(null);
+    setSwatchNotice(null);
+
+    const result = await updateProduct(product.id, {
+      expectedVersion: product.version,
+      attributes: attributesBody(textAxesSaved, swatch),
+    });
+
+    release(lock.current);
+    setBusy(false);
+
+    if (result.ok) {
+      setSwatchConflict(false);
+      onProduct(result.data);
+      setSwatchNotice('Colores y acabados guardados.');
+
+      return;
+    }
+
+    setSwatchConflict(result.code === 'version_conflict');
+    setSwatchFailure(describeCatalogFailure(result.code, result.reference));
   }
 
   /**
@@ -277,186 +375,310 @@ export function ProductVariants({
     return { applied: result.ok };
   }
 
+  const matrix = saved === null ? null : combinationMatrix(saved, axes, product.variants, drafts);
+  const room = Math.max(0, VARIANT_MAX_ACTIVE - active.length - drafts.length);
+
   return (
-    <section className={styles.card}>
-      <div className={styles.cardPad}>
-        <SectionHeading
-          hint="Cada variante tiene su SKU, su precio y su inventario."
-          icon="variantes"
-          title="Variantes"
-        />
-
-        <p className={styles.notice}>
-          Un color, un acabado o una medida se gestionan como variante <strong>solo</strong> cuando
-          cada combinación es un artículo vendible de verdad, con su propio SKU, su precio y su
-          inventario. Si solo hay que describirlos, van en «Detalles adicionales»: convertir texto
-          libre en variantes crea artículos que nadie puede comprar.
-        </p>
-
-        <div aria-live="assertive">
-          {failure === null ? null : (
-            <p className={styles.error} role="alert">
-              {conflict ? 'Los datos cambiaron. ' : ''}
-              {failure}{' '}
-              {conflict ? (
-                <button
-                  className={styles.buttonSecondary}
-                  onClick={() => router.refresh()}
-                  type="button"
-                >
-                  Recargar datos
-                </button>
-              ) : null}
-            </p>
-          )}
-        </div>
-        <div aria-live="polite">
-          {notice === null ? null : <p className={styles.notice}>{notice}</p>}
-        </div>
-
-        {active.length === 0 ? (
+    <>
+      <section className={styles.card} aria-labelledby={`${sectionId}-swatch`}>
+        <div className={styles.cardPad}>
+          <h2 className={styles.sectionTitle} id={`${sectionId}-swatch`}>
+            Colores y acabados
+          </h2>
           <p className={styles.hint}>
-            Este producto no tiene variantes: se vende por su propio SKU, precio e inventario.
+            Cada color es una opción de variante: se muestra como muestra en la tienda y solo se
+            ofrece si alguna variante activa lo usa.
           </p>
-        ) : (
-          <ul className={styles.variantList}>
-            {active.map((variant) => (
-              <VariantRow
-                busy={busy}
-                key={`${variant.id}:${variant.version}`}
-                onInventory={(inventory) => handleVariantInventory(variant, inventory)}
-                onArchive={() => void handleArchive(variant)}
-                onSave={(body, message) => void handleVariantSave(variant, body, message)}
-                permissions={permissions}
-                variant={variant}
-              />
-            ))}
-          </ul>
-        )}
+          {permissions.canUpdate ? null : (
+            <p className={styles.hint}>Tu rol puede ver los colores, pero no cambiarlos.</p>
+          )}
 
-        <p className={styles.hint}>
-          {active.length} de {VARIANT_MAX_ACTIVE} variantes activas.
-        </p>
+          <div aria-live="assertive">
+            {swatchFailure === null ? null : (
+              <p className={styles.error} role="alert">
+                {swatchConflict ? 'Alguien cambió el producto mientras editabas. ' : ''}
+                {swatchFailure}{' '}
+                {swatchConflict ? (
+                  <>
+                    Tus cambios siguen aquí.{' '}
+                    <button
+                      className={styles.buttonSecondary}
+                      onClick={() => router.refresh()}
+                      type="button"
+                    >
+                      Recargar y conservar mis cambios
+                    </button>
+                  </>
+                ) : null}
+              </p>
+            )}
+          </div>
+          <div aria-live="polite">
+            {swatchNotice === null ? null : <p className={styles.notice}>{swatchNotice}</p>}
+          </div>
 
-        {archived.length === 0 ? null : (
-          <>
-            <h3 className={styles.sectionTitle} style={{ marginTop: 'var(--space-lg)' }}>
-              Archivadas ({archived.length})
-            </h3>
-            <ul className={styles.variantList}>
-              {archived.map((variant) => (
-                <li className={styles.variantItemArchived} key={variant.id}>
-                  <p className={styles.variantSummary}>
-                    <strong>{variant.sku}</strong> · {variant.combinationKey}
-                  </p>
-                  <p className={styles.hint}>
-                    {/* Una variante archivada no se edita: se dice cómo quedó y nada más. */}
-                    {formatCop(variant.priceCop)} · {describeInventoryMode(variant.inventory.mode)}{' '}
-                    · {describeAvailability(variant.inventory.availability)} · su SKU sigue
-                    reservado.
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+          <SwatchAxisEditor
+            attributes={product.attributes}
+            disabled={busy || !permissions.canUpdate}
+            images={activeImages.map((image) => ({
+              id: image.id,
+              url: image.publicUrl,
+              altText: image.altText,
+            }))}
+            newId={() => crypto.randomUUID()}
+            onChange={(next) => {
+              setSwatch(next);
+              setSwatchNotice(null);
+            }}
+            swatch={swatch}
+            validation={swatchValidation}
+            variants={product.variants}
+          />
 
-        {permissions.canUpdate ? (
-          <div style={{ marginTop: 'var(--space-lg)' }}>
-            <h3 className={styles.sectionTitle}>Ejes de variación</h3>
-            <AttributeAxesEditor
-              axes={axes}
-              disabled={busy}
-              newId={() => crypto.randomUUID()}
-              onChange={setAxes}
-              problems={axisProblems}
-            />
+          {swatch === null || !permissions.canUpdate ? null : (
             <div className={styles.actions}>
               <button
                 className={styles.buttonSecondary}
-                disabled={busy || axisProblems.length > 0}
-                onClick={() => void handleSaveAxes()}
+                disabled={busy || !swatchPending || hasSwatchIssues(swatchValidation)}
+                onClick={() => void handleSaveSwatch()}
                 type="button"
               >
-                Guardar ejes
+                {busy ? 'Guardando…' : 'Guardar colores y acabados'}
               </button>
+              {swatchPending ? <span className={styles.hint}>Hay cambios sin guardar.</span> : null}
             </div>
-            <p className={styles.hint}>
-              Declarar ejes sustituye la lista anterior y no reescribe las variantes que ya existen.
-              Cada variante nueva tendrá que llevar exactamente estos ejes.
-            </p>
-          </div>
-        ) : null}
+          )}
 
-        {permissions.canCreate ? (
-          <div style={{ marginTop: 'var(--space-lg)' }}>
-            <h3 className={styles.sectionTitle}>Añadir variantes</h3>
+          {saved !== null && swatchPending && saved.options.length > 0 ? (
             <p className={styles.hint}>
-              Cada variante lleva exactamente los ejes que el producto declara. Si acabas de añadir
-              un eje, guárdalo antes: hasta entonces el backend rechazaría las variantes nuevas.
+              Las variantes nuevas solo pueden usar colores ya guardados.
             </p>
-            <VariantDraftEditor
-              activeCount={active.length}
-              axes={axes}
-              disabled={busy}
-              drafts={drafts}
-              lockedDraftIds={[]}
-              onAdd={() =>
-                setDrafts((current) => [
-                  ...current,
-                  {
-                    draftId: crypto.randomUUID(),
-                    sku: '',
-                    priceCop: groupCop(product.priceCop),
-                    inventory: EMPTY_INVENTORY_DRAFT,
-                    // Los ejes que exige el backend son los que el producto declara, no los que
-                    // haya en el editor de arriba sin guardar.
-                    attributes: product.attributes.map((axis) => ({
-                      key: axis.key,
-                      value: '',
-                      label: '',
-                    })),
-                  },
-                ])
-              }
-              onChange={setDrafts}
-              onGenerate={() =>
-                setDrafts((current) => [
-                  ...current,
-                  ...generateCombinations(axes, {
-                    existing: [
-                      ...active.map((variant) => variant.combinationKey),
-                      ...current.map((draft) => combinationKey(draft.attributes)),
-                    ],
-                    baseSku: product.sku,
-                    basePriceCop: groupCop(product.priceCop),
-                    newId: () => crypto.randomUUID(),
-                    limit: Math.max(0, VARIANT_MAX_ACTIVE - active.length - current.length),
-                  }),
-                ])
-              }
-              validation={validation}
-            />
-            {drafts.length === 0 ? null : (
-              <div className={styles.actions}>
-                <button
-                  className={styles.button}
-                  disabled={
-                    busy ||
-                    validation.general.length > 0 ||
-                    Object.keys(validation.byDraft).length > 0
-                  }
-                  onClick={() => void handleCreateVariants()}
-                  type="button"
-                >
-                  {busy ? 'Creando…' : `Crear ${drafts.length} variante(s)`}
-                </button>
-              </div>
+          ) : null}
+
+          {matrix === null ? null : (
+            <>
+              <h3 className={styles.sectionTitle} style={{ marginTop: 'var(--space-lg)' }}>
+                Combinaciones
+              </h3>
+              {saved !== null &&
+              saved.options.some((option) => option.activeVariantIds.length === 0) ? (
+                <p className={styles.notice}>
+                  Hay colores sin ninguna variante:{' '}
+                  {saved.options
+                    .filter((option) => option.activeVariantIds.length === 0)
+                    .map((option) => option.label)
+                    .join(', ')}
+                  . No se mostrarán en la tienda hasta que crees sus variantes, cada una con su SKU,
+                  precio e inventario.
+                </p>
+              ) : null}
+              <CombinationMatrixView
+                disabled={busy || !permissions.canCreate}
+                hexOf={(value) =>
+                  saved?.options.find((option) => option.value === value)?.hex ?? '#FFFFFF'
+                }
+                matrix={matrix}
+                onPrepareMissing={
+                  permissions.canCreate
+                    ? () =>
+                        setDrafts((current) => [
+                          ...current,
+                          ...draftsForMissing(matrix, {
+                            activeCount: active.length,
+                            draftCount: current.length,
+                            newId: () => crypto.randomUUID(),
+                          }).drafts,
+                        ])
+                    : null
+                }
+                room={room}
+              />
+            </>
+          )}
+        </div>
+      </section>
+      <section className={styles.card}>
+        <div className={styles.cardPad}>
+          <SectionHeading
+            hint="Cada variante tiene su SKU, su precio y su inventario."
+            icon="variantes"
+            title="Variantes"
+          />
+
+          <p className={styles.notice}>
+            Un color, un acabado o una medida se gestionan como variante <strong>solo</strong>{' '}
+            cuando cada combinación es un artículo vendible de verdad, con su propio SKU, su precio
+            y su inventario. Si solo hay que describirlos, van en «Detalles adicionales»: convertir
+            texto libre en variantes crea artículos que nadie puede comprar.
+          </p>
+
+          <div aria-live="assertive">
+            {failure === null ? null : (
+              <p className={styles.error} role="alert">
+                {conflict ? 'Los datos cambiaron. ' : ''}
+                {failure}{' '}
+                {conflict ? (
+                  <button
+                    className={styles.buttonSecondary}
+                    onClick={() => router.refresh()}
+                    type="button"
+                  >
+                    Recargar datos
+                  </button>
+                ) : null}
+              </p>
             )}
           </div>
-        ) : null}
-      </div>
-    </section>
+          <div aria-live="polite">
+            {notice === null ? null : <p className={styles.notice}>{notice}</p>}
+          </div>
+
+          {active.length === 0 ? (
+            <p className={styles.hint}>
+              Este producto no tiene variantes: se vende por su propio SKU, precio e inventario.
+            </p>
+          ) : (
+            <ul className={styles.variantList}>
+              {active.map((variant) => (
+                <VariantRow
+                  busy={busy}
+                  key={`${variant.id}:${variant.version}`}
+                  onInventory={(inventory) => handleVariantInventory(variant, inventory)}
+                  onArchive={() => void handleArchive(variant)}
+                  onSave={(body, message) => void handleVariantSave(variant, body, message)}
+                  permissions={permissions}
+                  variant={variant}
+                />
+              ))}
+            </ul>
+          )}
+
+          <p className={styles.hint}>
+            {active.length} de {VARIANT_MAX_ACTIVE} variantes activas.
+          </p>
+
+          {archived.length === 0 ? null : (
+            <>
+              <h3 className={styles.sectionTitle} style={{ marginTop: 'var(--space-lg)' }}>
+                Archivadas ({archived.length})
+              </h3>
+              <ul className={styles.variantList}>
+                {archived.map((variant) => (
+                  <li className={styles.variantItemArchived} key={variant.id}>
+                    <p className={styles.variantSummary}>
+                      <strong>{variant.sku}</strong> · {variant.combinationKey}
+                    </p>
+                    <p className={styles.hint}>
+                      {/* Una variante archivada no se edita: se dice cómo quedó y nada más. */}
+                      {formatCop(variant.priceCop)} ·{' '}
+                      {describeInventoryMode(variant.inventory.mode)} ·{' '}
+                      {describeAvailability(variant.inventory.availability)} · su SKU sigue
+                      reservado.
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {permissions.canUpdate ? (
+            <div style={{ marginTop: 'var(--space-lg)' }}>
+              <h3 className={styles.sectionTitle}>Ejes de variación</h3>
+              <AttributeAxesEditor
+                axes={axes}
+                disabled={busy}
+                newId={() => crypto.randomUUID()}
+                onChange={setAxes}
+                problems={axisProblems}
+              />
+              <div className={styles.actions}>
+                <button
+                  className={styles.buttonSecondary}
+                  disabled={busy || axisProblems.length > 0}
+                  onClick={() => void handleSaveAxes()}
+                  type="button"
+                >
+                  Guardar ejes
+                </button>
+              </div>
+              <p className={styles.hint}>
+                Declarar ejes sustituye la lista anterior y no reescribe las variantes que ya
+                existen. Cada variante nueva tendrá que llevar exactamente estos ejes.
+              </p>
+            </div>
+          ) : null}
+
+          {permissions.canCreate ? (
+            <div style={{ marginTop: 'var(--space-lg)' }}>
+              <h3 className={styles.sectionTitle}>Añadir variantes</h3>
+              <p className={styles.hint}>
+                Cada variante lleva exactamente los ejes que el producto declara. Si acabas de
+                añadir un eje, guárdalo antes: hasta entonces el backend rechazaría las variantes
+                nuevas.
+              </p>
+              <VariantDraftEditor
+                activeCount={active.length}
+                axes={variantAxes}
+                disabled={busy}
+                drafts={drafts}
+                lockedDraftIds={[]}
+                swatch={saved}
+                onAdd={() =>
+                  setDrafts((current) => [
+                    ...current,
+                    {
+                      draftId: crypto.randomUUID(),
+                      sku: '',
+                      // Sin precio copiado: cada variante exige el suyo.
+                      priceCop: '',
+                      inventory: EMPTY_INVENTORY_DRAFT,
+                      // Los ejes que exige el backend son los que el producto declara, no los que
+                      // haya en el editor de arriba sin guardar.
+                      attributes: product.attributes.map((axis) => ({
+                        key: axis.key,
+                        value: '',
+                        label: '',
+                      })),
+                    },
+                  ])
+                }
+                onChange={setDrafts}
+                onGenerate={() =>
+                  setDrafts((current) => [
+                    ...current,
+                    ...generateCombinations(variantAxes, {
+                      existing: [
+                        ...active.map((variant) => variant.combinationKey),
+                        ...current.map((draft) => combinationKey(draft.attributes)),
+                      ],
+                      newId: () => crypto.randomUUID(),
+                      limit: Math.max(0, VARIANT_MAX_ACTIVE - active.length - current.length),
+                    }),
+                  ])
+                }
+                validation={validation}
+              />
+              {drafts.length === 0 ? null : (
+                <div className={styles.actions}>
+                  <button
+                    className={styles.button}
+                    disabled={
+                      busy ||
+                      validation.general.length > 0 ||
+                      Object.keys(validation.byDraft).length > 0
+                    }
+                    onClick={() => void handleCreateVariants()}
+                    type="button"
+                  >
+                    {busy ? 'Creando…' : `Crear ${drafts.length} variante(s)`}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </section>
+    </>
   );
 }
 

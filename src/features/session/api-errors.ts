@@ -24,6 +24,7 @@ export const SESSION_ERROR_CODES = [
   'slug_conflict',
   'variant_sku_conflict',
   'variant_combination_conflict',
+  'attribute_option_in_use',
   'image_limit',
   'idempotency_conflict',
   'category_not_found',
@@ -84,6 +85,7 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
   slug_conflict: 'Esa URL ya está reservada, incluso si pertenece a un producto archivado.',
   variant_sku_conflict: 'Ese SKU de variante ya está reservado.',
   variant_combination_conflict: 'Ya existe una variante con esa combinación.',
+  attribute_option_in_use: 'Esa opción la usan variantes activas.',
   image_limit: 'El producto ya tiene el máximo de imágenes activas.',
   idempotency_conflict: 'Esa operación ya se envió con otros datos.',
   category_not_found: 'Esa categoría no existe.',
@@ -150,6 +152,7 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   slug_conflict: 409,
   variant_sku_conflict: 409,
   variant_combination_conflict: 409,
+  attribute_option_in_use: 409,
   image_limit: 409,
   idempotency_conflict: 409,
   category_not_found: 404,
@@ -225,6 +228,8 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'variant_sku_conflict';
     case 'backend_product_variant_combination_conflict':
       return 'variant_combination_conflict';
+    case 'backend_product_attribute_option_in_use':
+      return 'attribute_option_in_use';
     case 'backend_product_image_limit':
       return 'image_limit';
     case 'backend_idempotency_conflict':

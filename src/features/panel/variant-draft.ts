@@ -104,13 +104,15 @@ export function declaredAxes(
  * Es el producto cartesiano de los valores de cada eje, menos las combinaciones que ya existen
  * —como variante activa o como borrador local—. Generar no crea nada: deja las variantes en la
  * lista local para revisarlas y corregirlas una a una antes de enviarlas.
+ *
+ * Cada borrador nace **sin SKU, sin precio y sin inventario**. Antes se proponía un SKU desde el
+ * base y se copiaba el precio del producto: una combinación podía enviarse con datos que nadie
+ * había decidido. Ahora cada una exige que alguien los escriba.
  */
 export function generateCombinations(
   axes: readonly AxisDraft[],
   options: {
     readonly existing: readonly string[];
-    readonly baseSku: string;
-    readonly basePriceCop: string;
     readonly newId: () => string;
     readonly limit: number;
   },
@@ -166,8 +168,8 @@ export function generateCombinations(
     taken.add(key);
     drafts.push({
       draftId: options.newId(),
-      sku: suggestSku(options.baseSku, attributes),
-      priceCop: options.basePriceCop,
+      sku: '',
+      priceCop: '',
       // Cantidad controlada y **sin cantidad escrita**: generar combinaciones no sabe cuántas
       // unidades hay de cada una, y un `0` de partida las daría todas por agotadas sin que nadie
       // lo haya dicho.
@@ -270,6 +272,11 @@ export function validateVariantDrafts(
   drafts: readonly VariantDraft[],
   axes: readonly { readonly key: string }[],
   existing: readonly AdminProductVariant[] = [],
+  /**
+   * El eje de colores **guardado**, con sus valores declarados. Una variante solo puede usar uno
+   * de ellos: el backend rechaza cualquier otro.
+   */
+  swatch: { readonly key: string; readonly values: readonly string[] } | null = null,
 ): VariantValidation {
   const byDraft: Record<string, string> = {};
   const general: string[] = [];
@@ -308,6 +315,14 @@ export function validateVariantDrafts(
       message = `La variante debe llevar exactamente los ejes declarados: ${axisKeys.join(', ')}.`;
     } else if (draft.attributes.some((attribute) => attribute.value.trim().length === 0)) {
       message = 'Cada eje necesita su valor.';
+    } else if (
+      swatch !== null &&
+      draft.attributes.some(
+        (attribute) =>
+          attribute.key === swatch.key && !swatch.values.includes(attribute.value.trim()),
+      )
+    ) {
+      message = 'Ese color no está declarado y guardado en «Colores y acabados».';
     } else if (takenCombinations.has(key)) {
       message = 'Esa combinación ya existe en otra variante activa.';
     } else if (!price.ok) {
@@ -360,17 +375,28 @@ export function variantRequestBody(
   };
 }
 
-/** Ejes que el producto ya declara, traídos al modelo local para seguir editándolos. */
+/**
+ * Ejes **de texto** que el producto ya declara, traídos al modelo local para seguir editándolos.
+ *
+ * El eje visual no está: sus opciones se editan en «Colores y acabados», que es la única pantalla
+ * que sabe enviarlas.
+ */
 export function axesFromProduct(
-  definitions: readonly { readonly key: string; readonly label: string }[],
+  definitions: readonly {
+    readonly key: string;
+    readonly label: string;
+    readonly presentation?: 'text' | 'swatch';
+  }[],
   newId: () => string,
 ): readonly AxisDraft[] {
-  return definitions.map((definition) => ({
-    axisId: newId(),
-    key: definition.key,
-    label: definition.label,
-    values: [],
-  }));
+  return definitions
+    .filter((definition) => definition.presentation !== 'swatch')
+    .map((definition) => ({
+      axisId: newId(),
+      key: definition.key,
+      label: definition.label,
+      values: [],
+    }));
 }
 
 /* ------------------------------------------------- edición de la lista de ejes */

@@ -27,6 +27,8 @@ export const CATALOG_MESSAGES: Readonly<Record<string, string>> = {
     'Ese SKU de variante ya está reservado, incluso si pertenece a una variante archivada. Usa otro.',
   variant_combination_conflict:
     'Ya existe una variante con esa combinación de atributos. Cambia algún valor.',
+  attribute_option_in_use:
+    'No se puede retirar ese color o acabado: lo usan variantes activas. Archívalas antes y vuelve a intentarlo.',
   image_limit:
     'El producto ya tiene el máximo de imágenes activas. Archiva alguna antes de subir otra.',
   idempotency_conflict:

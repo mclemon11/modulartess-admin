@@ -116,6 +116,11 @@ export type VariantInventoryAdjustmentResult =
   components['schemas']['VariantInventoryAdjustmentResultDto'];
 export type ProductTaxonomy = components['schemas']['ProductTaxonomyDto'];
 export type ProductAttributeDefinition = components['schemas']['ProductAttributeDefinitionDto'];
+export type ProductAttributeOption = components['schemas']['ProductAttributeOptionDto'];
+/** Lo que se **envía** al declarar ejes: el uso de cada opción no se escribe, lo calcula el backend. */
+export type ProductAttributeDefinitionInput =
+  components['schemas']['ProductAttributeDefinitionInputDto'];
+export type ProductAttributeOptionInput = components['schemas']['ProductAttributeOptionInputDto'];
 export type ProductVariantAttribute = components['schemas']['ProductVariantAttributeDto'];
 export type ProductSpecifications = components['schemas']['ProductSpecificationsDto'];
 export type PublicationReadiness = components['schemas']['PublicationReadinessDto'];

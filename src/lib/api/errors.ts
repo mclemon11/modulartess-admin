@@ -142,6 +142,11 @@ export const BACKEND_FAILURE_CODES = [
   'backend_product_variant_sku_conflict',
   /** 409 `product_variant_combination_conflict`: ya hay una variante con esa combinación. */
   'backend_product_variant_combination_conflict',
+  /**
+   * 409 `product_attribute_option_in_use`: se intentó retirar un color o acabado que usan variantes
+   * activas. No se arregla recargando: hay que archivar antes esas variantes.
+   */
+  'backend_product_attribute_option_in_use',
   /** 409 `product_image_limit`: el producto ya tiene el máximo de imágenes activas. */
   'backend_product_image_limit',
   /** 409 `idempotency_conflict`: la misma clave llegó con otro cuerpo. */
@@ -303,6 +308,7 @@ const CATALOG_CODES: Readonly<Record<string, BackendFailureCode>> = {
   product_slug_conflict: 'backend_product_slug_conflict',
   product_variant_sku_conflict: 'backend_product_variant_sku_conflict',
   product_variant_combination_conflict: 'backend_product_variant_combination_conflict',
+  product_attribute_option_in_use: 'backend_product_attribute_option_in_use',
   product_image_limit: 'backend_product_image_limit',
   idempotency_conflict: 'backend_idempotency_conflict',
   product_category_not_found: 'backend_product_category_not_found',

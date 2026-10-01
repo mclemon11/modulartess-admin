@@ -69,7 +69,7 @@ describe('generación de combinaciones', () => {
   it('produce el producto cartesiano de los valores de cada eje', () => {
     const drafts = generateCombinations(
       [axis('finish', 'Acabado', ['roble', 'nogal']), axis('size', 'Medida', ['80', '100'])],
-      { existing: [], baseSku: 'TOCADOR-AURA', basePriceCop: '1490000', newId, limit: 72 },
+      { existing: [], newId, limit: 72 },
     );
 
     expect(drafts).toHaveLength(4);
@@ -79,15 +79,13 @@ describe('generación de combinaciones', () => {
       'finish:nogal|size:80',
       'finish:nogal|size:100',
     ]);
-    // El SKU se sugiere desde el base y los valores; sigue siendo editable.
-    expect(drafts[0]?.sku).toBe('TOCADOR-AURA-ROBLE-80');
+    // Sin SKU ni precio inventados: cada combinación exige que alguien los escriba.
+    expect(drafts.every((entry) => entry.sku === '' && entry.priceCop === '')).toBe(true);
   });
 
   it('no repite una combinación que ya existe', () => {
     const drafts = generateCombinations([axis('finish', 'Acabado', ['roble', 'nogal'])], {
       existing: ['finish:roble'],
-      baseSku: 'TOCADOR',
-      basePriceCop: '1000',
       newId,
       limit: 72,
     });
@@ -104,7 +102,7 @@ describe('generación de combinaciones', () => {
           Array.from({ length: 40 }, (_, index) => String(index + 60)),
         ),
       ],
-      { existing: [], baseSku: 'TOCADOR', basePriceCop: '1000', newId, limit: 5 },
+      { existing: [], newId, limit: 5 },
     );
 
     expect(drafts).toHaveLength(5);
@@ -114,8 +112,6 @@ describe('generación de combinaciones', () => {
     expect(
       generateCombinations([axis('finish', 'Acabado', [])], {
         existing: [],
-        baseSku: 'TOCADOR',
-        basePriceCop: '1000',
         newId,
         limit: 72,
       }),

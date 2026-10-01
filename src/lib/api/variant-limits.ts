@@ -18,6 +18,18 @@ export const VARIANT_MAX_ACTIVE = 72;
 /** `AdminProductDto.attributes.maxItems`. */
 export const ATTRIBUTE_MAX_AXES = 6;
 
+/** Opciones por eje visual. `ProductAttributeDefinitionDto.options` → `maxItems: 24`. */
+export const ATTRIBUTE_OPTIONS_MAX = 24;
+
+/** Imágenes por opción. `ProductAttributeOptionDto.imageIds` → `maxItems: 10`. */
+export const ATTRIBUTE_OPTION_IMAGES_MAX = 10;
+
+/** Nombre de una opción. `ProductAttributeOptionDto.label` → `maxLength: 60`. */
+export const ATTRIBUTE_OPTION_LABEL_MAX_LENGTH = 60;
+
+/** `#RRGGBB`, la única forma que admite el contrato: sin alfa, sin forma corta, sin nombres CSS. */
+export const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+
 /** `ProductVariantAttributeDto.value.maxLength`. */
 export const ATTRIBUTE_VALUE_MAX_LENGTH = 60;
 

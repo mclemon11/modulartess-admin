@@ -230,7 +230,7 @@ export function ProductDetailClient({
     // Los ejes no viajan aquí: se declaran en la sección de variantes, que es donde se ven sus
     // consecuencias. Enviarlos desde dos formularios distintos invitaría a pisarlos sin querer.
     const result = await updateProduct(product.id, {
-      ...enrichmentBody(enrichment, product.attributes, 'edit'),
+      ...enrichmentBody(enrichment, null, 'edit'),
       expectedVersion: product.version,
       name: name.trim(),
       shortDescription,

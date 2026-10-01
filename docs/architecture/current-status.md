@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-09-30 (proveedor y medio de pago de Wompi).
+Última actualización: 2026-09-30 (colores y acabados como ejes visuales).
 
 ## Fase
 
@@ -205,6 +205,28 @@ justo lo que se vio en el primer despliegue. `deploy/deploy.test.ts` lo exige.
 - **La entrada de correo está apagada en el backend** (`INBOUND_MODE=disabled`): la bandeja se ve
   vacía hasta que se enciende. Sin clave de envío `.com`, responder da `503 reply_unavailable`.
 - **«Marcar enviado» exige transportadora, guía y enlace**, y la ficha muestra el envío.
+
+### Colores y acabados
+
+Sobre el contrato que publica `presentation` (`text` | `swatch`) y `options` en cada eje, con
+`activeVariantIds` por opción (ADR 0021 del backend). Vive en la pestaña **Variantes** del alta y de
+la ficha, en su propia tarjeta (`swatch-axis-editor.tsx`, `swatch-draft.ts`,
+`combination-matrix.tsx`).
+
+- **Opciones**: nombre, hexadecimal `#RRGGBB` con selector sincronizado, muestra con borde (más
+  marcado en colores claros), orden con «Subir/Bajar» y retirada con confirmación en la tarjeta.
+  El valor estable se propone desde el nombre y no cambia una vez guardado.
+- **En uso**: cada opción dice qué variantes activas la usan; no se puede retirar mientras las haya
+  (`409 product_attribute_option_in_use` si alguien se adelanta).
+- **Imágenes**: solo en la ficha, entre las imágenes activas del producto. En el alta se dice que
+  se asocian después: no hay identificadores reales que simular.
+- **Variantes**: el color de un borrador se elige entre las opciones **guardadas**; la matriz
+  color × demás ejes dice qué existe, qué está preparado y qué falta, y prepara lo que falta **sin
+  SKU, precio ni inventario**. Generar combinaciones ya no propone SKU ni copia el precio.
+- **Conflictos**: un `409` de versión conserva el formulario; al recargar se reajusta sobre la
+  versión nueva sin perder lo escrito.
+- **Arreglo**: guardar el contenido de la ficha ya no reenvía los ejes como `{ key, label }`, que
+  habría convertido un eje de colores en texto.
 
 ### Proveedor y medio de pago
 

@@ -21,12 +21,17 @@ import {
   SPECIFICATION_MAX_LENGTH,
   TAXONOMY_SLUG_MAX_LENGTH,
   TAXONOMY_SLUG_PATTERN,
+  ATTRIBUTE_OPTIONS_MAX,
+  ATTRIBUTE_OPTION_IMAGES_MAX,
+  ATTRIBUTE_OPTION_LABEL_MAX_LENGTH,
+  HEX_COLOR_PATTERN,
 } from '@/lib/api/variant-limits';
 import type {
   CreateProductRequest,
   CreateProductVariantRequest,
   InventoryAdjustmentRequest,
-  ProductAttributeDefinition,
+  ProductAttributeDefinitionInput,
+  ProductAttributeOptionInput,
   ProductTaxonomy,
   ProductVariantAttribute,
   SetInventoryControl,
@@ -136,27 +141,91 @@ function optionalSpecification(value: unknown): string | undefined | null {
   return value;
 }
 
+/**
+ * Opciones de un eje de colores, con la forma del contrato y nada más.
+ *
+ * Solo forma: que las imágenes sean activas de este producto, que no se retire una opción en uso o
+ * que dos nombres no choquen tras normalizar lo decide el backend.
+ */
+function attributeOptions(value: unknown): ProductAttributeOptionInput[] | null {
+  if (!Array.isArray(value) || value.length === 0 || value.length > ATTRIBUTE_OPTIONS_MAX) {
+    return null;
+  }
+
+  const options: ProductAttributeOptionInput[] = [];
+
+  for (const entry of value) {
+    if (!isRecord(entry)) return null;
+
+    const { value: raw, label, hex, position, imageIds } = entry;
+
+    if (raw !== undefined && (typeof raw !== 'string' || raw.length > ATTRIBUTE_VALUE_MAX_LENGTH)) {
+      return null;
+    }
+    if (typeof label !== 'string' || label.trim().length === 0) return null;
+    if (label.length > ATTRIBUTE_OPTION_LABEL_MAX_LENGTH) return null;
+    if (typeof hex !== 'string' || !HEX_COLOR_PATTERN.test(hex)) return null;
+    if (typeof position !== 'number' || !Number.isInteger(position) || position < 0) return null;
+    if (
+      imageIds !== undefined &&
+      (!Array.isArray(imageIds) ||
+        imageIds.length > ATTRIBUTE_OPTION_IMAGES_MAX ||
+        !imageIds.every((id) => typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(id)))
+    ) {
+      return null;
+    }
+
+    options.push({
+      ...(raw === undefined ? {} : { value: raw }),
+      label: label.trim(),
+      hex,
+      position,
+      ...(imageIds === undefined ? {} : { imageIds: [...(imageIds as string[])] }),
+    });
+  }
+
+  return options;
+}
+
 /** Definiciones de los ejes de variación. Sustituyen a las anteriores; no se fusionan. */
 function optionalAttributeDefinitions(
   value: unknown,
-): readonly ProductAttributeDefinition[] | undefined | null {
+): readonly ProductAttributeDefinitionInput[] | undefined | null {
   if (value === undefined) return undefined;
   if (!Array.isArray(value) || value.length > ATTRIBUTE_MAX_AXES) return null;
 
-  const definitions: ProductAttributeDefinition[] = [];
+  const definitions: ProductAttributeDefinitionInput[] = [];
   const seen = new Set<string>();
 
   for (const entry of value) {
     if (!isRecord(entry)) return null;
 
-    const { key, label } = entry;
+    const { key, label, presentation, options } = entry;
 
     if (typeof key !== 'string' || !ATTRIBUTE_KEY_PATTERN.test(key)) return null;
     if (typeof label !== 'string' || label.trim().length === 0 || label.length > 120) return null;
     if (seen.has(key)) return null;
 
     seen.add(key);
-    definitions.push({ key, label: label.trim() });
+
+    if (presentation === undefined || presentation === 'text') {
+      // Un eje de texto no declara opciones: el contrato las rechaza.
+      if (options !== undefined && !(Array.isArray(options) && options.length === 0)) return null;
+      definitions.push({
+        key,
+        label: label.trim(),
+        ...(presentation === undefined ? {} : { presentation }),
+      });
+      continue;
+    }
+
+    if (presentation !== 'swatch') return null;
+
+    const parsed = attributeOptions(options);
+
+    if (parsed === null) return null;
+
+    definitions.push({ key, label: label.trim(), presentation, options: parsed });
   }
 
   return definitions;
