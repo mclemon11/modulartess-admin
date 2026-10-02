@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-09-30 (colores y acabados como ejes visuales).
+Última actualización: 2026-10-01 (precio anterior, etiquetas comerciales y preparación).
 
 ## Fase
 
@@ -205,6 +205,26 @@ justo lo que se vio en el primer despliegue. `deploy/deploy.test.ts` lo exige.
 - **La entrada de correo está apagada en el backend** (`INBOUND_MODE=disabled`): la bandeja se ve
   vacía hasta que se enciende. Sin clave de envío `.com`, responder da `503 reply_unavailable`.
 - **«Marcar enviado» exige transportadora, guía y enlace**, y la ficha muestra el envío.
+
+### Precio anterior, etiquetas comerciales y preparación
+
+Sobre el contrato de la ADR 0022 del backend. En la pestaña **General** del alta y de la ficha, bajo
+el precio vigente (`commercial-section.tsx`, `commercial-fields.ts`):
+
+- **Precio anterior** con vista previa del descuento —porcentaje redondeado hacia abajo, como la
+  tienda— que solo aparece con un descuento real. Con variantes, cada fila de la matriz lleva su
+  propio precio anterior; el del producto solo vale para la opción base.
+- **Mostrar como nuevo hasta** (`datetime-local` en hora de Colombia, enviado con `-05:00`),
+  **etiqueta de nuevo** y **etiqueta de promoción** (24 caracteres, sin `<`, `>` ni control).
+- **Preparación** en días hábiles: los dos extremos o ninguno, mínimo ≤ máximo, de 1 a 180.
+- Vacío elimina: en la ficha todo viaja y lo vacío va como `null`; en el alta solo lo escrito.
+- Nota fija: «Envío gratis» se administrará desde las zonas de envío y no se declara aquí.
+- **Conflicto de versión**: si otra persona guardó antes, el backend responde `409` y la ficha lo
+  dice —«Alguien modificó este producto mientras lo editabas»— con el botón «Recargar datos». Nunca
+  muestra «Cambios guardados» tras un fallo (`saveOutcome`).
+- **Recargar monta la versión vigente**: la página da a la ficha una `key` con el id y la versión
+  del producto. Antes, `router.refresh()` traía la versión nueva pero el formulario conservaba la
+  vieja, y cada guardado posterior volvía a chocar. Recargar descarta el borrador en conflicto.
 
 ### Colores y acabados
 

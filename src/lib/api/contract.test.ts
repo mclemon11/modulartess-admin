@@ -236,9 +236,10 @@ describe('copia versionada del contrato', () => {
     ]);
 
     // Ni el SKU ni el stock se editan: el SKU es inmutable y el stock va por ajuste de inventario.
+    // El precio anterior sí: es opcional y `null` lo quita.
     expect(
       Object.keys(contract.components.schemas.UpdateProductVariantRequestDto.properties).sort(),
-    ).toEqual(['attributes', 'expectedVersion', 'priceCop']);
+    ).toEqual(['attributes', 'compareAtPriceCop', 'expectedVersion', 'priceCop']);
   });
 
   it('solo inventario, imágenes, cuentas y las respuestas de la bandeja exigen Idempotency-Key', () => {

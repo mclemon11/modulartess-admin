@@ -28,6 +28,7 @@ import {
   describeInventoryProblem,
   type InventoryDraft,
 } from './inventory-control';
+import { parseCompareAt } from './commercial-fields';
 import { describeCopProblem, parseCop } from './money';
 import { SKU_PATTERN } from './product-input';
 import { toSku, toSlug } from './slug';
@@ -71,6 +72,8 @@ export type VariantDraft = {
   readonly draftId: string;
   readonly sku: string;
   readonly priceCop: string;
+  /** Precio anterior, opcional. Vacío o ausente: sin precio anterior. */
+  readonly compareAtPriceCop?: string;
   readonly inventory: InventoryDraft;
   readonly attributes: readonly VariantAttributeDraft[];
 };
@@ -332,6 +335,13 @@ export function validateVariantDrafts(
       message = 'Precio: tiene que ser mayor que cero.';
     } else if (inventoryProblem !== undefined) {
       message = `Inventario: ${describeInventoryProblem(inventoryProblem)}`;
+    } else {
+      const compareAt = parseCompareAt(draft.compareAtPriceCop ?? '');
+      if (compareAt === undefined) {
+        message = 'Precio anterior: pesos enteros, mayor que cero.';
+      } else if (compareAt !== null && compareAt <= price.value) {
+        message = 'Precio anterior: tiene que ser mayor que el precio de la variante.';
+      }
     }
 
     if (message !== null) {
@@ -353,6 +363,7 @@ export function variantRequestBody(
 ): CreateProductVariantRequest {
   const price = parseCop(draft.priceCop);
   const inventory = inventoryBody(draft.inventory);
+  const compareAt = parseCompareAt(draft.compareAtPriceCop ?? '');
 
   return {
     expectedVersion,
@@ -367,6 +378,8 @@ export function variantRequestBody(
      * alguien haya escrito.
      */
     ...(inventory === null ? {} : { inventory }),
+    // Solo si se escribió: una variante nueva no tiene un precio anterior que borrar.
+    ...(compareAt === null || compareAt === undefined ? {} : { compareAtPriceCop: compareAt }),
     attributes: draft.attributes.map((attribute) => ({
       key: attribute.key.trim(),
       value: attribute.value.trim(),

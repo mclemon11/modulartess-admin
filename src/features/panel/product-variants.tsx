@@ -50,6 +50,8 @@ import {
   type AxisDraft,
   type VariantDraft,
 } from './variant-draft';
+import { parseCompareAt } from './commercial-fields';
+import { CompareAtField } from './commercial-section';
 import { SectionHeading } from './section-icon';
 import { CombinationMatrixView } from './combination-matrix';
 import { SwatchAxisEditor } from './swatch-axis-editor';
@@ -710,12 +712,23 @@ function VariantRow({
   // El precio se edita con el mismo campo y el mismo conversor que el del producto: se escribe
   // `1.450.000` y al backend viaja el entero.
   const [price, setPrice] = useState(() => groupCop(variant.priceCop));
+  const [compareAt, setCompareAt] = useState(() =>
+    variant.compareAtPriceCop === null ? '' : groupCop(variant.compareAtPriceCop),
+  );
   const [attributes, setAttributes] = useState(variant.attributes);
   const [editingInventory, setEditingInventory] = useState(false);
 
   const parsedPrice = parseCop(price);
   const priceValid = parsedPrice.ok && parsedPrice.value > 0;
   const priceDirty = parsedPrice.ok && parsedPrice.value !== variant.priceCop;
+  const parsedCompareAt = parseCompareAt(compareAt);
+  const compareAtValid =
+    parsedCompareAt !== undefined &&
+    (parsedCompareAt === null ||
+      !priceValid ||
+      parsedCompareAt > (parsedPrice.ok ? parsedPrice.value : 0));
+  const compareAtDirty =
+    parsedCompareAt !== undefined && parsedCompareAt !== variant.compareAtPriceCop;
   const attributesDirty = attributes.some(
     (attribute, index) =>
       attribute.value !== variant.attributes[index]?.value ||
@@ -773,17 +786,31 @@ function VariantRow({
           onChange={setPrice}
           value={price}
         />
+        <CompareAtField
+          disabled={busy || !permissions.canUpdate}
+          onChange={setCompareAt}
+          priceCop={parsedPrice.ok ? parsedPrice.value : null}
+          value={compareAt}
+        />
       </div>
 
       <div className={styles.imageTileActions}>
         {permissions.canUpdate ? (
           <button
             className={styles.iconButton}
-            disabled={busy || !priceValid || (!priceDirty && !attributesDirty)}
+            disabled={
+              busy ||
+              !priceValid ||
+              !compareAtValid ||
+              (!priceDirty && !attributesDirty && !compareAtDirty)
+            }
             onClick={() =>
               onSave(
                 {
                   ...(priceDirty && parsedPrice.ok ? { priceCop: parsedPrice.value } : {}),
+                  ...(compareAtDirty && parsedCompareAt !== undefined
+                    ? { compareAtPriceCop: parsedCompareAt }
+                    : {}),
                   ...(attributesDirty ? { attributes: [...attributes] } : {}),
                 },
                 'Variante actualizada.',

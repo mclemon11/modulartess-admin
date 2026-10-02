@@ -263,7 +263,11 @@ describe('un 409 se detiene y ofrece recargar', () => {
   it('el detalle ofrece recargar y no reintenta solo', () => {
     const source = executable(read('src/features/panel/product-detail-client.tsx'));
 
-    expect(source).toContain("result.code === 'version_conflict'");
+    // La decisión vive en `saveOutcome`, que marca el conflicto con `offersReload`.
+    expect(source).toContain('saveOutcome(result');
+    expect(executable(read('src/features/panel/catalog-errors.ts'))).toContain(
+      'conflict: offersReload(result.code)',
+    );
     expect(source).toContain('Recargar datos');
     expect(source).toContain('router.refresh()');
     expect(source).not.toContain('setTimeout');

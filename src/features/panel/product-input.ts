@@ -69,6 +69,37 @@ function wholeNumber(value: unknown, min: number): number | null {
   return typeof value === 'number' && Number.isInteger(value) && value >= min ? value : null;
 }
 
+/**
+ * Campo comercial opcional: `undefined` no se envía, `null` borra, `false` es inválido.
+ *
+ * Solo forma. Que el precio anterior supere al vigente lo decide el backend contra lo guardado.
+ */
+function optionalNullable<T>(
+  value: unknown,
+  read: (value: unknown) => T | null,
+): T | null | undefined | false {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const parsed = read(value);
+  return parsed === null ? false : parsed;
+}
+
+const COMPARE_AT = (value: unknown) => wholeNumber(value, 1);
+const PREPARATION_DAY = (value: unknown) => {
+  const day = wholeNumber(value, 1);
+  return day !== null && day <= 180 ? day : null;
+};
+const NEW_UNTIL = (value: unknown) =>
+  typeof value === 'string' &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/.test(value) &&
+  !Number.isNaN(Date.parse(value))
+    ? value
+    : null;
+const COMMERCIAL_LABEL = (value: unknown) =>
+  typeof value === 'string' && value.trim().length <= 24 && !/[<>\u0000-\u001f\u007f]/.test(value)
+    ? value
+    : null;
+
 export function parseCreateProduct(raw: unknown): CreateProductRequest | null {
   if (!isRecord(raw)) return null;
 
@@ -342,6 +373,34 @@ export function parseUpdateProduct(raw: unknown): UpdateProductRequest | null {
   if (attributes === null) return null;
   if (attributes !== undefined) body.attributes = [...attributes];
 
+  // Información comercial: cada campo con su forma; `null` la elimina.
+  const compareAt = optionalNullable(raw.compareAtPriceCop, COMPARE_AT);
+  const newUntil = optionalNullable(raw.newUntil, NEW_UNTIL);
+  const newLabel = optionalNullable(raw.newLabel, COMMERCIAL_LABEL);
+  const promotionLabel = optionalNullable(raw.promotionLabel, COMMERCIAL_LABEL);
+  const preparationMin = optionalNullable(raw.preparationDaysMin, PREPARATION_DAY);
+  const preparationMax = optionalNullable(raw.preparationDaysMax, PREPARATION_DAY);
+
+  if (
+    compareAt === false ||
+    newUntil === false ||
+    newLabel === false ||
+    promotionLabel === false ||
+    preparationMin === false ||
+    preparationMax === false
+  ) {
+    return null;
+  }
+  // El rango viaja entero: el backend rechaza un extremo suelto.
+  if ((preparationMin === undefined) !== (preparationMax === undefined)) return null;
+
+  if (compareAt !== undefined) body.compareAtPriceCop = compareAt;
+  if (newUntil !== undefined) body.newUntil = newUntil;
+  if (newLabel !== undefined) body.newLabel = newLabel;
+  if (promotionLabel !== undefined) body.promotionLabel = promotionLabel;
+  if (preparationMin !== undefined) body.preparationDaysMin = preparationMin;
+  if (preparationMax !== undefined) body.preparationDaysMax = preparationMax;
+
   return body;
 }
 
@@ -541,10 +600,15 @@ export function parseCreateVariant(raw: unknown): CreateProductVariantRequest | 
 
   if (inventory === null) return null;
 
+  const compareAt = optionalNullable(raw.compareAtPriceCop, COMPARE_AT);
+
+  if (compareAt === false) return null;
+
   return {
     expectedVersion,
     sku,
     priceCop,
+    ...(compareAt === undefined ? {} : { compareAtPriceCop: compareAt }),
     ...(inventory === undefined ? {} : { inventory }),
     attributes: [...attributes],
   };
@@ -581,6 +645,14 @@ export function parseUpdateVariant(raw: unknown): UpdateProductVariantRequest | 
     if (attributes === null) return null;
 
     body.attributes = [...attributes];
+    touched = true;
+  }
+
+  const compareAt = optionalNullable(raw.compareAtPriceCop, COMPARE_AT);
+
+  if (compareAt === false) return null;
+  if (compareAt !== undefined) {
+    body.compareAtPriceCop = compareAt;
     touched = true;
   }
 

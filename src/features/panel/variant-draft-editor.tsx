@@ -5,7 +5,9 @@ import { useId } from 'react';
 import { VARIANT_MAX_ACTIVE } from '@/lib/api/variant-limits';
 
 import styles from './catalog.module.css';
+import { CompareAtField } from './commercial-section';
 import { CopField } from './cop-field';
+import { parseCop } from './money';
 import { InventoryFields } from './inventory-fields';
 import type { SwatchAxisDraft } from './swatch-draft';
 import type { AxisDraft, VariantDraft, VariantValidation } from './variant-draft';
@@ -242,6 +244,17 @@ export function VariantDraftEditor({
                     }
                     required
                     value={draft.priceCop}
+                  />
+                  <CompareAtField
+                    disabled={disabled}
+                    onChange={(value) =>
+                      update(draft.draftId, (current) => ({ ...current, compareAtPriceCop: value }))
+                    }
+                    priceCop={(() => {
+                      const parsed = parseCop(draft.priceCop);
+                      return parsed.ok ? parsed.value : null;
+                    })()}
+                    value={draft.compareAtPriceCop ?? ''}
                   />
                 </div>
                 {/*

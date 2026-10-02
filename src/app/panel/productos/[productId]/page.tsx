@@ -87,7 +87,14 @@ export default async function ProductDetailPage({ params }: PageProps) {
             <ProductGuide mode="edit" />
           </div>
         </div>
+        {/*
+          `key` con la versión: «Recargar datos» tras un conflicto llama a `router.refresh()`, que
+          trae la versión nueva del servidor, pero React conservaría el estado del formulario en
+          la versión vieja y el siguiente guardado volvería a chocar. Con la versión en la clave,
+          recargar monta la ficha otra vez sobre lo que el backend tiene ahora.
+        */}
         <ProductDetailClient
+          key={`${product.id}:${product.version}`}
           categories={categories.options}
           categoryComplete={categories.complete}
           categoryProblem={categories.problem}

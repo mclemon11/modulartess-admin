@@ -1,0 +1,18 @@
+/*
+ * Grupo de los días de preparación. Un `fieldset` agrupa los dos campos para los lectores de
+ * pantalla; aquí se le quita el borde y el relleno que pone el navegador para que se lea como el
+ * resto del formulario.
+ */
+.group {
+  min-width: 0;
+  margin: 0 0 var(--space-md);
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  margin-bottom: var(--space-xs);
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}

@@ -858,6 +858,12 @@
             "nullable": true,
             "type": "object"
           },
+          "compareAtPriceCop": {
+            "description": "Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. Applies to the base option; once the product has variants, each variant carries its own.",
+            "format": "int32",
+            "nullable": true,
+            "type": "number"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -900,6 +906,32 @@
             "example": "Tocador Aura",
             "type": "string"
           },
+          "newLabel": {
+            "description": "Short plain text, at most 24 characters, no HTML. Empty or null uses the default. Default: «Nuevo».",
+            "maxLength": 24,
+            "nullable": true,
+            "type": "string"
+          },
+          "newUntil": {
+            "description": "Show the product as new until this instant (ISO 8601 with an explicit offset, stored in UTC). null removes it.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "preparationDaysMax": {
+            "description": "Business days the workshop needs to prepare the order, 1 to 180. Both or neither, min <= max. It is PREPARATION, not delivery: transit depends on the shipping zone and is not included.",
+            "maximum": 180,
+            "minimum": 1,
+            "nullable": true,
+            "type": "number"
+          },
+          "preparationDaysMin": {
+            "description": "Business days the workshop needs to prepare the order, 1 to 180. Both or neither, min <= max. It is PREPARATION, not delivery: transit depends on the shipping zone and is not included.",
+            "maximum": 180,
+            "minimum": 1,
+            "nullable": true,
+            "type": "number"
+          },
           "priceCop": {
             "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as \"$ 1.450.000\".",
             "example": 1450000,
@@ -914,6 +946,12 @@
             ],
             "nullable": true,
             "type": "object"
+          },
+          "promotionLabel": {
+            "description": "Short plain text, at most 24 characters, no HTML. Empty or null uses the default. Default: «Promoción». Only published when some sellable option has a real discount.",
+            "maxLength": 24,
+            "nullable": true,
+            "type": "string"
           },
           "publicationReadiness": {
             "allOf": [
@@ -994,6 +1032,12 @@
           "features",
           "specifications",
           "featured",
+          "compareAtPriceCop",
+          "newUntil",
+          "newLabel",
+          "promotionLabel",
+          "preparationDaysMin",
+          "preparationDaysMax",
           "variants",
           "publicationReadiness"
         ],
@@ -1126,6 +1170,13 @@
             "example": "finish:roble-natural|size:80",
             "type": "string"
           },
+          "compareAtPriceCop": {
+            "description": "Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. The selected variant's value wins over the product's.",
+            "example": 1690000,
+            "format": "int32",
+            "nullable": true,
+            "type": "number"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -1180,6 +1231,7 @@
           "attributes",
           "combinationKey",
           "priceCop",
+          "compareAtPriceCop",
           "inventory",
           "status",
           "createdAt",
@@ -2313,6 +2365,11 @@
               "$ref": "#/components/schemas/ProductVariantAttributeDto"
             },
             "type": "array"
+          },
+          "compareAtPriceCop": {
+            "description": "Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down.",
+            "nullable": true,
+            "type": "number"
           },
           "expectedVersion": {
             "description": "Product version the caller last read.",
@@ -4491,6 +4548,24 @@
         ],
         "type": "object"
       },
+      "PublicNewBadgeDto": {
+        "properties": {
+          "label": {
+            "example": "Nuevo",
+            "type": "string"
+          },
+          "until": {
+            "description": "The badge is only published while this instant is in the future. A cached page should check it again.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "until"
+        ],
+        "type": "object"
+      },
       "PublicOrderDto": {
         "properties": {
           "customerName": {
@@ -4759,6 +4834,12 @@
             "nullable": true,
             "type": "object"
           },
+          "compareAtPriceCop": {
+            "description": "Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. Base option only: always null when the product has variants.",
+            "format": "int32",
+            "nullable": true,
+            "type": "number"
+          },
           "description": {
             "description": "Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations.",
             "type": "string"
@@ -4791,6 +4872,28 @@
           },
           "name": {
             "type": "string"
+          },
+          "newBadge": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicNewBadgeDto"
+              }
+            ],
+            "description": "Published only while newUntil is in the future.",
+            "nullable": true,
+            "type": "object"
+          },
+          "preparationDaysMax": {
+            "description": "Business days the workshop needs to prepare the order, 1 to 180. Both or neither, min <= max. It is PREPARATION, not delivery: transit depends on the shipping zone and is not included.",
+            "minimum": 1,
+            "nullable": true,
+            "type": "number"
+          },
+          "preparationDaysMin": {
+            "description": "Business days the workshop needs to prepare the order, 1 to 180. Both or neither, min <= max. It is PREPARATION, not delivery: transit depends on the shipping zone and is not included. Show it as «Preparación estimada», never as delivery.",
+            "minimum": 1,
+            "nullable": true,
+            "type": "number"
           },
           "priceCop": {
             "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as \"$ 1.450.000\".",
@@ -4826,6 +4929,11 @@
             ],
             "nullable": true,
             "type": "object"
+          },
+          "promotionLabel": {
+            "description": "Promotion badge text, already defaulted. Only published when the base option or some active variant has a valid compareAtPriceCop; show it only when the price being displayed has a real discount.",
+            "nullable": true,
+            "type": "string"
           },
           "shortDescription": {
             "description": "Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations.",
@@ -4875,6 +4983,11 @@
           "warranty",
           "care",
           "variants",
+          "compareAtPriceCop",
+          "promotionLabel",
+          "newBadge",
+          "preparationDaysMin",
+          "preparationDaysMax",
           "attributes"
         ],
         "type": "object"
@@ -4943,6 +5056,12 @@
             ],
             "type": "string"
           },
+          "compareAtPriceCop": {
+            "description": "Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. Only published when valid. When a variant is selected, its prices win over the product's.",
+            "format": "int32",
+            "nullable": true,
+            "type": "number"
+          },
           "id": {
             "type": "string"
           },
@@ -4961,6 +5080,7 @@
           "sku",
           "attributes",
           "priceCop",
+          "compareAtPriceCop",
           "availability"
         ],
         "type": "object"
@@ -5375,6 +5495,11 @@
             "nullable": true,
             "type": "object"
           },
+          "compareAtPriceCop": {
+            "description": "Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. Checked against the price that will be stored after this update; equal or lower answers 400.",
+            "nullable": true,
+            "type": "number"
+          },
           "description": {
             "description": "Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations.",
             "maxLength": 3000,
@@ -5408,6 +5533,28 @@
           "name": {
             "type": "string"
           },
+          "newLabel": {
+            "description": "Short plain text, at most 24 characters, no HTML. Empty or null uses the default.",
+            "maxLength": 24,
+            "nullable": true,
+            "type": "string"
+          },
+          "newUntil": {
+            "description": "Show the product as new until this instant (ISO 8601 with an explicit offset, stored in UTC). null removes it.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "preparationDaysMax": {
+            "description": "Business days the workshop needs to prepare the order, 1 to 180. Both or neither, min <= max. It is PREPARATION, not delivery: transit depends on the shipping zone and is not included.",
+            "nullable": true,
+            "type": "number"
+          },
+          "preparationDaysMin": {
+            "description": "Business days the workshop needs to prepare the order, 1 to 180. Both or neither, min <= max. It is PREPARATION, not delivery: transit depends on the shipping zone and is not included. Send both together; null and null removes the range.",
+            "nullable": true,
+            "type": "number"
+          },
           "priceCop": {
             "type": "number"
           },
@@ -5419,6 +5566,12 @@
             ],
             "nullable": true,
             "type": "object"
+          },
+          "promotionLabel": {
+            "description": "Short plain text, at most 24 characters, no HTML. Empty or null uses the default.",
+            "maxLength": 24,
+            "nullable": true,
+            "type": "string"
           },
           "shortDescription": {
             "description": "Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations.",
@@ -5442,6 +5595,11 @@
               "$ref": "#/components/schemas/ProductVariantAttributeDto"
             },
             "type": "array"
+          },
+          "compareAtPriceCop": {
+            "description": "Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. Checked against the variant price that will be stored; null removes it.",
+            "nullable": true,
+            "type": "number"
           },
           "expectedVersion": {
             "minimum": 1,

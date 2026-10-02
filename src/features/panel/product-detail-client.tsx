@@ -15,7 +15,7 @@ import {
   updateProduct,
   type MutationResult,
 } from './catalog-client';
-import { describeCatalogFailure, productFailureField } from './catalog-errors';
+import { describeCatalogFailure, productFailureField, saveOutcome } from './catalog-errors';
 import { CategoryPicker } from './category-picker';
 import { withCreatedCategory, type CategoryOption } from './category-selection';
 import { CopField } from './cop-field';
@@ -55,6 +55,14 @@ import { ProductImages } from './product-images';
 import { ProductVariants } from './product-variants';
 import { PublicationChecklist } from './publication-checklist';
 import { describeReadiness, SECTION_IDS } from './publication-readiness';
+import {
+  commercialBody,
+  commercialFromProduct,
+  commercialProblems,
+  hasCommercialProblems,
+  type CommercialDraft,
+} from './commercial-fields';
+import { CommercialSection } from './commercial-section';
 import { SectionHeading } from './section-icon';
 import { StatusBadge } from './status-badge';
 import { RemoveFromCatalogButton, REMOVED_NOTICE } from './remove-from-catalog';
@@ -109,6 +117,12 @@ export function ProductDetailClient({
   const [shortDescription, setShortDescription] = useState(initial.shortDescription);
   const [description, setDescription] = useState(initial.description);
   const [price, setPrice] = useState(() => String(initial.priceCop));
+  /** Promoción, novedad y preparación: viajan en el mismo guardado que el precio. */
+  const [commercial, setCommercial] = useState<CommercialDraft>(() =>
+    commercialFromProduct(initial),
+  );
+  const previewPrice = parseCop(price);
+  const parsedPriceForPreview = previewPrice.ok ? previewPrice.value : null;
   const [failure, setFailure] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -167,8 +181,11 @@ export function ProductDetailClient({
       return;
     }
 
-    setConflict(result.code === 'version_conflict');
-    setFailure(describeCatalogFailure(result.code, result.reference));
+    // Sin aviso de éxito: un fallo no guardó nada. Un conflicto de versión pide recargar.
+    const outcome = saveOutcome(result, '');
+    setConflict(outcome.conflict);
+    setNotice(null);
+    setFailure(outcome.failure);
 
     // Una categoría inexistente o archivada se marca en el propio selector, con el foco allí.
     if (productFailureField(result.code) === 'category') {
@@ -192,6 +209,7 @@ export function ProductDetailClient({
     setShortDescription(next.shortDescription);
     setDescription(next.description);
     setPrice(String(next.priceCop));
+    setCommercial(commercialFromProduct(next));
     setConflict(false);
   }
 
@@ -219,7 +237,7 @@ export function ProductDetailClient({
      * guardar, y vaciarla es una edición legítima que el checklist recoge después. Lo que bloquea
      * es pasarse de los topes, que es lo que devolvería un `400`.
      */
-    if (blocked) {
+    if (blocked || hasCommercialProblems(commercialProblems(commercial, parsedPrice.value))) {
       release(lock.current);
       setBusy(false);
       setFailure('Revisa el contenido marcado en rojo antes de guardar.');
@@ -236,6 +254,8 @@ export function ProductDetailClient({
       shortDescription,
       description,
       priceCop: parsedPrice.value,
+      // Todo lo comercial viaja siempre: un campo vacío es `null` y así se elimina.
+      ...commercialBody(commercial),
     });
 
     settle(result, (updated) => {
@@ -446,6 +466,14 @@ export function ProductDetailClient({
                           ya no son lo que se compra.
                         </p>
                       ) : null}
+                      <CommercialSection
+                        disabled={busy || readOnly}
+                        draft={commercial}
+                        onChange={setCommercial}
+                        priceCop={parsedPriceForPreview}
+                        problems={commercialProblems(commercial, parsedPriceForPreview)}
+                        sellsByVariants={sellsByVariant}
+                      />
                     </>
                   ),
                 },

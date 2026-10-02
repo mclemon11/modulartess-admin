@@ -130,3 +130,23 @@ export function describeBackendFailure(code: BackendFailureCode): string {
       return GENERIC_CATALOG_MESSAGE;
   }
 }
+
+/**
+ * Qué enseña la ficha tras un guardado. **Un fallo nunca dice que guardó.**
+ *
+ * Un `409` de versión se marca como conflicto —el aviso pide recargar— y no deja ningún mensaje de
+ * éxito: el backend no aplicó nada, y decir «Cambios guardados» haría creer que sí.
+ */
+export function saveOutcome(
+  result:
+    | { readonly ok: true }
+    | { readonly ok: false; readonly code: string; readonly reference?: string },
+  savedMessage: string,
+): { readonly notice: string | null; readonly failure: string | null; readonly conflict: boolean } {
+  if (result.ok) return { notice: savedMessage, failure: null, conflict: false };
+  return {
+    notice: null,
+    failure: describeCatalogFailure(result.code, result.reference),
+    conflict: offersReload(result.code),
+  };
+}

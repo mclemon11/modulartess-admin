@@ -94,6 +94,14 @@ import {
   type VariantDraft,
 } from './variant-draft';
 import { VariantDraftEditor } from './variant-draft-editor';
+import {
+  commercialCreateBody,
+  commercialProblems,
+  EMPTY_COMMERCIAL,
+  hasCommercialProblems,
+  type CommercialDraft,
+} from './commercial-fields';
+import { CommercialSection } from './commercial-section';
 import { CombinationMatrixView } from './combination-matrix';
 import { SwatchAxisEditor } from './swatch-axis-editor';
 import {
@@ -224,6 +232,8 @@ export function CreateProductForm({
    * el producto existe no hay identificadores reales que asociar.
    */
   const [swatch, setSwatch] = useState<SwatchAxisDraft | null>(null);
+  /** Promoción, novedad y preparación. Viajan en el mismo `PATCH` que el contenido. */
+  const [commercial, setCommercial] = useState<CommercialDraft>(EMPTY_COMMERCIAL);
   const [variants, setVariants] = useState<readonly VariantDraft[]>([]);
   /**
    * Inventario del producto base.
@@ -405,6 +415,15 @@ export function CreateProductForm({
   /** Todos los ejes que llevará cada variante: los de texto y, si lo hay, el de colores. */
   const variantAxes = swatch === null ? axes : [...axes, swatchAsAxis(swatch)];
   const axesBody = attributesBody(declaredAxes(axes), swatch);
+  const commercialIssues = commercialProblems(commercial, price.ok ? price.value : null);
+  /** El `PATCH` del alta: contenido, ejes y lo comercial que se haya escrito. */
+  const enrichBody = (() => {
+    const body = {
+      ...(enrichmentBody(enrichment, axesBody, 'create') ?? {}),
+      ...commercialCreateBody(commercial),
+    };
+    return Object.keys(body).length === 0 ? null : body;
+  })();
   /**
    * Solo se validan las variantes que faltan por crear, contra lo que el backend ya tiene.
    *
@@ -459,6 +478,8 @@ export function CreateProductForm({
 
       if (!price.ok) {
         found.priceCop = describeCopProblem(price.problem);
+      } else if (hasCommercialProblems(commercialIssues)) {
+        found.priceCop = 'Revisa el precio anterior, la novedad o la preparación.';
       }
 
       if (inventoryIssues.length > 0) {
@@ -517,7 +538,7 @@ export function CreateProductForm({
           : { shortDescription: fields.shortDescription.trim() }),
         ...(fields.description.trim() === '' ? {} : { description: fields.description.trim() }),
       },
-      enrichment: enrichmentBody(enrichment, axesBody, 'create'),
+      enrichment: enrichBody,
       queue,
       primaryEntryId: chosenPrimary,
       variants,
@@ -607,8 +628,7 @@ export function CreateProductForm({
 
   const summary = describeProgress(progress, { queue, variants });
   /** Hay clasificación o contenido escrito que todavía no ha llegado al backend. */
-  const enrichmentPending =
-    !progress.enriched && enrichmentBody(enrichment, axesBody, 'create') !== null;
+  const enrichmentPending = !progress.enriched && enrichBody !== null;
   const pendingImages = summary.pendingImages.length;
   const pendingVariants = summary.pendingVariants.length;
   const hasPending =
@@ -813,6 +833,14 @@ export function CreateProductForm({
                         vende.
                       </p>
                     )}
+                    <CommercialSection
+                      disabled={busy || progress.enriched}
+                      draft={commercial}
+                      onChange={setCommercial}
+                      priceCop={price.ok ? price.value : null}
+                      problems={commercialIssues}
+                      sellsByVariants={variants.length > 0}
+                    />
                   </>
                 ),
               },

@@ -1505,6 +1505,11 @@ export interface components {
             attributes: components["schemas"]["ProductAttributeDefinitionDto"][];
             /** @description Null on products created before the enriched catalogue. */
             category: components["schemas"]["ProductTaxonomyDto"] | null;
+            /**
+             * Format: int32
+             * @description Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. Applies to the base option; once the product has variants, each variant carries its own.
+             */
+            compareAtPriceCop: number | null;
             /** Format: date-time */
             createdAt: string;
             /** @description Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations. */
@@ -1521,6 +1526,17 @@ export interface components {
             inventory: components["schemas"]["InventoryControlDto"];
             /** @example Tocador Aura */
             name: string;
+            /** @description Short plain text, at most 24 characters, no HTML. Empty or null uses the default. Default: «Nuevo». */
+            newLabel: string | null;
+            /**
+             * Format: date-time
+             * @description Show the product as new until this instant (ISO 8601 with an explicit offset, stored in UTC). null removes it.
+             */
+            newUntil: string | null;
+            /** @description Business days the workshop needs to prepare the order, 1 to 180. Both or neither, min <= max. It is PREPARATION, not delivery: transit depends on the shipping zone and is not included. */
+            preparationDaysMax: number | null;
+            /** @description Business days the workshop needs to prepare the order, 1 to 180. Both or neither, min <= max. It is PREPARATION, not delivery: transit depends on the shipping zone and is not included. */
+            preparationDaysMin: number | null;
             /**
              * Format: int32
              * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as "$ 1.450.000".
@@ -1528,6 +1544,8 @@ export interface components {
              */
             priceCop: number;
             productType: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Short plain text, at most 24 characters, no HTML. Empty or null uses the default. Default: «Promoción». Only published when some sellable option has a real discount. */
+            promotionLabel: string | null;
             /** @description Computed by the backend from the authoritative record, images and variants included. publish consumes this very evaluation, so ready:false means publish will be rejected with exactly these requirements. */
             publicationReadiness: components["schemas"]["PublicationReadinessDto"];
             /** Format: date-time */
@@ -1612,6 +1630,12 @@ export interface components {
              * @example finish:roble-natural|size:80
              */
             combinationKey: string;
+            /**
+             * Format: int32
+             * @description Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. The selected variant's value wins over the product's.
+             * @example 1690000
+             */
+            compareAtPriceCop: number | null;
             /** Format: date-time */
             createdAt: string;
             /** @example var_0123456789abcdef */
@@ -2024,6 +2048,8 @@ export interface components {
         CreateProductVariantRequestDto: {
             /** @description Every axis the product declares, and no other. */
             attributes: components["schemas"]["ProductVariantAttributeDto"][];
+            /** @description Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. */
+            compareAtPriceCop?: number | null;
             /** @description Product version the caller last read. */
             expectedVersion: number;
             /** @description Inventory mode of this variant. Omitting it creates it with zero tracked units. */
@@ -2931,6 +2957,15 @@ export interface components {
             /** @description True when publish would succeed. False means missing lists why. */
             ready: boolean;
         };
+        PublicNewBadgeDto: {
+            /** @example Nuevo */
+            label: string;
+            /**
+             * Format: date-time
+             * @description The badge is only published while this instant is in the future. A cached page should check it again.
+             */
+            until: string;
+        };
         PublicOrderDto: {
             /** @example Cliente Demo */
             customerName: string;
@@ -3018,6 +3053,11 @@ export interface components {
             availability: "in_stock" | "out_of_stock";
             care: string;
             category: components["schemas"]["ProductTaxonomyDto"] | null;
+            /**
+             * Format: int32
+             * @description Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. Base option only: always null when the product has variants.
+             */
+            compareAtPriceCop: number | null;
             /** @description Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations. */
             description: string;
             featured: boolean;
@@ -3029,6 +3069,12 @@ export interface components {
             materials: string;
             measurements: string;
             name: string;
+            /** @description Published only while newUntil is in the future. */
+            newBadge: components["schemas"]["PublicNewBadgeDto"] | null;
+            /** @description Business days the workshop needs to prepare the order, 1 to 180. Both or neither, min <= max. It is PREPARATION, not delivery: transit depends on the shipping zone and is not included. */
+            preparationDaysMax: number | null;
+            /** @description Business days the workshop needs to prepare the order, 1 to 180. Both or neither, min <= max. It is PREPARATION, not delivery: transit depends on the shipping zone and is not included. Show it as «Preparación estimada», never as delivery. */
+            preparationDaysMin: number | null;
             /**
              * Format: int32
              * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as "$ 1.450.000".
@@ -3048,6 +3094,8 @@ export interface components {
             /** @description Primary active image, or null when the product has none. */
             primaryImage: components["schemas"]["PublicProductImageDto"] | null;
             productType: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Promotion badge text, already defaulted. Only published when the base option or some active variant has a valid compareAtPriceCop; show it only when the price being displayed has a real discount. */
+            promotionLabel: string | null;
             /** @description Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations. */
             shortDescription: string;
             sku: string;
@@ -3075,6 +3123,11 @@ export interface components {
             attributes: components["schemas"]["ProductVariantAttributeDto"][];
             /** @enum {string} */
             availability: "in_stock" | "out_of_stock";
+            /**
+             * Format: int32
+             * @description Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. Only published when valid. When a variant is selected, its prices win over the product's.
+             */
+            compareAtPriceCop: number | null;
             id: string;
             /**
              * Format: int32
@@ -3227,6 +3280,8 @@ export interface components {
             care?: string;
             /** @description null clears the category. Omitting the field leaves it unchanged. */
             category?: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. Checked against the price that will be stored after this update; equal or lower answers 400. */
+            compareAtPriceCop?: number | null;
             /** @description Optional long-form explanation of the product, at most 3000 characters. It carries narrative only: materials, measurements, warranty and care live in their own fields, and purchase, delivery or return policies are not part of the product. Records written before this limit may still be longer; the cap applies to new mutations. */
             description?: string;
             /** @description Version the caller last read. */
@@ -3237,14 +3292,29 @@ export interface components {
             materials?: string;
             measurements?: string;
             name?: string;
+            /** @description Short plain text, at most 24 characters, no HTML. Empty or null uses the default. */
+            newLabel?: string | null;
+            /**
+             * Format: date-time
+             * @description Show the product as new until this instant (ISO 8601 with an explicit offset, stored in UTC). null removes it.
+             */
+            newUntil?: string | null;
+            /** @description Business days the workshop needs to prepare the order, 1 to 180. Both or neither, min <= max. It is PREPARATION, not delivery: transit depends on the shipping zone and is not included. */
+            preparationDaysMax?: number | null;
+            /** @description Business days the workshop needs to prepare the order, 1 to 180. Both or neither, min <= max. It is PREPARATION, not delivery: transit depends on the shipping zone and is not included. Send both together; null and null removes the range. */
+            preparationDaysMin?: number | null;
             priceCop?: number;
             productType?: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Short plain text, at most 24 characters, no HTML. Empty or null uses the default. */
+            promotionLabel?: string | null;
             /** @description Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations. */
             shortDescription?: string;
             warranty?: string;
         };
         UpdateProductVariantRequestDto: {
             attributes?: components["schemas"]["ProductVariantAttributeDto"][];
+            /** @description Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. Checked against the variant price that will be stored; null removes it. */
+            compareAtPriceCop?: number | null;
             expectedVersion: number;
             priceCop?: number;
         };
