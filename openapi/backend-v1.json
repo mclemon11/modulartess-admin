@@ -4890,6 +4890,12 @@
             "nullable": true,
             "type": "object"
           },
+          "compareAtPriceCop": {
+            "description": "Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. It belongs to the SAME option whose price is priceFromCop: with variants, the first active variant, in published order, priced at priceFromCop; without variants, the base option. Never another variant's. Null when that option has no valid previous price.",
+            "format": "int32",
+            "nullable": true,
+            "type": "number"
+          },
           "featured": {
             "type": "boolean"
           },
@@ -4898,6 +4904,16 @@
           },
           "name": {
             "type": "string"
+          },
+          "newBadge": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicNewBadgeDto"
+              }
+            ],
+            "description": "Published only while newUntil is in the future.",
+            "nullable": true,
+            "type": "object"
           },
           "priceFromCop": {
             "example": 1490000,
@@ -4926,6 +4942,11 @@
             "nullable": true,
             "type": "object"
           },
+          "promotionLabel": {
+            "description": "Promotion badge text, already defaulted. Published only when compareAtPriceCop is not null on this card.",
+            "nullable": true,
+            "type": "string"
+          },
           "shortDescription": {
             "description": "Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations.",
             "type": "string"
@@ -4950,7 +4971,10 @@
           "availability",
           "featured",
           "primaryImage",
-          "updatedAt"
+          "updatedAt",
+          "compareAtPriceCop",
+          "promotionLabel",
+          "newBadge"
         ],
         "type": "object"
       },

@@ -3090,9 +3090,16 @@ export interface components {
             /** @enum {string} */
             availability: "in_stock" | "out_of_stock";
             category: components["schemas"]["ProductTaxonomyDto"] | null;
+            /**
+             * Format: int32
+             * @description Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. It belongs to the SAME option whose price is priceFromCop: with variants, the first active variant, in published order, priced at priceFromCop; without variants, the base option. Never another variant's. Null when that option has no valid previous price.
+             */
+            compareAtPriceCop: number | null;
             featured: boolean;
             id: string;
             name: string;
+            /** @description Published only while newUntil is in the future. */
+            newBadge: components["schemas"]["PublicNewBadgeDto"] | null;
             /** @example 1490000 */
             priceFromCop: number;
             /**
@@ -3102,6 +3109,8 @@ export interface components {
             priceToCop: number;
             primaryImage: components["schemas"]["PublicProductImageDto"] | null;
             productType: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Promotion badge text, already defaulted. Published only when compareAtPriceCop is not null on this card. */
+            promotionLabel: string | null;
             /** @description Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations. */
             shortDescription: string;
             slug: string;
