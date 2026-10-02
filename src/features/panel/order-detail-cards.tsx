@@ -113,6 +113,69 @@ export function OrderCustomerCard({ order }: { readonly order: AdminOrder }) {
   );
 }
 
+/**
+ * Facturación electrónica: con qué datos se emite la factura del pedido.
+ *
+ * **Solo lectura.** Es la instantánea que se fijó al comprar, y el contrato no publica ninguna
+ * operación para cambiarla: corregir un dato fiscal después de vender es una nota crédito, no una
+ * edición. Los textos de estado los pone el backend; aquí no se deduce ninguno.
+ *
+ * Tres estados:
+ * - pedido anterior a la captura: «Sin información fiscal registrada», sin presumir nada;
+ * - consumidor final;
+ * - datos del adquirente: nombre o razón social, documento y correo de facturación.
+ *
+ * Solo vive en la ficha: el listado y las búsquedas no llevan estos datos.
+ */
+export function OrderInvoiceCard({ order }: { readonly order: AdminOrder }) {
+  // `undefined` solo con un backend anterior al campo: sin dato del backend no se pinta nada.
+  const invoice = order.electronicInvoice as AdminOrder['electronicInvoice'] | undefined;
+  if (invoice === undefined) {
+    return null;
+  }
+  const buyer = invoice.status === 'buyer' ? invoice.buyer : null;
+
+  const recorded = invoice.status !== 'not_recorded';
+
+  return (
+    <section className={`${catalog.card} ${catalog.cardPad}`} data-invoice-status={invoice.status}>
+      <SectionHeading
+        hint={recorded ? 'Solo lectura. Datos fijados al crear el pedido.' : 'Solo lectura.'}
+        icon="factura"
+        title="Facturación electrónica"
+      />
+      {!recorded ? (
+        <p className={styles.factValue}>
+          <strong>{invoice.statusLabel}</strong>
+        </p>
+      ) : buyer === null ? (
+        <dl className={styles.facts}>
+          <Fact label="Se emite a" value={invoice.statusLabel} />
+        </dl>
+      ) : (
+        <dl className={styles.facts}>
+          <Fact label="Nombre o razón social" value={buyer.buyerName} />
+          <Fact
+            label="Tipo de documento"
+            value={`${buyer.identificationTypeLabel} (${buyer.identificationType})`}
+          />
+          <Fact label="Número de documento" value={buyer.identificationNumber} />
+          <Fact label="Correo de facturación" value={buyer.billingEmail} />
+        </dl>
+      )}
+      {/*
+       * Nota solo para el equipo: el panel no emite ni valida facturas. No se afirma ninguna
+       * integración con la DIAN porque no existe.
+       */}
+      <p className={catalog.hint}>
+        {recorded
+          ? 'Estos son los datos suministrados por el cliente. La emisión y validación de la factura electrónica todavía se realiza mediante el proceso externo de facturación.'
+          : 'El pedido es anterior a la captura de datos de facturación.'}
+      </p>
+    </section>
+  );
+}
+
 /** Dónde se entrega. */
 export function OrderAddressCard({ order }: { readonly order: AdminOrder }) {
   return (

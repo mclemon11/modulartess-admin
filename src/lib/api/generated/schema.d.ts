@@ -1274,6 +1274,8 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             customer: components["schemas"]["OrderCustomerDto"];
+            /** @description Immutable snapshot taken when the order was created. Read-only: nothing has been sent to DIAN or to an invoicing provider. */
+            electronicInvoice: components["schemas"]["AdminOrderElectronicInvoiceDto"];
             id: string;
             items: components["schemas"]["OrderLineDto"][];
             /** @description Outbox messages for this order, oldest first. Bodies and recipients are never returned. */
@@ -1319,6 +1321,38 @@ export interface components {
             updatedAt: string;
             /** @description Mutations require it as expectedVersion. */
             version: number;
+        };
+        AdminOrderElectronicInvoiceDto: {
+            /** @description Present only when status is buyer. */
+            buyer: components["schemas"]["AdminOrderInvoiceBuyerDto"] | null;
+            /**
+             * @description not_recorded: the order predates this field and no tax details were recorded; it is not presumed to be a final consumer. final_consumer: the buyer did not ask for the invoice in their name. buyer: issued with the buyer's details.
+             * @enum {string}
+             */
+            status: "not_recorded" | "final_consumer" | "buyer";
+            /** @example Consumidor final */
+            statusLabel: string;
+        };
+        AdminOrderInvoiceBuyerDto: {
+            /**
+             * Format: email
+             * @example facturas@example.com
+             */
+            billingEmail: string;
+            /** @example Ana Pérez */
+            buyerName: string;
+            /**
+             * @description Always a string.
+             * @example 1020304050
+             */
+            identificationNumber: string;
+            /**
+             * @example 13
+             * @enum {string}
+             */
+            identificationType: "11" | "12" | "13" | "21" | "22" | "31" | "41" | "42" | "47" | "48" | "50" | "91";
+            /** @example Cédula de ciudadanía */
+            identificationTypeLabel: string;
         };
         AdminOrderListItemDto: {
             /** Format: date-time */
@@ -1989,6 +2023,35 @@ export interface components {
             /** @example +57 300 000 0000 */
             phone: string;
         };
+        CreateOrderElectronicInvoiceDto: {
+            /**
+             * Format: email
+             * @description Where the electronic invoice is sent. It may differ from the contact email. Required when requestedInBuyerName is true.
+             * @example facturas@example.com
+             */
+            billingEmail?: string;
+            /**
+             * @description Full name or company name. Required when requestedInBuyerName is true.
+             * @example Ana Pérez
+             */
+            buyerName?: string;
+            /**
+             * @description Always a string, never a number. Spaces and thousand-separator dots are removed. Colombian numeric documents (11, 12, 13, 31, 91) accept digits only; a NIT is sent without its verification digit. Foreign documents accept letters, digits and hyphens. Required when requestedInBuyerName is true.
+             * @example 1020304050
+             */
+            identificationNumber?: string;
+            /**
+             * @description DIAN identification type code: 11 Registro civil, 12 Tarjeta de identidad, 13 Cédula de ciudadanía, 21 Tarjeta de extranjería, 22 Cédula de extranjería, 31 NIT, 41 Pasaporte, 42 Documento de identificación extranjero, 47 PEP, 48 PPT, 50 NIT de otro país, 91 NUIP. Required when requestedInBuyerName is true.
+             * @example 13
+             * @enum {string}
+             */
+            identificationType?: "11" | "12" | "13" | "21" | "22" | "31" | "41" | "42" | "47" | "48" | "50" | "91";
+            /**
+             * @description The electronic invoice is always issued. false: it is issued to the final consumer and none of the other fields may be sent (order_request_invalid). true: it is issued with the buyer's details and the four fields are required.
+             * @example false
+             */
+            requestedInBuyerName: boolean;
+        };
         CreateOrderItemDto: {
             /** @description Identifier of a published product. */
             productId: string;
@@ -1999,6 +2062,8 @@ export interface components {
         };
         CreateOrderRequestDto: {
             customer: components["schemas"]["CreateOrderCustomerDto"];
+            /** @description Who the electronic invoice is issued to. Omitting it means the final consumer, the same as requestedInBuyerName false. It never replaces the customer or the shipping address, and it is not echoed in any public response. */
+            electronicInvoice?: components["schemas"]["CreateOrderElectronicInvoiceDto"];
             /** @description At least one line. Prices, names, SKUs and images come from the published catalogue; any amount sent here is rejected as an unknown field. */
             items: components["schemas"]["CreateOrderItemDto"][];
             shippingAddress: components["schemas"]["CreateOrderShippingAddressDto"];

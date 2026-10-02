@@ -9,6 +9,7 @@ import {
   OrderActivityCard,
   OrderAddressCard,
   OrderCustomerCard,
+  OrderInvoiceCard,
   OrderNotificationsCard,
   OrderPaymentAttemptsCard,
   OrderPaymentCard,
@@ -99,6 +100,7 @@ export function OrderDetailView({
           <PaymentSimulator onUpdated={setOrder} order={order} role={role} />
           <OrderPaymentHistoryCard order={order} />
           <OrderCustomerCard order={order} />
+          <OrderInvoiceCard order={order} />
           <OrderShipmentCard order={order} />
           <OrderAddressCard order={order} />
           <OrderSummaryCard order={order} />

@@ -26,6 +26,7 @@ export type IconName =
   | 'productos'
   | 'pedidos'
   | 'cliente'
+  | 'factura'
   | 'direccion'
   | 'historial'
   | 'resumen'
@@ -60,6 +61,8 @@ const PATHS: Readonly<Record<IconName, readonly string[]>> = {
   // Carrito de compra, como en las referencias de Pedidos.
   pedidos: ['M3 4h2l2.4 11.2a2 2 0 002 1.6h7.7a2 2 0 002-1.6L21 8H6', 'M9 21h.01', 'M18 21h.01'],
   cliente: ['M12 12a4 4 0 100-8 4 4 0 000 8z', 'M4 21c0-3.9 3.6-6 8-6s8 2.1 8 6'],
+  // Recibo con borde dentado: la factura electrónica del pedido.
+  factura: ['M6 3h12v18l-3-2-3 2-3-2-3 2z', 'M9 8h6', 'M9 12h6', 'M9 16h3'],
   // Dos personas: cuentas del equipo, no clientes.
   usuarios: [
     'M9 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7z',

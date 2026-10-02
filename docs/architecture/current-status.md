@@ -271,6 +271,26 @@ Cloud Run. `MODULARTESS_ADMIN_ORIGIN` es exactamente `https://admin.modulartess.
 rechaza cualquier otro valor, incluida la URL de Cloud Run. Detalle y rollback en
 `../../deploy/README.md`, sección 5.
 
+### Facturación electrónica en la ficha del pedido: implementada, sin desplegar
+
+La ficha del pedido tiene una tarjeta **«Facturación electrónica»**, de solo lectura, con la
+instantánea fiscal que publica el contrato (`AdminOrderDto.electronicInvoice`):
+
+- pedido anterior a la captura: «Sin información fiscal registrada», sin presumir nada;
+- «Consumidor final»;
+- datos del adquirente: nombre o razón social, tipo y número de documento y correo de facturación.
+
+Con datos registrados, una nota discreta recuerda al equipo que son los datos suministrados por el
+cliente y que la emisión y validación de la factura se hacen todavía en el proceso externo de
+facturación: el panel no afirma ninguna integración con la DIAN. Los textos de estado los pone el
+backend. No hay controles de edición: corregir un dato fiscal
+después de vender es una nota crédito. Los datos no aparecen en el listado, en el panel de inicio
+ni en búsquedas, y se leen con el mismo permiso que la ficha (`orders.read`). Con un backend
+anterior al campo, la tarjeta no se pinta.
+
+Rollback coordinado: web → admin → backend. El panel vuelve atrás después de la web y antes que
+el backend; la revisión anterior simplemente no pinta la tarjeta.
+
 ## Previsto, todavía no implementado
 
 Elementos que forman parte del diseño acordado, pero que aún no existen en el repositorio.

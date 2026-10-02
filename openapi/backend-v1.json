@@ -190,6 +190,14 @@
           "customer": {
             "$ref": "#/components/schemas/OrderCustomerDto"
           },
+          "electronicInvoice": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminOrderElectronicInvoiceDto"
+              }
+            ],
+            "description": "Immutable snapshot taken when the order was created. Read-only: nothing has been sent to DIAN or to an invoicing provider."
+          },
           "id": {
             "type": "string"
           },
@@ -311,6 +319,7 @@
           "customer",
           "shippingAddress",
           "shipment",
+          "electronicInvoice",
           "items",
           "subtotalCop",
           "shippingCop",
@@ -325,6 +334,87 @@
           "notifications",
           "paymentAttempts",
           "paymentSummary"
+        ],
+        "type": "object"
+      },
+      "AdminOrderElectronicInvoiceDto": {
+        "properties": {
+          "buyer": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminOrderInvoiceBuyerDto"
+              }
+            ],
+            "description": "Present only when status is buyer.",
+            "nullable": true,
+            "type": "object"
+          },
+          "status": {
+            "description": "not_recorded: the order predates this field and no tax details were recorded; it is not presumed to be a final consumer. final_consumer: the buyer did not ask for the invoice in their name. buyer: issued with the buyer's details.",
+            "enum": [
+              "not_recorded",
+              "final_consumer",
+              "buyer"
+            ],
+            "type": "string"
+          },
+          "statusLabel": {
+            "example": "Consumidor final",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "statusLabel",
+          "buyer"
+        ],
+        "type": "object"
+      },
+      "AdminOrderInvoiceBuyerDto": {
+        "properties": {
+          "billingEmail": {
+            "example": "facturas@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "buyerName": {
+            "example": "Ana Pérez",
+            "type": "string"
+          },
+          "identificationNumber": {
+            "description": "Always a string.",
+            "example": "1020304050",
+            "type": "string"
+          },
+          "identificationType": {
+            "enum": [
+              "11",
+              "12",
+              "13",
+              "21",
+              "22",
+              "31",
+              "41",
+              "42",
+              "47",
+              "48",
+              "50",
+              "91"
+            ],
+            "example": "13",
+            "type": "string"
+          },
+          "identificationTypeLabel": {
+            "example": "Cédula de ciudadanía",
+            "type": "string"
+          }
+        },
+        "required": [
+          "buyerName",
+          "identificationType",
+          "identificationTypeLabel",
+          "identificationNumber",
+          "billingEmail"
         ],
         "type": "object"
       },
@@ -2210,6 +2300,57 @@
         ],
         "type": "object"
       },
+      "CreateOrderElectronicInvoiceDto": {
+        "properties": {
+          "billingEmail": {
+            "description": "Where the electronic invoice is sent. It may differ from the contact email. Required when requestedInBuyerName is true.",
+            "example": "facturas@example.com",
+            "format": "email",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "buyerName": {
+            "description": "Full name or company name. Required when requestedInBuyerName is true.",
+            "example": "Ana Pérez",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "identificationNumber": {
+            "description": "Always a string, never a number. Spaces and thousand-separator dots are removed. Colombian numeric documents (11, 12, 13, 31, 91) accept digits only; a NIT is sent without its verification digit. Foreign documents accept letters, digits and hyphens. Required when requestedInBuyerName is true.",
+            "example": "1020304050",
+            "maxLength": 32,
+            "type": "string"
+          },
+          "identificationType": {
+            "description": "DIAN identification type code: 11 Registro civil, 12 Tarjeta de identidad, 13 Cédula de ciudadanía, 21 Tarjeta de extranjería, 22 Cédula de extranjería, 31 NIT, 41 Pasaporte, 42 Documento de identificación extranjero, 47 PEP, 48 PPT, 50 NIT de otro país, 91 NUIP. Required when requestedInBuyerName is true.",
+            "enum": [
+              "11",
+              "12",
+              "13",
+              "21",
+              "22",
+              "31",
+              "41",
+              "42",
+              "47",
+              "48",
+              "50",
+              "91"
+            ],
+            "example": "13",
+            "type": "string"
+          },
+          "requestedInBuyerName": {
+            "description": "The electronic invoice is always issued. false: it is issued to the final consumer and none of the other fields may be sent (order_request_invalid). true: it is issued with the buyer's details and the four fields are required.",
+            "example": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "requestedInBuyerName"
+        ],
+        "type": "object"
+      },
       "CreateOrderItemDto": {
         "properties": {
           "productId": {
@@ -2237,6 +2378,14 @@
         "properties": {
           "customer": {
             "$ref": "#/components/schemas/CreateOrderCustomerDto"
+          },
+          "electronicInvoice": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreateOrderElectronicInvoiceDto"
+              }
+            ],
+            "description": "Who the electronic invoice is issued to. Omitting it means the final consumer, the same as requestedInBuyerName false. It never replaces the customer or the shipping address, and it is not echoed in any public response."
           },
           "items": {
             "description": "At least one line. Prices, names, SKUs and images come from the published catalogue; any amount sent here is rejected as an unknown field.",
