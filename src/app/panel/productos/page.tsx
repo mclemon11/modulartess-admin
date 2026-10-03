@@ -11,6 +11,7 @@ import { RemovalNoticeProvider } from '@/features/panel/remove-from-catalog';
 import { RefreshButton } from '@/features/panel/refresh-button';
 import { resolvePanelSession } from '@/features/panel/session-context';
 import { can } from '@/features/session/permissions';
+import { BulkShippingProvider } from '@/features/shipping/bulk-shipping';
 import { listProducts } from '@/lib/api/catalog';
 import { isBackendFailure } from '@/lib/api/errors';
 
@@ -63,6 +64,8 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   const canCreate = can(session.session.role, 'products.create');
   const canEdit = can(session.session.role, 'products.update');
   const canArchive = can(session.session.role, 'products.archive');
+  // Asignar a zonas de envío en bloque: solo en la vista normal y con `shipping.manage`.
+  const canAssignShipping = can(session.session.role, 'shipping.manage') && !archivedView;
   const viewQuery = archivedView ? 'view=archived&' : '';
   const trail = [{ href: '/panel', label: 'Panel' }, { label: 'Productos' }];
 
@@ -148,39 +151,50 @@ export default async function ProductsPage({ searchParams }: PageProps) {
             <CatalogEmpty canCreate={canCreate} />
           )
         ) : (
-          <RemovalNoticeProvider>
-            <section className={styles.listSurface}>
-              <ProductsTable canArchive={canArchive} canEdit={canEdit} products={page.items} />
+          <ShippingSelection
+            enabled={canAssignShipping}
+            products={page.items.map((product) => ({ id: product.id, name: product.name }))}
+          >
+            <RemovalNoticeProvider>
+              <section className={styles.listSurface}>
+                <ProductsTable
+                  canArchive={canArchive}
+                  canEdit={canEdit}
+                  products={page.items}
+                  selectable={canAssignShipping}
+                />
 
-              <ul className={styles.cardList}>
-                {page.items.map((product) => (
-                  <li key={product.id}>
-                    <ProductMobileCard
-                      canArchive={canArchive}
-                      canEdit={canEdit}
-                      product={product}
-                    />
-                  </li>
-                ))}
-              </ul>
+                <ul className={styles.cardList}>
+                  {page.items.map((product) => (
+                    <li key={product.id}>
+                      <ProductMobileCard
+                        canArchive={canArchive}
+                        canEdit={canEdit}
+                        product={product}
+                        selectable={canAssignShipping}
+                      />
+                    </li>
+                  ))}
+                </ul>
 
-              <div className={styles.pagination}>
-                <p className={styles.paginationNote}>
-                  Mostrando {page.items.length} producto{page.items.length === 1 ? '' : 's'}.
-                </p>
-                {page.nextPageToken === null ? (
-                  <p className={styles.paginationNote}>No hay más páginas.</p>
-                ) : (
-                  <Link
-                    className={styles.buttonSecondary}
-                    href={`/panel/productos?${viewQuery}pageToken=${encodeURIComponent(page.nextPageToken)}`}
-                  >
-                    Cargar más productos
-                  </Link>
-                )}
-              </div>
-            </section>
-          </RemovalNoticeProvider>
+                <div className={styles.pagination}>
+                  <p className={styles.paginationNote}>
+                    Mostrando {page.items.length} producto{page.items.length === 1 ? '' : 's'}.
+                  </p>
+                  {page.nextPageToken === null ? (
+                    <p className={styles.paginationNote}>No hay más páginas.</p>
+                  ) : (
+                    <Link
+                      className={styles.buttonSecondary}
+                      href={`/panel/productos?${viewQuery}pageToken=${encodeURIComponent(page.nextPageToken)}`}
+                    >
+                      Cargar más productos
+                    </Link>
+                  )}
+                </div>
+              </section>
+            </RemovalNoticeProvider>
+          </ShippingSelection>
         )}
       </div>
     </>
@@ -214,5 +228,22 @@ function ArchivedEmpty() {
       Cuando elimines un producto del catálogo aparecerá aquí. No se borra: deja de verse en la
       tienda y conserva sus pedidos, su SKU y su enlace interno.
     </EmptyState>
+  );
+}
+
+/** Envuelve el listado en la selección de envíos solo cuando hace falta. */
+function ShippingSelection({
+  enabled,
+  products,
+  children,
+}: {
+  readonly enabled: boolean;
+  readonly products: readonly { readonly id: string; readonly name: string }[];
+  readonly children: React.ReactNode;
+}) {
+  return enabled ? (
+    <BulkShippingProvider products={products}>{children}</BulkShippingProvider>
+  ) : (
+    <>{children}</>
   );
 }

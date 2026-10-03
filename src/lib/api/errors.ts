@@ -199,6 +199,46 @@ export const BACKEND_FAILURE_CODES = [
   /** 503 `communications_reply_unavailable`: este despliegue no tiene clave de envío para responder. */
   'backend_reply_unavailable',
   'backend_conflict_unrecognized',
+  /**
+   * Zonas de envío (ADR 0025 del backend), uno por código publicado.
+   *
+   * - `shipping_zone_not_found` / `shipping_rule_not_found` (404).
+   * - `shipping_invalid` (400): el cuerpo no cumple el contrato —tarifa, cobertura, vigencia—.
+   * - `shipping_transition_invalid` (409): la acción no cabe en el estado actual —una zona
+   *   archivada, una copia que no está lista—. Recargar enseña el estado, no lo arregla.
+   * - `shipping_zone_ambiguous` (409): otra zona activa con la misma prioridad cubre un municipio
+   *   al mismo nivel. Se arregla cambiando prioridad o cobertura, no recargando.
+   * - `shipping_ruleset_changed` (409): la configuración cambió durante la comprobación; repetir.
+   * - `geography_department_not_found` (404): el código DIVIPOLA no existe.
+   */
+  'backend_shipping_zone_not_found',
+  'backend_shipping_rule_not_found',
+  'backend_shipping_invalid',
+  'backend_shipping_transition_invalid',
+  'backend_shipping_zone_ambiguous',
+  'backend_shipping_ruleset_changed',
+  'backend_geography_department_not_found',
+  /** 404 `shipping_copy_operation_not_found`: esa operación de copia no existe. */
+  'backend_shipping_copy_operation_not_found',
+  /** 404 `shipping_product_not_found`: el producto no existe para envíos. */
+  'backend_shipping_product_not_found',
+  /**
+   * 400 a una lectura paginada que llevaba cursor: el cursor está alterado, caducó o es de otros
+   * filtros (el contrato lo ata a ellos). Se arregla volviendo a la primera página.
+   */
+  'backend_cursor_invalid',
+  /**
+   * 503 a una lectura con búsqueda o filtros: la consulta del backend todavía no se puede resolver
+   * —típicamente, falta desplegar su índice—. Sin filtros el listado sigue funcionando.
+   */
+  'backend_query_unavailable',
+  /**
+   * Rechazos de producto en la vista previa (`order_*`): el contrato dice que la vista previa
+   * valida los productos como un pedido. Cada uno tiene una salida distinta.
+   */
+  'backend_preview_product_unavailable',
+  'backend_preview_variant_required',
+  'backend_preview_variant_unavailable',
   /** 429 del backend: el intercambio está limitado por tasa. */
   'backend_rate_limited',
   /** 503, red, DNS o expiración del temporizador. */
@@ -407,4 +447,70 @@ export function communicationsFailure(status: number, error: unknown): BackendFa
   }
 
   return new BackendFailure(failureCodeFromStatus(status, { notFound: 'backend_not_found' }));
+}
+
+/**
+ * Códigos de las zonas de envío (`/v1/admin/shipping/*` y `/v1/geography/*`), uno a uno.
+ *
+ * Los dos conflictos de versión —de zona y de regla— son los **únicos** que ofrecen recargar.
+ * `shipping_idempotency_conflict` comparte texto con el resto de la idempotencia del panel, y
+ * `shipping_unavailable` es un 503 normal. Del cuerpo solo se lee `code`: `message` es informativo
+ * y nunca se analiza. Una copia de zona no llega como error: es el recurso tipado de su operación.
+ */
+const SHIPPING_CODES: Readonly<Record<string, BackendFailureCode>> = {
+  shipping_zone_version_conflict: 'backend_conflict',
+  shipping_rule_version_conflict: 'backend_conflict',
+  shipping_zone_not_found: 'backend_shipping_zone_not_found',
+  shipping_rule_not_found: 'backend_shipping_rule_not_found',
+  shipping_invalid: 'backend_shipping_invalid',
+  shipping_transition_invalid: 'backend_shipping_transition_invalid',
+  shipping_zone_ambiguous: 'backend_shipping_zone_ambiguous',
+  shipping_ruleset_changed: 'backend_shipping_ruleset_changed',
+  shipping_copy_operation_not_found: 'backend_shipping_copy_operation_not_found',
+  shipping_product_not_found: 'backend_shipping_product_not_found',
+  shipping_idempotency_conflict: 'backend_idempotency_conflict',
+  shipping_unavailable: 'backend_unavailable',
+  geography_department_not_found: 'backend_geography_department_not_found',
+  order_product_unavailable: 'backend_preview_product_unavailable',
+  order_variant_required: 'backend_preview_variant_required',
+  order_variant_unavailable: 'backend_preview_variant_unavailable',
+};
+
+export function shippingFailure(status: number, error: unknown): BackendFailure {
+  const code = upstreamErrorCode(error);
+
+  if (code !== null && Object.hasOwn(SHIPPING_CODES, code)) {
+    return new BackendFailure(SHIPPING_CODES[code] as BackendFailureCode);
+  }
+
+  if (status === 409) {
+    return new BackendFailure('backend_conflict_unrecognized', code);
+  }
+
+  return new BackendFailure(failureCodeFromStatus(status, { notFound: 'backend_not_found' }));
+}
+
+/**
+ * Fallo de una **lectura paginada o filtrada**.
+ *
+ * Un 400 cuando se mandó cursor es un cursor inválido —el contrato lo ata a los filtros—, y un 503
+ * cuando se mandó búsqueda o filtros es una consulta que el backend aún no puede resolver. Lo demás
+ * se traduce como cualquier otro fallo de su superficie.
+ */
+export function listingFailure(
+  failure: BackendFailure,
+  sent: { readonly cursor: boolean; readonly filtered: boolean },
+): BackendFailure {
+  if (
+    sent.cursor &&
+    (failure.code === 'backend_shipping_invalid' || failure.code === 'backend_invalid_request')
+  ) {
+    return new BackendFailure('backend_cursor_invalid');
+  }
+
+  if (sent.filtered && failure.code === 'backend_unavailable') {
+    return new BackendFailure('backend_query_unavailable');
+  }
+
+  return failure;
 }

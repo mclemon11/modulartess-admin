@@ -53,6 +53,20 @@ export default async function NewProductPage() {
           categoryComplete={categories.complete}
           categoryProblem={categories.problem}
         />
+        {can(session.session.role, 'shipping.read') ? (
+          <section aria-labelledby="cobertura-envio" className={styles.card}>
+            <div className={styles.cardPad}>
+              <h2 className={styles.sectionTitle} id="cobertura-envio">
+                Cobertura y envío
+              </h2>
+              <p className={styles.hint}>
+                Las zonas de envío se asignan cuando el producto ya existe: guárdalo y, desde su
+                ficha, asígnalo a una regla de productos o deja que lo alcance su categoría o una
+                regla para todos. Se gestiona aparte del precio, el inventario y las variantes.
+              </p>
+            </div>
+          </section>
+        ) : null}
       </div>
     </>
   );

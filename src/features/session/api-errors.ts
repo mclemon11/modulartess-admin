@@ -58,6 +58,20 @@ export const SESSION_ERROR_CODES = [
   'live_payments_not_enabled',
   'incident_not_found',
   'provider_unavailable',
+  'shipping_zone_not_found',
+  'shipping_rule_not_found',
+  'shipping_invalid',
+  'shipping_transition_invalid',
+  'shipping_zone_ambiguous',
+  'shipping_ruleset_changed',
+  'geography_department_not_found',
+  'copy_operation_not_found',
+  'shipping_product_not_found',
+  'cursor_invalid',
+  'query_unavailable',
+  'preview_product_unavailable',
+  'preview_variant_required',
+  'preview_variant_unavailable',
   'too_many_requests',
   'service_unavailable',
   'internal_error',
@@ -135,6 +149,22 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
     'Los pagos reales están bloqueados en este despliegue. No es una casilla de configuración: se levanta desde la infraestructura.',
   incident_not_found: 'Esa incidencia ya no existe.',
   provider_unavailable: 'La pasarela no respondió. Inténtalo de nuevo en unos momentos.',
+  shipping_zone_not_found: 'Esa zona de envío no existe.',
+  shipping_rule_not_found: 'Esa regla de envío no existe.',
+  shipping_invalid: 'Los datos de envío no cumplen lo que exige el backend.',
+  shipping_transition_invalid: 'Esa acción no aplica a la zona en su estado actual.',
+  shipping_zone_ambiguous:
+    'Otra zona activa con la misma prioridad cubre un municipio al mismo nivel.',
+  shipping_ruleset_changed: 'La configuración de envíos cambió durante la comprobación.',
+  geography_department_not_found: 'Ese departamento no existe en la división oficial.',
+  copy_operation_not_found: 'Esa operación de copia no existe.',
+  shipping_product_not_found: 'Ese producto no existe para envíos.',
+  cursor_invalid:
+    'La página pedida ya no es válida para estos filtros. Vuelve a la primera página.',
+  query_unavailable: 'Esa búsqueda o ese filtro todavía no están disponibles.',
+  preview_product_unavailable: 'Uno de los productos no está disponible para la vista previa.',
+  preview_variant_required: 'Uno de los productos exige elegir una variante.',
+  preview_variant_unavailable: 'Una de las variantes no está disponible.',
   session_required: 'No hay una sesión administrativa activa. Vuelve a iniciar sesión.',
   admin_role_required: 'Esta cuenta no tiene permisos administrativos.',
   admin_surface_disabled: 'La superficie administrativa no está disponible en este despliegue.',
@@ -186,6 +216,20 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   live_payments_not_enabled: 409,
   incident_not_found: 404,
   provider_unavailable: 503,
+  shipping_zone_not_found: 404,
+  shipping_rule_not_found: 404,
+  shipping_invalid: 400,
+  shipping_transition_invalid: 409,
+  shipping_zone_ambiguous: 409,
+  shipping_ruleset_changed: 409,
+  geography_department_not_found: 404,
+  copy_operation_not_found: 404,
+  shipping_product_not_found: 404,
+  cursor_invalid: 400,
+  query_unavailable: 503,
+  preview_product_unavailable: 400,
+  preview_variant_required: 400,
+  preview_variant_unavailable: 400,
   session_required: 401,
   admin_role_required: 403,
   admin_surface_disabled: 503,
@@ -300,6 +344,34 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'incident_not_found';
     case 'backend_payment_provider_unavailable':
       return 'provider_unavailable';
+    case 'backend_shipping_zone_not_found':
+      return 'shipping_zone_not_found';
+    case 'backend_shipping_rule_not_found':
+      return 'shipping_rule_not_found';
+    case 'backend_shipping_invalid':
+      return 'shipping_invalid';
+    case 'backend_shipping_transition_invalid':
+      return 'shipping_transition_invalid';
+    case 'backend_shipping_zone_ambiguous':
+      return 'shipping_zone_ambiguous';
+    case 'backend_shipping_ruleset_changed':
+      return 'shipping_ruleset_changed';
+    case 'backend_geography_department_not_found':
+      return 'geography_department_not_found';
+    case 'backend_shipping_copy_operation_not_found':
+      return 'copy_operation_not_found';
+    case 'backend_shipping_product_not_found':
+      return 'shipping_product_not_found';
+    case 'backend_cursor_invalid':
+      return 'cursor_invalid';
+    case 'backend_query_unavailable':
+      return 'query_unavailable';
+    case 'backend_preview_product_unavailable':
+      return 'preview_product_unavailable';
+    case 'backend_preview_variant_required':
+      return 'preview_variant_required';
+    case 'backend_preview_variant_unavailable':
+      return 'preview_variant_unavailable';
     case 'backend_invalid_request':
       return 'invalid_request';
     case 'backend_rate_limited':

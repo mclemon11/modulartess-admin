@@ -16,7 +16,7 @@ import 'server-only';
  */
 
 import { backendClient } from './backend-client';
-import { BackendFailure, catalogFailure } from './errors';
+import { BackendFailure, catalogFailure, listingFailure } from './errors';
 import type { components, paths } from './generated/schema';
 import { ADMIN_SESSION_HEADER } from './session-material';
 
@@ -167,9 +167,14 @@ export async function listProducts(
     readonly pageToken?: string;
     readonly pageSize?: number;
     readonly view?: ProductListView;
+    /**
+     * Búsqueda del servidor por nombre, SKU y slug (2+ caracteres). El cursor queda atado a `view`
+     * y `q`: cambiar la búsqueda es empezar desde la primera página.
+     */
+    readonly q?: string;
   } = {},
 ): Promise<AdminProductPage> {
-  const query: { pageToken?: string; pageSize?: number; view?: ProductListView } = {};
+  const query: { pageToken?: string; pageSize?: number; view?: ProductListView; q?: string } = {};
 
   if (options.view !== undefined) {
     query.view = options.view;
@@ -181,6 +186,10 @@ export async function listProducts(
 
   if (options.pageSize !== undefined) {
     query.pageSize = options.pageSize;
+  }
+
+  if (options.q !== undefined && options.q !== '') {
+    query.q = options.q;
   }
 
   let response;
@@ -195,7 +204,12 @@ export async function listProducts(
   }
 
   if (response.error !== undefined || response.data === undefined) {
-    throw catalogFailure(response.response.status, response.error, RESOURCE);
+    const failure = catalogFailure(response.response.status, response.error, RESOURCE);
+
+    throw listingFailure(failure, {
+      cursor: query.pageToken !== undefined,
+      filtered: query.q !== undefined,
+    });
   }
 
   return response.data;

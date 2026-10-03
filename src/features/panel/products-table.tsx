@@ -8,6 +8,7 @@ import { ProductThumb } from './product-thumb';
 import { describeReadiness } from './publication-readiness';
 import { StatusBadge } from './status-badge';
 
+import { SelectAllBox, SelectProductBox } from '@/features/shipping/bulk-shipping';
 import type { AdminProduct } from '@/lib/api/catalog';
 import { RemoveFromCatalogButton } from './remove-from-catalog';
 
@@ -15,9 +16,9 @@ import { RemoveFromCatalogButton } from './remove-from-catalog';
  * Tabla del catálogo en escritorio.
  *
  * Las nueve columnas son exactamente las que publica `AdminProductDto`. La referencia enseña
- * además «Visibilidad» y una casilla de selección por fila: la primera no está en el contrato, y
- * la segunda solo tendría sentido con acciones masivas, que tampoco existen. Dejar la columna
- * vacía para parecerse al diseño sería peor que no tenerla.
+ * además «Visibilidad», que no está en el contrato. La casilla de selección por fila solo aparece
+ * con `selectable`: existe una acción masiva real —asignar o retirar de zonas de envío— y solo
+ * para quien tiene `shipping.manage`.
  *
  * La tabla desborda dentro de su tarjeta —nunca la página—, y por eso vive envuelta en
  * `.tableScroll`.
@@ -26,11 +27,14 @@ export function ProductsTable({
   products,
   canEdit,
   canArchive = false,
+  selectable = false,
 }: {
   readonly products: readonly AdminProduct[];
   readonly canEdit: boolean;
   /** `products.archive`: muestra «Eliminar del catálogo» en las filas que no están archivadas. */
   readonly canArchive?: boolean;
+  /** `shipping.manage`: casilla por fila para asignar a zonas de envío en bloque. */
+  readonly selectable?: boolean;
 }) {
   return (
     <div className={styles.tableScroll}>
@@ -38,6 +42,13 @@ export function ProductsTable({
         <caption className="sr-only">Productos del catálogo administrativo</caption>
         <thead>
           <tr>
+            {selectable ? (
+              <th scope="col">
+                <SelectAllBox
+                  products={products.map((product) => ({ id: product.id, name: product.name }))}
+                />
+              </th>
+            ) : null}
             <th className={styles.thumbCell} scope="col">
               Imagen
             </th>
@@ -60,6 +71,7 @@ export function ProductsTable({
               canEdit={canEdit}
               key={product.id}
               product={product}
+              selectable={selectable}
             />
           ))}
         </tbody>
@@ -113,13 +125,20 @@ function ProductRow({
   product,
   canEdit,
   canArchive,
+  selectable,
 }: {
   readonly product: AdminProduct;
   readonly canEdit: boolean;
   readonly canArchive: boolean;
+  readonly selectable: boolean;
 }) {
   return (
     <tr>
+      {selectable ? (
+        <td>
+          <SelectProductBox product={{ id: product.id, name: product.name }} />
+        </td>
+      ) : null}
       <td className={styles.thumbCell}>
         <ProductThumb product={product} />
       </td>

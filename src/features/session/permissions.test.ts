@@ -31,6 +31,9 @@ const EXPECTED: Readonly<Record<string, readonly string[]>> = {
     'products.update',
     'inventory.read',
     'inventory.adjust',
+    // Envíos (ADR 0025 del backend): consulta zonas para explicar por qué un destino no tiene
+    // envío; no cambia zonas ni tarifas.
+    'shipping.read',
   ],
 };
 
@@ -116,5 +119,24 @@ describe('roles desconocidos', () => {
     }
 
     expect(permissionsFor('rol-inventado')).toEqual([]);
+  });
+});
+
+describe('permisos de envíos', () => {
+  it('los tres roles consultan zonas, geografía, reglas, asignaciones y vistas previas', () => {
+    for (const role of ADMIN_ROLES) {
+      expect(can(role, 'shipping.read'), role).toBe(true);
+    }
+  });
+
+  it('solo super_admin y master_admin administran zonas', () => {
+    expect(can('super_admin', 'shipping.manage')).toBe(true);
+    expect(can('master_admin', 'shipping.manage')).toBe(true);
+    expect(can('moderator', 'shipping.manage')).toBe(false);
+  });
+
+  it('un rol desconocido no consulta ni administra envíos', () => {
+    expect(can('shipping_admin', 'shipping.read')).toBe(false);
+    expect(can('', 'shipping.manage')).toBe(false);
   });
 });

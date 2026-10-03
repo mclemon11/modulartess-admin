@@ -33,9 +33,8 @@ export type NavigationItem = {
 /**
  * Las ocho entradas del panel, en este orden.
  *
- * Envíos y Wallet todavía no tienen contrato: sus pantallas existen, lo dicen y no fingen datos.
- * Están en la navegación porque el enlace lleva a un sitio real que explica en qué punto está, no a
- * un 404.
+ * Wallet todavía no tiene contrato: su pantalla existe, lo dice y no finge datos. Está en la
+ * navegación porque el enlace lleva a un sitio real que explica en qué punto está, no a un 404.
  *
  * **Configuración va la última y se llama así.** Es donde vive Integraciones, y el nombre es el que
  * entiende quien administra la tienda: una entrada llamada «dev_apis» o «integraciones técnicas»
@@ -52,7 +51,8 @@ export const NAVIGATION: readonly NavigationItem[] = [
     permission: 'communications.read',
   },
   { href: '/panel/productos', label: 'Productos', icon: 'productos' },
-  { href: '/panel/envios', label: 'Envíos', icon: 'envios' },
+  // Los tres roles leen zonas de envío; solo `shipping.manage` las cambia.
+  { href: '/panel/envios', label: 'Envíos', icon: 'envios', permission: 'shipping.read' },
   { href: '/panel/wallet', label: 'Wallet', icon: 'wallet' },
   // Solo quien puede ver cuentas: `super_admin` y `master_admin`. `moderator` no la ve.
   {

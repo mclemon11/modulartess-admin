@@ -864,6 +864,376 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/shipping/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Overlaps, ties and uncovered municipalities of the active zones
+         * @description Reads every active zone's coverage. Meant for the panel, not for each request. Requires shipping.read.
+         */
+        get: operations["AdminShippingController_analysis"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/copy-operations/{copyOperationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Progress of a zone copy
+         * @description By copyOperationId: the typed field of the duplicate response, or zone.copy.operationId in view=copies. The same resource that duplicate and resume answer; zone is set only when ready. The original Idempotency-Key is never returned. Requires shipping.read.
+         */
+        get: operations["AdminShippingController_getCopyOperation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/copy-operations/{copyOperationId}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard a zone copy without the original Idempotency-Key
+         * @description Deletes what was copied, in batches, and leaves the zone archived and discarded. A copy left copying is marked failed first. It answers the typed operation resource, state discarded; a discarded copy answers it again, idempotently; a finished one is a conflict. Requires shipping.manage.
+         */
+        post: operations["AdminShippingController_discardCopyOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/copy-operations/{copyOperationId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a zone copy without the original Idempotency-Key
+         * @description Continues from the saved cursor without duplicating anything and answers the typed operation resource: 200 when the copy finished (state ready, zone set; also when it had already finished), 202 when a batch failed again (state failed, failureCode set). A discarded copy answers its resource again, with 200 and without copying anything. Requires shipping.manage.
+         */
+        post: operations["AdminShippingController_resumeCopy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview the resolution for a destination and a cart
+         * @description Works in every SHIPPING_ZONES_MODE, including disabled, so zones can be checked before activation. includeDraftZoneIds treats those drafts as active in this preview only. Creates nothing. Requires shipping.read.
+         */
+        post: operations["AdminShippingPreviewController_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/products/{productId}/relations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Relations of a product with the zones
+         * @description Direct assignments to products rules, then inherited ones through the product category and through active all-products rules, each paginated. Works for products with variants (the relation covers every variant) and for archived products. It never says which rule wins: that depends on the location; use the preview. Requires shipping.read.
+         */
+        get: operations["AdminShippingController_productRelations"];
+        put?: never;
+        /**
+         * Assign or unassign a product directly to products-scope rules
+         * @description Only direct relations change: inherited relations through categories or all-products rules live in other rules and documents and are never touched. Each change is applied on its own with the rule's expectedVersion; one failing change does not stop the others. Up to 20 changes. Requires shipping.manage.
+         */
+        post: operations["AdminShippingController_changeProductRelations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/rules/{ruleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a rule. Requires shipping.read. */
+        get: operations["AdminShippingController_getRule"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a rule
+         * @description The scope is immutable. Requires expectedVersion and shipping.manage.
+         */
+        patch: operations["AdminShippingController_updateRule"];
+        trace?: never;
+    };
+    "/v1/admin/shipping/rules/{ruleId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive a rule. Final. Requires expectedVersion and shipping.manage. */
+        post: operations["AdminShippingController_archiveRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/rules/{ruleId}/targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the categories or products assigned to a rule, paginated. Requires shipping.read. */
+        get: operations["AdminShippingController_listTargets"];
+        put?: never;
+        /**
+         * Assign and unassign categories or products in bulk
+         * @description Up to 400 changes. Each item reports added, removed, unchanged or failed (target_taken when another active rule of the same zone owns it, product_not_found, category_not_found); the others still apply. Requires expectedVersion of the rule and shipping.manage.
+         */
+        post: operations["AdminShippingController_changeTargets"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/zones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List zones, paginated and filtered in the query
+         * @description No total cap. Ordered by updatedAt descending, ties by id descending. Every filter is a clause of the Firestore query, never an in-memory pass over all zones; municipalityCode first narrows to the few zones covering that municipality. The page token is opaque, bound to these filters and checksummed: an altered token or one from other filters answers 400 shipping_invalid page_token_invalid. A zone deleted or changed between pages does not break the paging. Requires shipping.read.
+         */
+        get: operations["AdminShippingController_listZones"];
+        put?: never;
+        /**
+         * Create a zone
+         * @description Always created as draft, with no coverage and no rules. Requires shipping.manage.
+         */
+        post: operations["AdminShippingController_createZone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/zones/{zoneId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a zone. Requires shipping.read. */
+        get: operations["AdminShippingController_getZone"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a zone
+         * @description Requires expectedVersion. An archived zone cannot be edited. Changing the priority of an active zone is rejected with shipping_zone_ambiguous if it would tie with another active zone. Requires shipping.manage.
+         */
+        patch: operations["AdminShippingController_updateZone"];
+        trace?: never;
+    };
+    "/v1/admin/shipping/zones/{zoneId}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate a draft zone
+         * @description The zone needs coverage and at least one active rule. It is rejected with shipping_zone_ambiguous if another active zone with the same priority covers a municipality at the same level. Requires shipping.manage.
+         */
+        post: operations["AdminShippingController_activateZone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/zones/{zoneId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a zone
+         * @description Final: an archived zone is never edited or reactivated; duplicate it instead. Orders keep their own snapshot. Requires shipping.manage.
+         */
+        post: operations["AdminShippingController_archiveZone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/zones/{zoneId}/copy/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard a failed zone copy
+         * @description Deletes, in batches, the coverage, rules and targets copied so far, and leaves the zone archived with copy.state discarded as an audit trail. Only for a copy in failed. Safe to repeat. Requires shipping.manage.
+         */
+        post: operations["AdminShippingController_discardCopy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/zones/{zoneId}/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the coverage entries of a zone, paginated. Requires shipping.read. */
+        get: operations["AdminShippingController_listCoverage"];
+        put?: never;
+        /**
+         * Add and remove coverage entries
+         * @description Whole departments, single municipalities, municipal exclusions and the explicit national fallback, by DIVIPOLA code only. Removals apply before additions. The national fallback cannot be combined with departments or municipalities; a municipality cannot belong to an included department; an exclusion must sit inside the coverage. Requires expectedVersion and shipping.manage.
+         */
+        post: operations["AdminShippingController_changeCoverage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/zones/{zoneId}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duplicate a zone as a new draft, in batches
+         * @description Copies coverage, active rules and their targets in batches of 200, each in its own transaction, so zones of any size fit. The new zone is a draft with copy.state copying until the last batch: it cannot be edited, activated or quoted, and it only shows up in view=copies. Once the operation exists the answer is always the typed operation resource: 201 when the copy finished (state ready, zone set), 202 while it is copying or after a batch failed (state failed, failureCode and progress set). Resume it with POST /copy-operations/{copyOperationId}/resume, or by repeating the same Idempotency-Key; or discard it. Repeating the key of a discarded copy answers 200 with state discarded. If the source zone changes during the copy, it fails with failureCode copy_source_changed. Failures before the operation exists (validation, version, idempotency, permissions) answer the usual error, which never carries an operation id. message is informative only: clients read state and failureCode, never message. Requires shipping.manage.
+         */
+        post: operations["AdminShippingController_duplicateZone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/zones/{zoneId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore an archived zone as a draft
+         * @description Always back to draft, never straight to active: activating it again runs the overlap analysis and every activation check. Bumps the version and is audited. Orders keep their own snapshot and are not touched. A discarded copy cannot be restored; duplicating as a draft remains the alternative. Requires expectedVersion and shipping.manage.
+         */
+        post: operations["AdminShippingController_restoreZone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/shipping/zones/{zoneId}/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the rules of a zone, active and archived. Requires shipping.read. */
+        get: operations["AdminShippingController_listRules"];
+        put?: never;
+        /**
+         * Create a rule in a zone
+         * @description Rate types: free, flat_order (once per order and rule), per_unit, base_plus_additional (base for the first unit plus each additional unit) and manual_quote. Integer COP only. At most one active all-products rule per zone. Requires shipping.manage.
+         */
+        post: operations["AdminShippingController_createRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/users": {
         parameters: {
             query?: never;
@@ -1036,6 +1406,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/geography/departments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Colombian departments, including Bogotá, D.C.
+         * @description Official DANE DIVIPOLA snapshot bundled with the backend. Cacheable for a day; the ETag changes only with a new DANE edition, and If-None-Match answers 304. Read by both the storefront and the admin BFF: no service token, the private Cloud Run service is protected by IAM (roles/run.invoker).
+         */
+        get: operations["PublicGeographyController_departments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/geography/departments/{departmentCode}/municipalities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Municipalities, districts and non-municipalized areas of a department
+         * @description Same snapshot and cache rules as the department list.
+         */
+        get: operations["PublicGeographyController_municipalities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/orders": {
         parameters: {
             query?: never;
@@ -1047,7 +1457,7 @@ export interface paths {
         put?: never;
         /**
          * Create an order before payment
-         * @description Prices, names, SKUs, variant attributes and images are read from the published catalogue: the request says what and how much, never at what price, and any amount sent is rejected as an unknown field. Only published products, and only active variants when one is selected. The order is created as pending_payment: this endpoint does not charge, does not reserve stock and calls no external service. NO CARD, PSE OR ACCOUNT FIELD IS ACCEPTED HERE AND NONE EVER WILL BE. Those are typed by the shopper on Wompi's hosted checkout, AFTER this call: the web takes the order this endpoint returns, opens POST /v1/orders/payments/wompi/checkout with its publicId and email, and sends the browser to checkout.wompi.co. shippingAddress.instructions is optional AND nullable: absent, null, an empty string and whitespace all mean no instructions were given, and all four are accepted. shippingCop is always 0 in this phase. Repeating the same Idempotency-Key with the same body returns the same order; reusing it with a different body is a conflict. Two bodies that mean the same order — one omitting instructions, the other sending null — are the same body for this purpose.
+         * @description Prices, names, SKUs, variant attributes and images are read from the published catalogue: the request says what and how much, never at what price, and any amount sent is rejected as an unknown field. Only published products, and only active variants when one is selected. The order is created as pending_payment: this endpoint does not charge, does not reserve stock and calls no external service. NO CARD, PSE OR ACCOUNT FIELD IS ACCEPTED HERE AND NONE EVER WILL BE. Those are typed by the shopper on Wompi's hosted checkout, AFTER this call: the web takes the order this endpoint returns, opens POST /v1/orders/payments/wompi/checkout with its publicId and email, and sends the browser to checkout.wompi.co. shippingAddress.instructions is optional AND nullable: absent, null, an empty string and whitespace all mean no instructions were given, and all four are accepted. shippingCop is 0 unless the order carries a verified shipping quote (SHIPPING_ZONES_MODE compatible or enforced; see GET /v1/shipping/capabilities), and then it is the quoted total and is part of totalCop. Repeating the same Idempotency-Key with the same body returns the same order; reusing it with a different body is a conflict. Two bodies that mean the same order — one omitting instructions, the other sending null — are the same body for this purpose.
          */
         post: operations["PublicOrdersController_create"];
         delete?: never;
@@ -1150,6 +1560,66 @@ export interface paths {
         get: operations["PublicProductsController_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/shipping/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Shipping rollout capabilities for the storefront
+         * @description Server-to-server, for the storefront BFF. No service token: the private Cloud Run service is protected by IAM (roles/run.invoker). The single source of the shipping mode: the storefront follows requestQuotes, applyQuotes, quoteRequired and acceptsOrdersWithoutQuote and configures nothing itself. Cache-Control private, max-age=30, a strong ETag over the whole body and 304 on If-None-Match. A failure is 503 shipping_capabilities_unavailable with no-store: never treat it as disabled; keep using the last capabilities received or stop the checkout until they can be read.
+         */
+        get: operations["PublicShippingCapabilitiesController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/shipping/quote-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an anonymous checkout quote session
+         * @description Returns a signed token valid for two hours. The storefront keeps it in an httpOnly cookie and sends it in x-modulartess-quote-session. Issuing is rate limited per instance.
+         */
+        post: operations["PublicShippingController_createSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/shipping/quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Quote shipping for a destination and a cart
+         * @description Destination by DIVIPOLA codes, country CO only. Products and quantities only: prices come from the catalogue. Per line: municipality before department before national fallback; within the same level the higher zone priority wins; a tie is unavailable with ambiguous_configuration, never free. A line without coverage is manual_quote or unavailable, never zero. Identical quotes are cached by ruleset revision and cart fingerprint. Do not call while the location is incomplete.
+         */
+        post: operations["PublicShippingController_quote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2109,6 +2579,8 @@ export interface components {
             /** @description At least one line. Prices, names, SKUs and images come from the published catalogue; any amount sent here is rejected as an unknown field. */
             items: components["schemas"]["CreateOrderItemDto"][];
             shippingAddress: components["schemas"]["CreateOrderShippingAddressDto"];
+            /** @description Shipping quote returned by POST /v1/shipping/quotes. Send it exactly when GET /v1/shipping/capabilities says applyQuotes. Ignored while the mode is disabled or shadow. With compatible and enforced a quote that is sent is always verified again — expiry, cart, destination, prices and rules — and re-read inside the order transaction; one that no longer holds answers 409 order_shipping_quote_invalid and never falls back to an order without shipping. Without a quote, compatible accepts the order exactly as before (an older storefront tab) and enforced answers 400 order_shipping_quote_required. A retry of an existing order with the same Idempotency-Key and body returns the original in every mode. */
+            shippingQuoteId?: string;
         };
         CreateOrderShippingAddressDto: {
             /** @example Calle 10 #43-20, apto 501 */
@@ -2124,10 +2596,20 @@ export interface components {
             /** @example Antioquia */
             department: string;
             /**
+             * @description DIVIPOLA department code, as a string with its leading zero. Required together with shippingQuoteId whenever a quote is sent (compatible or enforced); without a quote it is not stored. It never replaces department, which stays as the shopper wrote it.
+             * @example 05
+             */
+            departmentCode?: string;
+            /**
              * @description Delivery notes. Optional AND nullable: omitting it, sending null and sending an empty string all mean the same thing, no instructions were given, and all three are accepted. Anything that is not a string is rejected.
              * @example Portería, timbre 501
              */
             instructions?: string | null;
+            /**
+             * @description DIVIPOLA municipality code, five digits starting with the department code. Required together with shippingQuoteId whenever a quote is sent (compatible or enforced); without a quote it is not stored. It never replaces city.
+             * @example 05001
+             */
+            municipalityCode?: string;
         };
         CreateProductCategoryRequestDto: {
             /** @example Tocadores */
@@ -2454,6 +2936,55 @@ export interface components {
             issues?: components["schemas"]["ErrorIssueDto"][];
             /** @example The request is invalid */
             message: string;
+        };
+        GeographyDepartmentDto: {
+            /**
+             * @description Official DIVIPOLA code, a string with its leading zero.
+             * @example 05
+             */
+            code: string;
+            /**
+             * @description Official name as published by DANE. For display only, never an identifier.
+             * @example ANTIOQUIA
+             */
+            name: string;
+        };
+        GeographyDepartmentListDto: {
+            items: components["schemas"]["GeographyDepartmentDto"][];
+            source: components["schemas"]["GeographySourceDto"];
+            /**
+             * @description Snapshot version. It is also the ETag.
+             * @example dane-mgn2025-0d59c6826384
+             */
+            version: string;
+        };
+        GeographyMunicipalityDto: {
+            /** @example 05001 */
+            code: string;
+            /** @example 05 */
+            departmentCode: string;
+            /** @example MEDELLÍN */
+            name: string;
+            /**
+             * @description municipality also covers districts; non_municipalized_area and island are published by DANE in the same layer.
+             * @enum {string}
+             */
+            type: "municipality" | "non_municipalized_area" | "island";
+        };
+        GeographyMunicipalityListDto: {
+            department: components["schemas"]["GeographyDepartmentDto"];
+            items: components["schemas"]["GeographyMunicipalityDto"][];
+            version: string;
+        };
+        GeographySourceDto: {
+            /** @example DIVIPOLA — Marco Geoestadístico Nacional */
+            dataset: string;
+            /** @example MGN2025 */
+            edition: string;
+            /** @example Departamento Administrativo Nacional de Estadística (DANE) */
+            publisher: string;
+            /** Format: date-time */
+            retrievedAt: string;
         };
         HealthResponseDto: {
             /**
@@ -3351,6 +3882,506 @@ export interface components {
             /** @description Version the caller last read. */
             expectedVersion: number;
             inventory: components["schemas"]["SetInventoryControlDto"];
+        };
+        ShippingAnalysisDto: {
+            /** @description Pairs of active zones with the same priority covering a municipality at the same level. */
+            conflicts: components["schemas"]["ShippingConflictDto"][];
+            coveredMunicipalityCount: number;
+            departments: components["schemas"]["ShippingDepartmentCoverageDto"][];
+            revision: number;
+            totalMunicipalityCount: number;
+            /** @description Municipalities with no active zone at any level. */
+            uncoveredMunicipalityCodes: string[];
+        };
+        ShippingCapabilitiesDto: {
+            /** @description Orders without a quote, from older storefront tabs, are still accepted exactly as before. */
+            acceptsOrdersWithoutQuote: boolean;
+            /** @description Show the quote outcome (free, charged, manual_quote, unavailable) and send its quoteId with the order, which charges it. */
+            applyQuotes: boolean;
+            /**
+             * @description Seconds these capabilities may be reused, the same as Cache-Control max-age. Revalidate with If-None-Match.
+             * @example 30
+             */
+            cacheTtlSeconds: number;
+            /**
+             * @description The backend's SHIPPING_ZONES_MODE, its only source. The storefront never configures it: it follows the booleans below.
+             * @enum {string}
+             */
+            mode: "disabled" | "shadow" | "compatible" | "enforced";
+            /** @description An order without shippingQuoteId is rejected with 400 order_shipping_quote_required. */
+            quoteRequired: boolean;
+            /** @description Start a quote session and request quotes during checkout. False in disabled and shadow: the quote routes answer 404 there. */
+            requestQuotes: boolean;
+            /** @description Active ruleset revision while quotes are requested; null otherwise. A change means quotes taken before it may no longer hold. */
+            rulesetRevision: number | null;
+        };
+        ShippingChargeDto: {
+            /** @description Integer COP. */
+            costCop: number;
+            /** @enum {string} */
+            level: "municipality" | "department" | "national";
+            lineIndexes: number[];
+            rate: components["schemas"]["ShippingRateDto"];
+            ruleId: string;
+            ruleName: string;
+            ruleVersion: number;
+            units: number;
+            zoneId: string;
+            zoneName: string;
+            zonePriority: number;
+            zoneVersion: number;
+        };
+        ShippingConflictDto: {
+            count: number;
+            /** @enum {string} */
+            level: "municipality" | "department" | "national";
+            municipalityCode: string;
+            otherZoneId: string;
+            priority: number;
+            zoneId: string;
+        };
+        ShippingCopyOperationDto: {
+            /** @description Documents copied so far. */
+            copied: components["schemas"]["ShippingCopyProgressDto"];
+            /**
+             * @description Persistent operation id: a hash of the original Idempotency-Key, which is never stored or returned. Read, resume or discard the copy with it, also after the client lost the key.
+             * @example 3f2a9c0d1b7e4f5a6c8d9e0f1a2b3c4d5e6f7a8b
+             */
+            copyOperationId: string;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * @description Stable failure code when state is failed (copy_step_failed, copy_source_changed, copy_abandoned or a shipping transition code); null otherwise.
+             * @example copy_step_failed
+             */
+            failureCode: string | null;
+            /** @description Safe, human-readable summary for the administrator. Informative only: its wording may change at any time and clients must never parse it; every datum is in a typed field. */
+            message: string;
+            /**
+             * @description Phase the copy runs next.
+             * @enum {string}
+             */
+            phase: "coverage" | "rules" | "targets" | "finish";
+            /** @description Version of the source zone being copied. */
+            sourceVersion: number;
+            sourceZoneId: string;
+            /** @enum {string} */
+            state: "copying" | "ready" | "failed" | "discarded";
+            /** @description Zone being created. Present for every operation that got as far as being created. */
+            targetZoneId: string | null;
+            /**
+             * Format: date-time
+             * @description Last change: each batch, failure, resume or discard.
+             */
+            updatedAt: string;
+            /** @description The resulting zone, only when state is ready; null otherwise. */
+            zone: components["schemas"]["ShippingZoneDto"] | null;
+        };
+        ShippingCopyProgressDto: {
+            coverage: number;
+            rules: number;
+            targets: number;
+        };
+        ShippingCoverageChangeDto: {
+            /** @example 05001 */
+            code: string;
+            /**
+             * @description national uses code CO.
+             * @enum {string}
+             */
+            kind: "national" | "department" | "municipality" | "exclusion";
+        };
+        ShippingCoverageEntryDto: {
+            /** @example 05001 */
+            code: string;
+            /**
+             * @description national uses code CO.
+             * @enum {string}
+             */
+            kind: "national" | "department" | "municipality" | "exclusion";
+            zoneId: string;
+        };
+        ShippingCoveragePageDto: {
+            items: components["schemas"]["ShippingCoverageEntryDto"][];
+            nextPageToken: string | null;
+        };
+        ShippingCoverageResultDto: {
+            added: number;
+            removed: number;
+            /** @description Entries that were already present or already absent. */
+            unchanged: number;
+            zone: components["schemas"]["ShippingZoneDto"];
+        };
+        ShippingCoverageUpdateDto: {
+            add?: components["schemas"]["ShippingCoverageChangeDto"][];
+            expectedVersion: number;
+            remove?: components["schemas"]["ShippingCoverageChangeDto"][];
+        };
+        ShippingDepartmentCoverageDto: {
+            covered: number;
+            departmentCode: string;
+            total: number;
+        };
+        ShippingPreviewDto: {
+            blockingProductIds: string[];
+            charges: components["schemas"]["ShippingChargeDto"][];
+            geographyVersion: string;
+            lines: components["schemas"]["ShippingPreviewLineDto"][];
+            location: components["schemas"]["ShippingQuoteLocationDto"] | null;
+            /** @enum {string} */
+            outcome: "charged" | "free" | "manual_quote" | "unavailable";
+            quoteId: string;
+            /** @enum {string|null} */
+            reason: "destination_invalid" | "destination_not_covered" | "ambiguous_configuration" | "product_not_covered" | "manual_quote_rule" | null;
+            rulesetRevision: number;
+            totalCop: number | null;
+        };
+        ShippingPreviewLineDto: {
+            /** @enum {string|null} */
+            level: "municipality" | "department" | "national" | null;
+            lineIndex: number;
+            /** @enum {string} */
+            outcome: "charged" | "free" | "manual_quote" | "unavailable";
+            productId: string;
+            /** @enum {string|null} */
+            reason: "destination_invalid" | "destination_not_covered" | "ambiguous_configuration" | "product_not_covered" | "manual_quote_rule" | null;
+            ruleId: string | null;
+            variantId: string | null;
+            zoneId: string | null;
+        };
+        ShippingPreviewRequestDto: {
+            destination: components["schemas"]["ShippingQuoteDestinationDto"];
+            /** @description Draft zones to treat as active in this preview only. */
+            includeDraftZoneIds?: string[];
+            /** @description Products and quantities only. Prices come from the catalogue; any amount is rejected as an unknown field. */
+            items: components["schemas"]["CreateOrderItemDto"][];
+        };
+        ShippingProductRelationDto: {
+            /** @description Zone active and ready, rule active: the relation takes part in quotes today. It does not say which rule wins: that depends on the location (use the preview). */
+            active: boolean;
+            categorySlug: string | null;
+            /**
+             * @description product: assigned explicitly. category: through the product category. all: an active all-products rule.
+             * @enum {string}
+             */
+            origin: "product" | "category" | "all";
+            /** @enum {string} */
+            relation: "direct" | "inherited";
+            rule: components["schemas"]["ShippingRelationRuleDto"];
+            zone: components["schemas"]["ShippingRelationZoneDto"];
+        };
+        ShippingProductRelationPageDto: {
+            items: components["schemas"]["ShippingProductRelationDto"][];
+            nextPageToken: string | null;
+        };
+        ShippingProductRelationsResultDto: {
+            results: components["schemas"]["ShippingRelationChangeResultDto"][];
+        };
+        ShippingProductRelationsUpdateDto: {
+            changes: components["schemas"]["ShippingRelationChangeDto"][];
+        };
+        ShippingQuoteDestinationDto: {
+            /**
+             * @description Only CO. Any other value is rejected.
+             * @enum {string}
+             */
+            country?: "CO";
+            /** @example 05 */
+            departmentCode: string;
+            /** @example 05001 */
+            municipalityCode: string;
+        };
+        ShippingQuoteDto: {
+            /** @description Products of the lines that are unavailable or need a manual quote. */
+            blockingProductIds: string[];
+            /** Format: date-time */
+            expiresAt: string;
+            lines: components["schemas"]["ShippingQuoteLineDto"][];
+            location: components["schemas"]["ShippingQuoteLocationDto"] | null;
+            /**
+             * @description charged: totalCop is the shipping cost. free: every line is covered by a free rule and totalCop is 0. manual_quote: the cart needs a manual quote and cannot be paid online. unavailable: there is no shipping for that destination and cart. A destination or product without a rule is never free.
+             * @enum {string}
+             */
+            outcome: "charged" | "free" | "manual_quote" | "unavailable";
+            /** @description Verifiable quote id: expiry, ruleset revision and a fingerprint of everything that decided the amount. Send it as shippingQuoteId when creating the order; it is verified again and never trusted as is. */
+            quoteId: string;
+            /** @enum {string|null} */
+            reason: "destination_invalid" | "destination_not_covered" | "ambiguous_configuration" | "product_not_covered" | "manual_quote_rule" | null;
+            /** @description Integer COP. Only with charged or free. */
+            totalCop: number | null;
+            transitDaysMax: number | null;
+            /** @description Business days in transit. Preparation time is published on each product. */
+            transitDaysMin: number | null;
+        };
+        ShippingQuoteLineDto: {
+            lineIndex: number;
+            /** @enum {string} */
+            outcome: "charged" | "free" | "manual_quote" | "unavailable";
+            productId: string;
+            /** @enum {string|null} */
+            reason: "destination_invalid" | "destination_not_covered" | "ambiguous_configuration" | "product_not_covered" | "manual_quote_rule" | null;
+            variantId: string | null;
+        };
+        ShippingQuoteLocationDto: {
+            /** @enum {string} */
+            country: "CO";
+            departmentCode: string;
+            /** @description Official DANE name. */
+            departmentName: string;
+            municipalityCode: string;
+            /** @description Official DANE name. */
+            municipalityName: string;
+        };
+        ShippingQuoteRequestDto: {
+            destination: components["schemas"]["ShippingQuoteDestinationDto"];
+            /** @description Products and quantities only. Prices come from the catalogue; any amount is rejected as an unknown field. */
+            items: components["schemas"]["CreateOrderItemDto"][];
+        };
+        ShippingQuoteSessionDto: {
+            /** Format: date-time */
+            expiresAt: string;
+            /** @description Signed anonymous checkout session. The storefront keeps it in an httpOnly cookie and sends it back in x-modulartess-quote-session. It identifies nobody and carries no personal data. */
+            token: string;
+        };
+        ShippingRateDto: {
+            /** @description base_plus_additional: each unit after the first. */
+            additionalUnitCop: number | null;
+            /** @description flat_order: integer COP, once per order and rule. */
+            amountCop: number | null;
+            /** @description base_plus_additional: the first unit. */
+            baseCop: number | null;
+            /** @enum {string} */
+            type: "free" | "flat_order" | "per_unit" | "base_plus_additional" | "manual_quote";
+            /** @description per_unit: integer COP times the units of the rule. */
+            unitCop: number | null;
+        };
+        ShippingRelationChangeDto: {
+            /** @enum {string} */
+            action: "assign" | "unassign";
+            /** @description Current version of that rule. */
+            expectedVersion: number;
+            /** @example shr_0123456789abcdef */
+            ruleId: string;
+        };
+        ShippingRelationChangeResultDto: {
+            /** @enum {string} */
+            action: "assign" | "unassign";
+            /** @description With failed: rule_not_product_scope, rule_version_conflict, rule_not_found, target_taken, rule_archived, zone_archived, zone_copy_incomplete or idempotency_conflict. */
+            code: string | null;
+            /** @enum {string} */
+            outcome: "added" | "removed" | "unchanged" | "failed";
+            ruleId: string;
+            /** @description The rule version after the change. */
+            ruleVersion: number | null;
+        };
+        ShippingRelationRuleDto: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            rateType: "free" | "flat_order" | "per_unit" | "base_plus_additional" | "manual_quote";
+            /** @enum {string} */
+            scope: "all" | "categories" | "products";
+            /** @enum {string} */
+            status: "active" | "archived";
+            /** @description Send it as expectedVersion to assign or unassign. */
+            version: number;
+        };
+        ShippingRelationZoneDto: {
+            /** @enum {string} */
+            copyState: "copying" | "ready" | "failed" | "discarded";
+            id: string;
+            name: string;
+            /** @enum {string} */
+            status: "draft" | "active" | "archived";
+            version: number;
+        };
+        ShippingRuleCreateDto: {
+            name: string;
+            /** @description Each type accepts exactly its own amounts; any other amount is rejected. */
+            rate: components["schemas"]["ShippingRateDto"];
+            /** @enum {string} */
+            scope: "all" | "categories" | "products";
+            transitDaysMax?: number | null;
+            transitDaysMin?: number | null;
+        };
+        ShippingRuleDto: {
+            /** Format: date-time */
+            archivedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** @example shr_0123456789abcdef0123456789abcdef */
+            id: string;
+            name: string;
+            rate: components["schemas"]["ShippingRateDto"];
+            /**
+             * @description Immutable after creation.
+             * @enum {string}
+             */
+            scope: "all" | "categories" | "products";
+            /** @enum {string} */
+            status: "active" | "archived";
+            targetCount: number;
+            transitDaysMax: number | null;
+            transitDaysMin: number | null;
+            /** Format: date-time */
+            updatedAt: string;
+            version: number;
+            zoneId: string;
+        };
+        ShippingRuleListDto: {
+            items: components["schemas"]["ShippingRuleDto"][];
+        };
+        ShippingRuleTargetDto: {
+            /** @enum {string} */
+            kind: "category" | "product";
+            ruleId: string;
+            /** @description Category slug or product id. */
+            value: string;
+            zoneId: string;
+        };
+        ShippingRuleTargetPageDto: {
+            items: components["schemas"]["ShippingRuleTargetDto"][];
+            nextPageToken: string | null;
+        };
+        ShippingRuleTargetsResultDto: {
+            /** @description true when the same Idempotency-Key and body were already applied. */
+            replayed: boolean;
+            results: components["schemas"]["ShippingTargetItemResultDto"][];
+            rule: components["schemas"]["ShippingRuleDto"];
+        };
+        ShippingRuleTargetsUpdateDto: {
+            /** @description Category slugs for a categories rule, product ids for a products rule. */
+            add?: string[];
+            /** @description Version of the rule. */
+            expectedVersion: number;
+            remove?: string[];
+        };
+        ShippingRuleUpdateDto: {
+            expectedVersion: number;
+            name?: string;
+            rate?: components["schemas"]["ShippingRateDto"];
+            transitDaysMax?: number | null;
+            transitDaysMin?: number | null;
+        };
+        ShippingTargetItemResultDto: {
+            /** @enum {string} */
+            code?: "target_taken" | "product_not_found" | "category_not_found";
+            /** @enum {string} */
+            outcome: "added" | "removed" | "unchanged" | "failed";
+            value: string;
+        };
+        ShippingVersionedDto: {
+            expectedVersion: number;
+        };
+        ShippingZoneCopyDto: {
+            /** @description Why the copy failed, e.g. copy_source_changed. */
+            error: string | null;
+            /** @description Copy operation id (hash of its Idempotency-Key). */
+            operationId: string | null;
+            sourceZoneId: string | null;
+            /**
+             * @description Technical copy state, separate from status. Only ready zones can be edited, activated or quoted; any zone that did not come from a copy is ready.
+             * @enum {string}
+             */
+            state: "copying" | "ready" | "failed" | "discarded";
+        };
+        ShippingZoneCoverageSummaryDto: {
+            /** @description Whole departments, at most 33. */
+            departmentCodes: string[];
+            /** @description Excluded municipalities per department. */
+            exclusionsByDepartment: {
+                [key: string]: number;
+            };
+            /** @description Individual municipalities per department. */
+            municipalitiesByDepartment: {
+                [key: string]: number;
+            };
+            /** @description Explicit national fallback. */
+            national: boolean;
+        };
+        ShippingZoneCreateDto: {
+            description?: string | null;
+            name: string;
+            priority: number;
+            /**
+             * @default unavailable
+             * @enum {string}
+             */
+            unmatchedProductBehavior: "manual_quote" | "unavailable";
+            /**
+             * Format: date-time
+             * @description ISO 8601 with an explicit offset. Stored in UTC.
+             */
+            validFrom?: string | null;
+            /** Format: date-time */
+            validUntil?: string | null;
+        };
+        ShippingZoneDto: {
+            /** Format: date-time */
+            activatedAt: string | null;
+            activatedBy: string | null;
+            /** Format: date-time */
+            archivedAt: string | null;
+            archivedBy: string | null;
+            copy: components["schemas"]["ShippingZoneCopyDto"];
+            coverage: components["schemas"]["ShippingZoneCoverageSummaryDto"];
+            /** Format: date-time */
+            createdAt: string;
+            createdBy: string;
+            description: string | null;
+            /** @example shz_0123456789abcdef0123456789abcdef */
+            id: string;
+            name: string;
+            /** @description Higher wins, within the same coverage level only. */
+            priority: number;
+            rules: components["schemas"]["ShippingZoneRulesSummaryDto"];
+            /** @enum {string} */
+            status: "draft" | "active" | "archived";
+            /**
+             * @description What a product without a rule gets when this zone is the most specific one covering the destination. Never free.
+             * @enum {string}
+             */
+            unmatchedProductBehavior: "manual_quote" | "unavailable";
+            /** Format: date-time */
+            updatedAt: string;
+            updatedBy: string;
+            /** Format: date-time */
+            validFrom: string | null;
+            /** Format: date-time */
+            validUntil: string | null;
+            /** @description Optimistic version. Any change to the zone, its coverage, rules or targets bumps it. */
+            version: number;
+        };
+        ShippingZoneDuplicateDto: {
+            expectedVersion: number;
+            /** @description Defaults to the source name followed by (copia). */
+            name?: string;
+        };
+        ShippingZoneListDto: {
+            items: components["schemas"]["ShippingZoneDto"][];
+            /** @description Opaque cursor bound to the filters; null on the last page. */
+            nextPageToken: string | null;
+        };
+        ShippingZoneRulesSummaryDto: {
+            activeCount: number;
+            /** @description The single active all-products rule, if any. */
+            allRuleId: string | null;
+            /** @description Active rules per rate type: at most five keys. */
+            rateTypeCounts: {
+                [key: string]: number;
+            };
+        };
+        ShippingZoneUpdateDto: {
+            description?: string | null;
+            expectedVersion: number;
+            name?: string;
+            priority?: number;
+            /** @enum {string} */
+            unmatchedProductBehavior?: "manual_quote" | "unavailable";
+            /** Format: date-time */
+            validFrom?: string | null;
+            /** Format: date-time */
+            validUntil?: string | null;
         };
         SimulatePaymentRequestDto: {
             /**
@@ -5748,6 +6779,8 @@ export interface operations {
     AdminProductsController_list: {
         parameters: {
             query?: {
+                /** @description Server-side search over name, SKU and slug, 2+ characters, case-, accent- and punctuation-insensitive: a prefix of any word or of the whole text (TOC-1, toc 1 and toc all find SKU TOC-1). Resolved in the query itself, so a product is found without loading earlier pages. Combines with view; the page token is bound to view and q. */
+                q?: string;
                 /** @description Opaque cursor. */
                 pageToken?: string;
                 /** @description Default 20, maximum 50. */
@@ -7044,6 +8077,1507 @@ export interface operations {
             };
         };
     };
+    AdminShippingController_analysis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingAnalysisDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_getCopyOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                copyOperationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingCopyOperationDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_copy_operation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_discardCopyOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                copyOperationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingCopyOperationDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_copy_operation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_transition_invalid (copy_finished) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_resumeCopy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                copyOperationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description state ready, zone set; or state discarded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingCopyOperationDto"];
+                };
+            };
+            /** @description state copying or failed. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingCopyOperationDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_copy_operation_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingPreviewController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingPreviewRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingPreviewDto"];
+                };
+            };
+            /** @description shipping_invalid or an order_* product rejection */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_productRelations: {
+        parameters: {
+            query?: {
+                pageToken?: string;
+                /** @description Default 50, maximum 100. */
+                pageSize?: number;
+            };
+            header?: never;
+            path: {
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingProductRelationPageDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_product_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_changeProductRelations: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 16 to 128 characters [A-Za-z0-9_-]. Repeating the same key and body returns the same results. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingProductRelationsUpdateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingProductRelationsResultDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_product_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_getRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingRuleDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_rule_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_updateRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingRuleUpdateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingRuleDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_rule_version_conflict or shipping_transition_invalid */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_archiveRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingVersionedDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingRuleDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_rule_version_conflict or shipping_transition_invalid */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_listTargets: {
+        parameters: {
+            query?: {
+                pageToken?: string;
+                pageSize?: number;
+            };
+            header?: never;
+            path: {
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingRuleTargetPageDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_changeTargets: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 16 to 128 characters [A-Za-z0-9_-]. The same key and body return the stored result; the same key with another body is a conflict. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingRuleTargetsUpdateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingRuleTargetsResultDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_rule_version_conflict, shipping_transition_invalid or shipping_idempotency_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_listZones: {
+        parameters: {
+            query?: {
+                pageToken?: string;
+                /** @description Default 50, maximum 100. */
+                pageSize?: number;
+                /** @description Zones covering this DIVIPOLA municipality at any level, exclusions applied. */
+                municipalityCode?: string;
+                /** @description Name prefix, 2+ characters, case- and accent-insensitive; matches a prefix of any word or of the whole name. */
+                q?: string;
+                /** @description always: no validity window. windowed: validFrom or validUntil set. */
+                validity?: "always" | "windowed";
+                /** @description Zones with at least one active rule of that rate type. */
+                rateType?: "free" | "flat_order" | "per_unit" | "base_plus_additional" | "manual_quote";
+                copyState?: "copying" | "ready" | "failed" | "discarded";
+                /** @description Narrows the view; a status outside it is rejected. */
+                status?: "draft" | "active" | "archived";
+                /** @description current (default): draft and active. archived. all. copies: zone copies still copying, failed or discarded, which no other view shows. */
+                view?: "current" | "archived" | "all" | "copies";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingZoneListDto"];
+                };
+            };
+            /** @description shipping_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_createZone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingZoneCreateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingZoneDto"];
+                };
+            };
+            /** @description shipping_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_getZone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zoneId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingZoneDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_zone_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_updateZone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zoneId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingZoneUpdateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingZoneDto"];
+                };
+            };
+            /** @description shipping_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_zone_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_zone_version_conflict, shipping_transition_invalid, shipping_zone_ambiguous or shipping_ruleset_changed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_activateZone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zoneId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingVersionedDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingZoneDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_zone_version_conflict, shipping_transition_invalid, shipping_zone_ambiguous or shipping_ruleset_changed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_archiveZone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zoneId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingVersionedDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingZoneDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_zone_version_conflict or shipping_transition_invalid */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_discardCopy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zoneId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingZoneDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_transition_invalid */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_listCoverage: {
+        parameters: {
+            query?: {
+                pageToken?: string;
+                pageSize?: number;
+            };
+            header?: never;
+            path: {
+                zoneId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingCoveragePageDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_changeCoverage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zoneId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingCoverageUpdateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingCoverageResultDto"];
+                };
+            };
+            /** @description shipping_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_zone_version_conflict, shipping_transition_invalid, shipping_zone_ambiguous or shipping_ruleset_changed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_duplicateZone: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 16 to 128 characters [A-Za-z0-9_-]. Identifies the copy operation: repeating it resumes the same copy and never creates a second zone; the same key with another body is a conflict. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                zoneId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingZoneDuplicateDto"];
+            };
+        };
+        responses: {
+            /** @description The same Idempotency-Key names a copy that was discarded: state discarded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingCopyOperationDto"];
+                };
+            };
+            /** @description The copy finished: state ready, zone set. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingCopyOperationDto"];
+                };
+            };
+            /** @description The operation exists but has not finished: state copying or failed. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingCopyOperationDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_zone_version_conflict, shipping_idempotency_conflict or shipping_transition_invalid */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_restoreZone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zoneId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingVersionedDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingZoneDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_zone_version_conflict or shipping_transition_invalid (zone_not_archived, zone_copy_incomplete) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_listRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zoneId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingRuleListDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminShippingController_createRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zoneId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingRuleCreateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingRuleDto"];
+                };
+            };
+            /** @description shipping_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     AdminUsersController_list: {
         parameters: {
             query?: {
@@ -7733,6 +10267,55 @@ export interface operations {
             };
         };
     };
+    PublicGeographyController_departments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeographyDepartmentListDto"];
+                };
+            };
+        };
+    };
+    PublicGeographyController_municipalities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                departmentCode: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeographyMunicipalityListDto"];
+                };
+            };
+            /** @description geography_department_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     PublicOrdersController_create: {
         parameters: {
             query?: never;
@@ -7757,7 +10340,7 @@ export interface operations {
                     "application/json": components["schemas"]["OrderCreatedDto"];
                 };
             };
-            /** @description A closed set of codes, so the shop can say what to do instead of just failing. order_request_invalid: the body, the contact or the address is malformed, out of range or carries an unknown field. order_product_unavailable: one of the products does not exist, is a draft, is archived or is no longer published. order_variant_required: the product sells through active variants and none was chosen. order_variant_unavailable: the chosen variant does not exist, is no longer active, or the product has no variants at all. order_out_of_stock: the product or the chosen variant has no stock. None of them names the field, the value, the product or any internal identifier. */
+            /** @description A closed set of codes, so the shop can say what to do instead of just failing. order_request_invalid: the body, the contact or the address is malformed, out of range or carries an unknown field. order_product_unavailable: one of the products does not exist, is a draft, is archived or is no longer published. order_variant_required: the product sells through active variants and none was chosen. order_variant_unavailable: the chosen variant does not exist, is no longer active, or the product has no variants at all. order_out_of_stock: the product or the chosen variant has no stock. order_shipping_quote_required: shipping is enforced and the order carries no shippingQuoteId. order_shipping_unavailable: the quoted cart has no payable shipping to that destination (manual_quote or unavailable). None of them names the field, the value, the product or any internal identifier. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7766,7 +10349,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponseDto"];
                 };
             };
-            /** @description order_idempotency_conflict */
+            /** @description order_idempotency_conflict, or order_shipping_quote_invalid: the shippingQuoteId sent is malformed, expired, for another cart or destination, or stale; quote again. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8032,6 +10615,159 @@ export interface operations {
             };
             /** @description product_not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PublicShippingCapabilitiesController_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ETag of a previous answer: 304 when nothing changed. */
+                "If-None-Match"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingCapabilitiesDto"];
+                };
+            };
+            /** @description Not modified: the If-None-Match ETag is current. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description shipping_capabilities_unavailable. Never a disabled answer. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PublicShippingController_createSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingQuoteSessionDto"];
+                };
+            };
+            /** @description not_found while SHIPPING_ZONES_MODE is disabled or shadow. Follow GET /v1/shipping/capabilities (requestQuotes), never this 404, to decide whether to quote. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_quote_rate_limited, with Retry-After */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PublicShippingController_quote: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Token from POST /v1/shipping/quote-sessions. */
+                "x-modulartess-quote-session": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingQuoteRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingQuoteDto"];
+                };
+            };
+            /** @description shipping_invalid or an order_* product rejection */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_quote_session_invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description not_found while SHIPPING_ZONES_MODE is disabled or shadow. Follow GET /v1/shipping/capabilities (requestQuotes), never this 404, to decide whether to quote. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description shipping_quote_rate_limited, with Retry-After */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

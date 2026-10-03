@@ -70,7 +70,7 @@ export async function handleMutation<TBody, TResult>(
   request: NextRequest,
   parse: (raw: unknown) => TBody | null,
   run: (sessionMaterial: string, body: TBody) => Promise<TResult>,
-  successStatus = 200,
+  successStatus: number | ((result: TResult) => number) = 200,
 ): Promise<NextResponse> {
   const originError = guardOrigin(request);
 
@@ -115,7 +115,14 @@ export async function handleMutation<TBody, TResult>(
   }
 
   try {
-    return mutationOk(await run(sessionMaterial, body), successStatus);
+    const result = await run(sessionMaterial, body);
+
+    // Algunas operaciones publican más de un éxito —`200`, `201`, `202`— y el código es parte de la
+    // respuesta: se conserva el del backend.
+    return mutationOk(
+      result,
+      typeof successStatus === 'function' ? successStatus(result) : successStatus,
+    );
   } catch (error) {
     if (isBackendFailure(error)) {
       return mutationError(sessionErrorFromBackendFailure(error.code), error.reference);

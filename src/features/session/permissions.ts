@@ -77,6 +77,14 @@ export const PERMISSIONS = [
   'communications.manage',
   /* La cola de revisión —correo a direcciones desconocidas— solo la ve `super_admin`. */
   'communications.review_unclassified',
+  /*
+   * Zonas de envío (ADR 0025 del backend). Leer zonas, geografía, reglas, asignaciones y vistas
+   * previas lo tienen los tres roles: quien atiende un pedido necesita saber por qué un destino no
+   * tiene envío. Administrarlas decide cuánto se cobra y a dónde se vende, como un descuento: solo
+   * `super_admin` y `master_admin`.
+   */
+  'shipping.read',
+  'shipping.manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -92,6 +100,8 @@ const MODERATOR: readonly Permission[] = [
   'products.update',
   'inventory.read',
   'inventory.adjust',
+  // Ve por qué un destino no tiene envío; no cambia zonas ni tarifas.
+  'shipping.read',
 ];
 
 /**
@@ -120,6 +130,9 @@ const MASTER_ADMIN: readonly Permission[] = [
   'communications.reply',
   'communications.assign',
   'communications.manage',
+  // Dirige la operación comercial: crea, activa y archiva zonas y asigna productos.
+  'shipping.read',
+  'shipping.manage',
 ];
 
 /** `super_admin` tiene acceso completo a lo que esta fase publica. */

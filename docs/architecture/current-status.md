@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-10-01 (precio anterior, etiquetas comerciales y preparación).
+Última actualización: 2026-10-03 (zonas de envío, contrato `85da968`).
 
 ## Fase
 
@@ -108,47 +108,48 @@ Esto es lo que ya existe fuera de este repositorio, y no debe describirse como p
 
 Implementado en el repositorio y comprobado con dobles locales.
 
-| Área                      | Estado     | Detalle                                                                        |
-| ------------------------- | ---------- | ------------------------------------------------------------------------------ |
-| Copia OpenAPI             | Listo      | `openapi/backend-v1.json`, comiteada; build y runtime solo de ahí.             |
-| Tipos generados           | Listo      | `src/lib/api/generated/schema.d.ts`; `pnpm api:check` los valida.              |
-| Cliente del backend       | Listo      | `openapi-fetch` tipado, `server-only`, `no-store` y temporizador.              |
-| Identity token IAM        | Listo      | `google-auth-library`, caché por audiencia con retirada en fallo.              |
-| `POST` del BFF            | Listo      | Origin exacto, `application/json`, cuerpo en bytes UTF-8, `201`.               |
-| `GET` del BFF             | Listo      | Verifica contra el backend. **Solo lectura**: nunca emite cookie.              |
-| `DELETE` del BFF          | Listo      | Origin exacto, borra la cookie, `204`. Independiente del backend.              |
-| Limpieza de sesión        | Listo      | Frontera cliente: `DELETE` y navegación solo tras el `204`.                    |
-| Validación de orígenes    | Listo      | HTTPS salvo loopback; audiencia igual a la URL en `google-oidc`.               |
-| `expiresAt`               | Listo      | RFC 3339 estricto con zona explícita; sin `Date.parse` permisivo.              |
-| Cookie de sesión          | Listo      | `__Host-`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`.                  |
-| Integración con el login  | Listo      | ID token reciente, canje y cierre de Firebase tras el canje.                   |
-| Cierre de la sesión SDK   | Listo      | Si `signOut` falla, `location.replace` destruye el documento.                  |
-| Ruta protegida `/panel`   | Listo      | Server Component; verifica en cada visita; solo muestra el rol.                |
-| Shell del panel           | Listo      | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión.           |
-| Catálogo de productos     | Listo      | Listado, alta, detalle, edición, publicar, archivar e inventario en dos modos. |
-| Pago del pedido           | Listo      | Estado, entorno, checkout efectivo, intentos reales e historial. Sin método.   |
-| Simulador de pago         | Listo      | Staging, `payments.simulate`, botones del backend, `eventId` en RAM.           |
-| Notificaciones            | Listo      | Tarjeta de solo lectura; sin preview ni reenvío, que no existen.               |
-| Preparación para publicar | Listo      | `publicationReadiness` del backend, traducida y enlazada por sección.          |
-| Precio en pesos           | Listo      | Se escribe y se lee `$ 1.450.000`; viaja el entero `1450000`.                  |
-| Navegación                | Listo      | Cinco secciones, marca real y bloque de sesión en el shell.                    |
-| Dashboard comercial       | Listo      | `GET /v1/admin/dashboard/summary`; período en la URL; sin cifras propias.      |
-| Integraciones (Wompi)     | Listo      | Ambiente, cuatro llaves y guardar. Secretos write-only. Incidencias aparte.    |
-| Envíos y Wallet           | Anunciadas | Pantallas «Próximamente»: su contrato no existe todavía.                       |
-| Catálogo enriquecido      | Listo      | Clasificación, contenido visible y detalles adicionales, separados.            |
-| Editor editorial          | Listo      | Topes de 180, 3000, 5 × 60; contadores, «Opcional» y orden real.               |
-| Variantes                 | Listo      | Ejes, combinaciones, precio, inventario por modo y archivado por variante.     |
-| Imágenes de producto      | Listo      | Subir, editar texto alternativo, orden, principal y archivar.                  |
-| Alta completa             | Listo      | Un envío: crea el borrador, enriquece, sube y crea variantes.                  |
-| Reanudación tras fallo    | Listo      | No recrea nada guardado; reintenta solo lo que falta.                          |
-| Catálogo de categorías    | Listo      | Listar, buscar, filtrar, crear, renombrar, archivar y reactivar.               |
-| Selector de categoría     | Listo      | Solo activas; alta en línea; archivadas históricas visibles y conservadas.     |
-| Conflictos del catálogo   | Listo      | SKU, slug y versión por separado; desconocidos con referencia.                 |
-| Editor de producto        | Listo      | Nombre arriba, pestañas «Datos del producto», barra lateral fija con sitio.    |
-| Shell responsive          | Listo      | Sidebar fija en escritorio; cajón por debajo de 60rem.                         |
-| Mutaciones por BFF        | Listo      | Nueve Route Handlers; el navegador no llama al backend.                        |
-| Permisos por rol          | Listo      | Matriz explícita en `src/features/session/permissions.ts`.                     |
-| ADR local del BFF         | Listo      | `../decisions/0003-admin-session-bff.md`.                                      |
+| Área                      | Estado    | Detalle                                                                        |
+| ------------------------- | --------- | ------------------------------------------------------------------------------ |
+| Copia OpenAPI             | Listo     | `openapi/backend-v1.json`, comiteada; build y runtime solo de ahí.             |
+| Tipos generados           | Listo     | `src/lib/api/generated/schema.d.ts`; `pnpm api:check` los valida.              |
+| Cliente del backend       | Listo     | `openapi-fetch` tipado, `server-only`, `no-store` y temporizador.              |
+| Identity token IAM        | Listo     | `google-auth-library`, caché por audiencia con retirada en fallo.              |
+| `POST` del BFF            | Listo     | Origin exacto, `application/json`, cuerpo en bytes UTF-8, `201`.               |
+| `GET` del BFF             | Listo     | Verifica contra el backend. **Solo lectura**: nunca emite cookie.              |
+| `DELETE` del BFF          | Listo     | Origin exacto, borra la cookie, `204`. Independiente del backend.              |
+| Limpieza de sesión        | Listo     | Frontera cliente: `DELETE` y navegación solo tras el `204`.                    |
+| Validación de orígenes    | Listo     | HTTPS salvo loopback; audiencia igual a la URL en `google-oidc`.               |
+| `expiresAt`               | Listo     | RFC 3339 estricto con zona explícita; sin `Date.parse` permisivo.              |
+| Cookie de sesión          | Listo     | `__Host-`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`.                  |
+| Integración con el login  | Listo     | ID token reciente, canje y cierre de Firebase tras el canje.                   |
+| Cierre de la sesión SDK   | Listo     | Si `signOut` falla, `location.replace` destruye el documento.                  |
+| Ruta protegida `/panel`   | Listo     | Server Component; verifica en cada visita; solo muestra el rol.                |
+| Shell del panel           | Listo     | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión.           |
+| Catálogo de productos     | Listo     | Listado, alta, detalle, edición, publicar, archivar e inventario en dos modos. |
+| Pago del pedido           | Listo     | Estado, entorno, checkout efectivo, intentos reales e historial. Sin método.   |
+| Simulador de pago         | Listo     | Staging, `payments.simulate`, botones del backend, `eventId` en RAM.           |
+| Notificaciones            | Listo     | Tarjeta de solo lectura; sin preview ni reenvío, que no existen.               |
+| Preparación para publicar | Listo     | `publicationReadiness` del backend, traducida y enlazada por sección.          |
+| Precio en pesos           | Listo     | Se escribe y se lee `$ 1.450.000`; viaja el entero `1450000`.                  |
+| Navegación                | Listo     | Cinco secciones, marca real y bloque de sesión en el shell.                    |
+| Dashboard comercial       | Listo     | `GET /v1/admin/dashboard/summary`; período en la URL; sin cifras propias.      |
+| Integraciones (Wompi)     | Listo     | Ambiente, cuatro llaves y guardar. Secretos write-only. Incidencias aparte.    |
+| Zonas de envío            | Listo     | ADR 0010: zonas, cobertura DIVIPOLA, tarifas, productos, vista previa.         |
+| Wallet                    | Anunciada | Pantalla «Próximamente»: su contrato no existe todavía.                        |
+| Catálogo enriquecido      | Listo     | Clasificación, contenido visible y detalles adicionales, separados.            |
+| Editor editorial          | Listo     | Topes de 180, 3000, 5 × 60; contadores, «Opcional» y orden real.               |
+| Variantes                 | Listo     | Ejes, combinaciones, precio, inventario por modo y archivado por variante.     |
+| Imágenes de producto      | Listo     | Subir, editar texto alternativo, orden, principal y archivar.                  |
+| Alta completa             | Listo     | Un envío: crea el borrador, enriquece, sube y crea variantes.                  |
+| Reanudación tras fallo    | Listo     | No recrea nada guardado; reintenta solo lo que falta.                          |
+| Catálogo de categorías    | Listo     | Listar, buscar, filtrar, crear, renombrar, archivar y reactivar.               |
+| Selector de categoría     | Listo     | Solo activas; alta en línea; archivadas históricas visibles y conservadas.     |
+| Conflictos del catálogo   | Listo     | SKU, slug y versión por separado; desconocidos con referencia.                 |
+| Editor de producto        | Listo     | Nombre arriba, pestañas «Datos del producto», barra lateral fija con sitio.    |
+| Shell responsive          | Listo     | Sidebar fija en escritorio; cajón por debajo de 60rem.                         |
+| Mutaciones por BFF        | Listo     | Nueve Route Handlers; el navegador no llama al backend.                        |
+| Permisos por rol          | Listo     | Matriz explícita en `src/features/session/permissions.ts`.                     |
+| ADR local del BFF         | Listo     | `../decisions/0003-admin-session-bff.md`.                                      |
 
 ### Material de despliegue (fase 3)
 
@@ -205,6 +206,27 @@ justo lo que se vio en el primer despliegue. `deploy/deploy.test.ts` lo exige.
 - **La entrada de correo está apagada en el backend** (`INBOUND_MODE=disabled`): la bandeja se ve
   vacía hasta que se enciende. Sin clave de envío `.com`, responder da `503 reply_unavailable`.
 - **«Marcar enviado» exige transportadora, guía y enlace**, y la ficha muestra el envío.
+
+### Zonas de envío
+
+[`ADR 0010`](../decisions/0010-shipping-zones-admin.md), sobre el ADR 0025 del backend (contrato
+copiado del commit `85da968`, todavía **no desplegado**: el backend vivo no tiene estos endpoints).
+
+- **`/panel/envios`**: vigentes, archivadas y copias, con cursor real del backend y filtros por
+  nombre, estado comercial, estado de copia, tarifa, vigencia y municipio, todos en la URL. Duplicar,
+  archivar y **restaurar como borrador**. Ninguna copia sin terminar aparece como zona utilizable.
+- **Copias** (`/panel/envios/copias/{copyOperationId}`): recurso tipado `ShippingCopyOperationDto`
+  (`201` lista, `202` copiando o fallida, `200` lista o descartada), fase y contadores de progreso,
+  motivo por `failureCode`; reanudar y descartar sin la clave original, también tras reabrir el
+  navegador. `message` solo se enseña.
+- **Cinco pasos** (`/panel/envios/nueva` y `/panel/envios/{id}?paso=`): información, cobertura con
+  árbol de tres estados y exclusiones, tarifas de los cinco tipos, productos (asignaciones paginadas)
+  y revisión con advertencias, análisis y activación confirmada. `409` → recargar.
+- **Vista previa** (`/panel/envios/vista-previa`): no crea pedidos ni modifica datos.
+- **Productos**: selección múltiple para asignar o retirar de zonas, y «Cobertura y envío» en la
+  ficha sobre el endpoint inverso: directas y heredadas, solo las directas se editan.
+- **Búsqueda de productos** en el servidor (`q`). Pendiente del backend: backfill de
+  `adminSearchTokens` e índices desplegados.
 
 ### Precio anterior, etiquetas comerciales y preparación
 
@@ -317,13 +339,12 @@ Elementos que forman parte del diseño acordado, pero que aún no existen en el 
 | Pasarela real de pago           | Pendiente     | El contrato solo publica el simulador de staging (`sandbox`).         |
 | Reembolsos                      | Pendiente     | Sin operación de reembolso en el contrato.                            |
 | Vista previa y reenvío de aviso | Pendiente     | No hay endpoint: la tarjeta de avisos es de solo lectura.             |
-| Envíos                          | Pendiente     | Pantalla anunciada; el despacho no está publicado.                    |
 | Addi y Odoo                     | Pendiente     | Integraciones fuera del contrato actual.                              |
 | Búsqueda del catálogo           | Pendiente     | Solo hay `view`, `pageToken` y `pageSize`; no hay texto que buscar.   |
 | Listado de la outbox            | Pendiente     | `failedNotifications` se cuenta; no hay pantalla que lo liste.        |
 | Addi                            | Pendiente     | Sin contrato: se anuncia como pendiente y no ejecuta ninguna llamada. |
 | Cobros reales de Wompi          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR PRODUCCIÓN».     |
-| Colecciones, SEO, envío, dtos.  | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.                |
+| Colecciones, SEO, descuentos    | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.                |
 | Lectura aparte de variantes     | Pendiente     | Viajan dentro del producto; un `GET` propio no tendría uso.           |
 | Paginación numérica             | Descartada    | El cursor es opaco: permite avanzar, no saltar de página.             |
 | Reordenar imágenes arrastrando  | Pendiente     | Hoy se reordena con botones accesibles sobre el mismo PATCH.          |
@@ -2130,6 +2151,7 @@ que no existe todavía es la pasarela de verdad, el reembolso y los clientes com
   Authentication.
 - `../decisions/0003-admin-session-bff.md` — sesión administrativa a través de la frontera BFF.
 - `../decisions/0004-enriched-catalogue-and-variants.md` — catálogo enriquecido y variantes.
+- `../decisions/0010-shipping-zones-admin.md` — zonas de envío en el panel.
 
 ## Pendiente del backend para Pedidos
 
@@ -2143,7 +2165,8 @@ Nada de esto se compensa en el panel; cuando exista en el contrato, se implement
 - **Reembolsos**, y con ellos la cancelación de un pedido ya pagado.
 - **Vista previa, reenvío y envío manual de un aviso**: sin endpoint, la tarjeta de Notificaciones
   es de solo lectura y no monta ningún control.
-- **Envíos**: cotización, transportadora y guía. `shippingCop` llega siempre en cero.
+- **Envíos**: la configuración de zonas ya existe (ADR 0010); falta desplegar ese backend, sus
+  índices y el backfill de búsqueda de productos.
 - **Facturación, Addi y Odoo.**
 - Búsqueda, filtros y contadores agregados de pedidos.
 - Clientes como entidad con historial propio.

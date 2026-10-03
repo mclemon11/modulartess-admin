@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
@@ -103,7 +104,8 @@ describe('copia versionada del contrato', () => {
   it('describe cada parámetro de ruta en las operaciones dinámicas', () => {
     const dynamic = Object.entries(contract.paths).filter(([path]) => path.includes('{productId}'));
 
-    expect(dynamic.length).toBe(13);
+    // 13 del catálogo y la de relaciones de envíos del producto (GET y POST).
+    expect(dynamic.length).toBe(14);
 
     let declarations = 0;
 
@@ -135,7 +137,7 @@ describe('copia versionada del contrato', () => {
       }
     }
 
-    expect(declarations).toBe(15);
+    expect(declarations).toBe(17);
   });
 
   it('el alta de producto no admite clasificación ni ejes: eso viaja en el PATCH', () => {
@@ -281,6 +283,11 @@ describe('copia versionada del contrato', () => {
         'POST /v1/admin/users/{userId}/resend-invitation',
         // Responder manda un correo: repetir con la misma clave devuelve la respuesta encolada.
         'POST /v1/admin/communications/conversations/{conversationId}/replies',
+        // Envíos (ADR 0025 del backend): duplicar reanuda la misma copia con la misma clave, y la
+        // asignación en bloque devuelve el resultado guardado si se repite.
+        'POST /v1/admin/shipping/zones/{zoneId}/duplicate',
+        'POST /v1/admin/shipping/rules/{ruleId}/targets',
+        'POST /v1/admin/shipping/products/{productId}/relations',
       ].sort(),
     );
   });
@@ -485,7 +492,11 @@ describe('pedidos administrativos', () => {
    */
   it('publica una única operación sobre las notificaciones: el recordatorio manual', () => {
     const paths = Object.keys(contract.paths).filter(
-      (path) => path.includes('notification') || path.includes('email') || path.includes('preview'),
+      (path) =>
+        path.includes('notification') ||
+        path.includes('email') ||
+        // La vista previa de envíos no es un correo: calcula una cotización y no crea nada.
+        (path.includes('preview') && path !== '/v1/admin/shipping/preview'),
     );
     expect(paths).toEqual(['/v1/admin/orders/{orderId}/notifications/status-reminder']);
     expect(
@@ -944,5 +955,118 @@ describe('catálogo de categorías', () => {
 
     expect(category.properties.assignedProducts?.nullable).toBe(true);
     expect(category.properties.activeProducts?.nullable).toBe(true);
+  });
+});
+
+describe('zonas de envío: contrato del backend en 85da968', () => {
+  /*
+   * La copia es byte a byte la de `git show 85da968:openapi/openapi.json` del backend. Si alguien la
+   * cambia a mano o la actualiza sin regenerar, esto falla aquí.
+   */
+  it('la copia comiteada es exactamente la del commit 85da968', () => {
+    const digest = createHash('sha256')
+      .update(readFileSync('openapi/backend-v1.json'))
+      .digest('hex');
+
+    expect(digest).toBe('877bb2951c2e5f01c6e4e346b6a05061e172a115c41ea5fc61dbaecb848138d1');
+  });
+
+  it('publica las operaciones que el panel usa: cursor, restaurar, copias y relaciones', () => {
+    for (const path of [
+      '/v1/admin/shipping/zones',
+      '/v1/admin/shipping/zones/{zoneId}/restore',
+      '/v1/admin/shipping/copy-operations/{copyOperationId}',
+      '/v1/admin/shipping/copy-operations/{copyOperationId}/resume',
+      '/v1/admin/shipping/copy-operations/{copyOperationId}/discard',
+      '/v1/admin/shipping/products/{productId}/relations',
+    ]) {
+      expect(contract.paths, path).toHaveProperty([path]);
+    }
+
+    const zoneQuery = (contract.paths['/v1/admin/shipping/zones'].get.parameters ?? []).map(
+      (parameter: { name: string }) => parameter.name,
+    );
+
+    expect([...zoneQuery].sort()).toEqual(
+      [
+        'copyState',
+        'municipalityCode',
+        'pageSize',
+        'pageToken',
+        'q',
+        'rateType',
+        'status',
+        'validity',
+        'view',
+      ].sort(),
+    );
+    expect(contract.components.schemas.ShippingZoneListDto.required).toContain('nextPageToken');
+  });
+
+  it('la búsqueda de productos es del servidor y el producto no publica sus tokens', () => {
+    const names = (contract.paths['/v1/admin/products'].get.parameters ?? []).map(
+      (parameter: { name: string }) => parameter.name,
+    );
+
+    expect(names).toContain('q');
+    expect(contract.components.schemas.AdminProductDto.properties).not.toHaveProperty(
+      'adminSearchTokens',
+    );
+  });
+
+  it('las operaciones de copia responden el recurso tipado con sus códigos publicados', () => {
+    const paths = contract.paths as unknown as Readonly<
+      Record<string, Readonly<Record<string, { responses: Record<string, { content?: unknown }> }>>>
+    >;
+    const ref = (path: string, method: string, status: string) =>
+      JSON.stringify(paths[path]?.[method]?.responses[status]?.content ?? null);
+    const expected: [string, string, string[]][] = [
+      ['/v1/admin/shipping/zones/{zoneId}/duplicate', 'post', ['200', '201', '202']],
+      ['/v1/admin/shipping/copy-operations/{copyOperationId}', 'get', ['200']],
+      ['/v1/admin/shipping/copy-operations/{copyOperationId}/resume', 'post', ['200', '202']],
+      ['/v1/admin/shipping/copy-operations/{copyOperationId}/discard', 'post', ['200']],
+    ];
+
+    for (const [path, method, statuses] of expected) {
+      for (const status of statuses) {
+        expect(ref(path, method, status), `${method} ${path} ${status}`).toContain(
+          'ShippingCopyOperationDto',
+        );
+      }
+    }
+
+    const dto = contract.components.schemas.ShippingCopyOperationDto;
+
+    expect(Object.keys(dto.properties).sort()).toEqual(
+      [
+        'copied',
+        'copyOperationId',
+        'createdAt',
+        'failureCode',
+        'message',
+        'phase',
+        'sourceVersion',
+        'sourceZoneId',
+        'state',
+        'targetZoneId',
+        'updatedAt',
+        'zone',
+      ].sort(),
+    );
+    // El error no publica ningún identificador de operación.
+    expect(Object.keys(contract.components.schemas.ErrorResponseDto.properties)).not.toContain(
+      'copyOperationId',
+    );
+  });
+
+  it('la geografía no exige ningún token de servicio', () => {
+    const paths = contract.paths as Readonly<Record<string, { get?: object }>>;
+
+    for (const path of [
+      '/v1/geography/departments',
+      '/v1/geography/departments/{departmentCode}/municipalities',
+    ]) {
+      expect(paths[path]?.get, path).not.toHaveProperty('security');
+    }
   });
 });

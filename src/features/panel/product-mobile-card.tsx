@@ -7,6 +7,7 @@ import { ProductThumb } from './product-thumb';
 import { ReadinessPill, StockCell } from './products-table';
 import { StatusBadge } from './status-badge';
 
+import { SelectProductBox } from '@/features/shipping/bulk-shipping';
 import type { AdminProduct } from '@/lib/api/catalog';
 import { RemoveFromCatalogButton } from './remove-from-catalog';
 
@@ -22,10 +23,13 @@ export function ProductMobileCard({
   product,
   canEdit,
   canArchive = false,
+  selectable = false,
 }: {
   readonly product: AdminProduct;
   readonly canEdit: boolean;
   readonly canArchive?: boolean;
+  /** `shipping.manage`: casilla para asignar a zonas de envío en bloque. */
+  readonly selectable?: boolean;
 }) {
   return (
     <article className={styles.productCard}>
@@ -54,6 +58,9 @@ export function ProductMobileCard({
             {canEdit ? 'Editar' : 'Ver producto'} <span aria-hidden="true">→</span>
           </Link>
           {canArchive ? <RemoveFromCatalogButton product={product} /> : null}
+          {selectable ? (
+            <SelectProductBox product={{ id: product.id, name: product.name }} />
+          ) : null}
         </div>
       </div>
     </article>

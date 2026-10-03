@@ -16,7 +16,9 @@ dist/
 *.tsbuildinfo
 
 # Testing / coverage
-coverage/
+# Solo el informe de cobertura de la raíz: `src/app/api/admin/shipping/zones/[zoneId]/coverage/`
+# es una ruta del BFF y tiene que versionarse.
+/coverage/
 .nyc_output/
 
 # Logs
