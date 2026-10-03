@@ -162,6 +162,75 @@
         ],
         "type": "object"
       },
+      "AdminOrderBuyerDocumentDto": {
+        "properties": {
+          "identificationNumber": {
+            "description": "Always a string.",
+            "example": "1020304050",
+            "type": "string"
+          },
+          "identificationType": {
+            "enum": [
+              "11",
+              "12",
+              "13",
+              "21",
+              "22",
+              "31",
+              "41",
+              "42",
+              "47",
+              "48",
+              "50",
+              "91"
+            ],
+            "example": "13",
+            "type": "string"
+          },
+          "identificationTypeLabel": {
+            "example": "Cédula de ciudadanía",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identificationType",
+          "identificationTypeLabel",
+          "identificationNumber"
+        ],
+        "type": "object"
+      },
+      "AdminOrderBuyerIdentificationDto": {
+        "properties": {
+          "document": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminOrderBuyerDocumentDto"
+              }
+            ],
+            "description": "Present only when status is recorded.",
+            "nullable": true,
+            "type": "object"
+          },
+          "status": {
+            "description": "not_recorded: the order predates this field and no identification was recorded; it is not migrated. recorded: document holds what the buyer gave.",
+            "enum": [
+              "not_recorded",
+              "recorded"
+            ],
+            "type": "string"
+          },
+          "statusLabel": {
+            "example": "Identificación no registrada",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "statusLabel",
+          "document"
+        ],
+        "type": "object"
+      },
       "AdminOrderDto": {
         "properties": {
           "availableSimulationEvents": {
@@ -182,6 +251,14 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "buyerIdentification": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminOrderBuyerIdentificationDto"
+              }
+            ],
+            "description": "Identification of the buyer and payer, from its private snapshot. Independent of electronicInvoice: the invoice may be issued to another person or company."
           },
           "createdAt": {
             "format": "date-time",
@@ -320,6 +397,7 @@
           "shippingAddress",
           "shipment",
           "electronicInvoice",
+          "buyerIdentification",
           "items",
           "subtotalCop",
           "shippingCop",
@@ -2274,6 +2352,40 @@
         ],
         "type": "object"
       },
+      "CreateOrderBuyerIdentificationDto": {
+        "properties": {
+          "identificationNumber": {
+            "description": "Always a string, never a number: leading zeros are kept. Spaces and thousand-separator dots are removed. Colombian numeric documents (11, 12, 13, 31, 91) accept digits only, 3 to 20 of them; a NIT is sent without its verification digit. Foreign documents accept letters, digits and hyphens.",
+            "example": "0012345678",
+            "maxLength": 32,
+            "type": "string"
+          },
+          "identificationType": {
+            "description": "Internal identification type (DIAN code): 11 Registro civil, 12 Tarjeta de identidad, 13 Cédula de ciudadanía, 21 Tarjeta de extranjería, 22 Cédula de extranjería, 31 NIT, 41 Pasaporte, 42 Documento de identificación extranjero, 47 PEP, 48 PPT, 50 NIT de otro país, 91 NUIP. The backend translates it for the payment provider; the client never sends provider codes.",
+            "enum": [
+              "11",
+              "12",
+              "13",
+              "21",
+              "22",
+              "31",
+              "41",
+              "42",
+              "47",
+              "48",
+              "50",
+              "91"
+            ],
+            "example": "13",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identificationType",
+          "identificationNumber"
+        ],
+        "type": "object"
+      },
       "CreateOrderCustomerDto": {
         "properties": {
           "email": {
@@ -2376,6 +2488,14 @@
       },
       "CreateOrderRequestDto": {
         "properties": {
+          "buyerIdentification": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreateOrderBuyerIdentificationDto"
+              }
+            ],
+            "description": "Identification of the person who buys and pays. Required to create the order once CHECKOUT_BUYER_DATA_ENFORCEMENT=strict; while compatible, omitting it is accepted only for the shop released before this field. When present it is always validated, in both phases. Stored in a private snapshot, separate from the order and from the electronic invoice. It is not echoed in any public order response, listing, email, log or URL."
+          },
           "customer": {
             "$ref": "#/components/schemas/CreateOrderCustomerDto"
           },
@@ -2417,6 +2537,15 @@
           "city": {
             "example": "Medellín",
             "maxLength": 80,
+            "type": "string"
+          },
+          "country": {
+            "description": "The shop only sells and delivers in Colombia: exactly CO. Any other value, including the country name, lower case, surrounding spaces, other codes and null, is rejected with order_request_invalid and nothing is created; it is never rewritten to CO. Omitting it is accepted only while CHECKOUT_BUYER_DATA_ENFORCEMENT=compatible, for the shop released before this field; once strict, it is required.",
+            "enum": [
+              "CO"
+            ],
+            "example": "CO",
+            "maxLength": 8,
             "type": "string"
           },
           "department": {
@@ -3860,6 +3989,20 @@
             "example": "Medellín",
             "type": "string"
           },
+          "country": {
+            "description": "ISO 3166-1 alpha-2 delivery country. Always CO for orders created since the shop records it; null for older orders, which are not migrated.",
+            "enum": [
+              "CO"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "countryName": {
+            "description": "Display name of country, or null when country is null.",
+            "example": "Colombia",
+            "nullable": true,
+            "type": "string"
+          },
           "department": {
             "example": "Antioquia",
             "type": "string"
@@ -3875,7 +4018,9 @@
           "department",
           "city",
           "addressLine",
-          "instructions"
+          "instructions",
+          "country",
+          "countryName"
         ],
         "type": "object"
       },
@@ -5920,6 +6065,25 @@
           "fullName": {
             "type": "string"
           },
+          "legalId": {
+            "description": "Document of the payer, from the order's private snapshot, as a string with its leading zeros. Present only once CHECKOUT_BUYER_DATA_ENFORCEMENT=strict and only when the order recorded it, always together with legalIdType. Never accepted from the request.",
+            "example": "1020304050",
+            "type": "string"
+          },
+          "legalIdType": {
+            "description": "Provider document type, translated by the backend from the internal type: 13 CC, 22 CE, 31 NIT, 41 PP, 12 TI, 42 DNI, and OTHER for the types without a direct equivalent. A DIAN code is never sent.",
+            "enum": [
+              "CC",
+              "CE",
+              "NIT",
+              "PP",
+              "TI",
+              "DNI",
+              "OTHER"
+            ],
+            "example": "CC",
+            "type": "string"
+          },
           "phoneNumber": {
             "example": "3000000000",
             "type": "string"
@@ -5957,7 +6121,12 @@
             "type": "string"
           },
           "customerData": {
-            "$ref": "#/components/schemas/WompiCheckoutCustomerDto"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WompiCheckoutCustomerDto"
+              }
+            ],
+            "description": "Email, name and phone; plus legalId and legalIdType once CHECKOUT_BUYER_DATA_ENFORCEMENT=strict. The delivery address is never sent to the provider."
           },
           "environment": {
             "description": "Which Wompi environment this belongs to. sandbox does NOT move real money: no charge happens, no stock is reserved and no refund exists. production does move real money, and only appears once the deployment lifts its live-payments guard AND an administrator enables production for new payments. The two are independent environments with their own credentials: a value here is never a fallback for the other.",

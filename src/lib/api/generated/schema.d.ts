@@ -1262,6 +1262,31 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        AdminOrderBuyerDocumentDto: {
+            /**
+             * @description Always a string.
+             * @example 1020304050
+             */
+            identificationNumber: string;
+            /**
+             * @example 13
+             * @enum {string}
+             */
+            identificationType: "11" | "12" | "13" | "21" | "22" | "31" | "41" | "42" | "47" | "48" | "50" | "91";
+            /** @example Cédula de ciudadanía */
+            identificationTypeLabel: string;
+        };
+        AdminOrderBuyerIdentificationDto: {
+            /** @description Present only when status is recorded. */
+            document: components["schemas"]["AdminOrderBuyerDocumentDto"] | null;
+            /**
+             * @description not_recorded: the order predates this field and no identification was recorded; it is not migrated. recorded: document holds what the buyer gave.
+             * @enum {string}
+             */
+            status: "not_recorded" | "recorded";
+            /** @example Identificación no registrada */
+            statusLabel: string;
+        };
         AdminOrderDto: {
             /**
              * @description Outcomes that can be applied from the current payment state. The panel renders these instead of reimplementing the state machine.
@@ -1271,6 +1296,8 @@ export interface components {
              *     ]
              */
             availableSimulationEvents: ("processing" | "approved" | "declined" | "voided" | "expired" | "error")[];
+            /** @description Identification of the buyer and payer, from its private snapshot. Independent of electronicInvoice: the invoice may be issued to another person or company. */
+            buyerIdentification: components["schemas"]["AdminOrderBuyerIdentificationDto"];
             /** Format: date-time */
             createdAt: string;
             customer: components["schemas"]["OrderCustomerDto"];
@@ -2012,6 +2039,19 @@ export interface components {
             /** @enum {string} */
             role: "super_admin" | "master_admin" | "moderator";
         };
+        CreateOrderBuyerIdentificationDto: {
+            /**
+             * @description Always a string, never a number: leading zeros are kept. Spaces and thousand-separator dots are removed. Colombian numeric documents (11, 12, 13, 31, 91) accept digits only, 3 to 20 of them; a NIT is sent without its verification digit. Foreign documents accept letters, digits and hyphens.
+             * @example 0012345678
+             */
+            identificationNumber: string;
+            /**
+             * @description Internal identification type (DIAN code): 11 Registro civil, 12 Tarjeta de identidad, 13 Cédula de ciudadanía, 21 Tarjeta de extranjería, 22 Cédula de extranjería, 31 NIT, 41 Pasaporte, 42 Documento de identificación extranjero, 47 PEP, 48 PPT, 50 NIT de otro país, 91 NUIP. The backend translates it for the payment provider; the client never sends provider codes.
+             * @example 13
+             * @enum {string}
+             */
+            identificationType: "11" | "12" | "13" | "21" | "22" | "31" | "41" | "42" | "47" | "48" | "50" | "91";
+        };
         CreateOrderCustomerDto: {
             /**
              * Format: email
@@ -2061,6 +2101,8 @@ export interface components {
             variantId?: string;
         };
         CreateOrderRequestDto: {
+            /** @description Identification of the person who buys and pays. Required to create the order once CHECKOUT_BUYER_DATA_ENFORCEMENT=strict; while compatible, omitting it is accepted only for the shop released before this field. When present it is always validated, in both phases. Stored in a private snapshot, separate from the order and from the electronic invoice. It is not echoed in any public order response, listing, email, log or URL. */
+            buyerIdentification?: components["schemas"]["CreateOrderBuyerIdentificationDto"];
             customer: components["schemas"]["CreateOrderCustomerDto"];
             /** @description Who the electronic invoice is issued to. Omitting it means the final consumer, the same as requestedInBuyerName false. It never replaces the customer or the shipping address, and it is not echoed in any public response. */
             electronicInvoice?: components["schemas"]["CreateOrderElectronicInvoiceDto"];
@@ -2073,6 +2115,12 @@ export interface components {
             addressLine: string;
             /** @example Medellín */
             city: string;
+            /**
+             * @description The shop only sells and delivers in Colombia: exactly CO. Any other value, including the country name, lower case, surrounding spaces, other codes and null, is rejected with order_request_invalid and nothing is created; it is never rewritten to CO. Omitting it is accepted only while CHECKOUT_BUYER_DATA_ENFORCEMENT=compatible, for the shop released before this field; once strict, it is required.
+             * @example CO
+             * @enum {string}
+             */
+            country?: "CO";
             /** @example Antioquia */
             department: string;
             /**
@@ -2733,6 +2781,16 @@ export interface components {
             addressLine: string;
             /** @example Medellín */
             city: string;
+            /**
+             * @description ISO 3166-1 alpha-2 delivery country. Always CO for orders created since the shop records it; null for older orders, which are not migrated.
+             * @enum {string|null}
+             */
+            country: "CO" | null;
+            /**
+             * @description Display name of country, or null when country is null.
+             * @example Colombia
+             */
+            countryName: string | null;
             /** @example Antioquia */
             department: string;
             /** @description Delivery notes, or null when none were given. */
@@ -3445,6 +3503,17 @@ export interface components {
             /** Format: email */
             email: string;
             fullName: string;
+            /**
+             * @description Document of the payer, from the order's private snapshot, as a string with its leading zeros. Present only once CHECKOUT_BUYER_DATA_ENFORCEMENT=strict and only when the order recorded it, always together with legalIdType. Never accepted from the request.
+             * @example 1020304050
+             */
+            legalId?: string;
+            /**
+             * @description Provider document type, translated by the backend from the internal type: 13 CC, 22 CE, 31 NIT, 41 PP, 12 TI, 42 DNI, and OTHER for the types without a direct equivalent. A DIAN code is never sent.
+             * @example CC
+             * @enum {string}
+             */
+            legalIdType?: "CC" | "CE" | "NIT" | "PP" | "TI" | "DNI" | "OTHER";
             /** @example 3000000000 */
             phoneNumber: string;
             /** @example +57 */
@@ -3464,6 +3533,7 @@ export interface components {
             checkoutUrl: string;
             /** @enum {string} */
             currency: "COP";
+            /** @description Email, name and phone; plus legalId and legalIdType once CHECKOUT_BUYER_DATA_ENFORCEMENT=strict. The delivery address is never sent to the provider. */
             customerData: components["schemas"]["WompiCheckoutCustomerDto"];
             /**
              * @description Which Wompi environment this belongs to. sandbox does NOT move real money: no charge happens, no stock is reserved and no refund exists. production does move real money, and only appears once the deployment lifts its live-payments guard AND an administrator enables production for new payments. The two are independent environments with their own credentials: a value here is never a fallback for the other.

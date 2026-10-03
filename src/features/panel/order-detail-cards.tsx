@@ -176,6 +176,53 @@ export function OrderInvoiceCard({ order }: { readonly order: AdminOrder }) {
   );
 }
 
+/**
+ * Identificación del comprador: el documento de quien pagó.
+ *
+ * **No es la factura.** Es otra instantánea, obligatoria al comprar, y puede no coincidir con el
+ * documento fiscal: una persona paga con su cédula y pide la factura al NIT de su empresa. Por eso
+ * vive en su propia tarjeta y no se deduce nada de la otra.
+ *
+ * Solo lectura y solo en la ficha. Los textos de estado los pone el backend; el número es texto y
+ * se pinta tal cual, con sus ceros iniciales.
+ */
+export function OrderBuyerIdentificationCard({ order }: { readonly order: AdminOrder }) {
+  // `undefined` solo con un backend anterior al campo: sin dato del backend no se pinta nada.
+  const identification = order.buyerIdentification as AdminOrder['buyerIdentification'] | undefined;
+  if (identification === undefined) {
+    return null;
+  }
+  const document = identification.status === 'recorded' ? identification.document : null;
+
+  return (
+    <section
+      className={`${catalog.card} ${catalog.cardPad}`}
+      data-buyer-identification-status={identification.status}
+    >
+      <SectionHeading
+        hint={
+          document === null ? 'Solo lectura.' : 'Solo lectura. Datos fijados al crear el pedido.'
+        }
+        icon="cliente"
+        title="Identificación del comprador"
+      />
+      {document === null ? (
+        <p className={styles.factValue}>
+          <strong>{identification.statusLabel}</strong>
+        </p>
+      ) : (
+        <dl className={styles.facts}>
+          <Fact
+            label="Tipo de documento"
+            value={`${document.identificationTypeLabel} (${document.identificationType})`}
+          />
+          <Fact label="Número de documento" value={document.identificationNumber} />
+        </dl>
+      )}
+    </section>
+  );
+}
+
 /** Dónde se entrega. */
 export function OrderAddressCard({ order }: { readonly order: AdminOrder }) {
   return (
@@ -185,6 +232,10 @@ export function OrderAddressCard({ order }: { readonly order: AdminOrder }) {
         <Fact label="Dirección" value={order.shippingAddress.addressLine} />
         <Fact label="Ciudad" value={order.shippingAddress.city} />
         <Fact label="Departamento" value={order.shippingAddress.department} />
+        {/* Solo los pedidos que registraron país; los anteriores se ven como siempre. */}
+        {order.shippingAddress.country != null && order.shippingAddress.countryName != null && (
+          <Fact label="País" value={order.shippingAddress.countryName} />
+        )}
         <Fact
           label="Indicaciones"
           value={order.shippingAddress.instructions ?? 'Sin indicaciones'}

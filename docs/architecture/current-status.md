@@ -291,6 +291,21 @@ anterior al campo, la tarjeta no se pinta.
 Rollback coordinado: web → admin → backend. El panel vuelve atrás después de la web y antes que
 el backend; la revisión anterior simplemente no pinta la tarjeta.
 
+### Identificación del comprador y país en la ficha del pedido: implementada, sin desplegar
+
+La ficha del pedido tiene una tarjeta **«Identificación del comprador»**, de solo lectura, con el
+documento de quien pagó que publica el contrato (`AdminOrderDto.buyerIdentification`): tipo y
+número —texto, con sus ceros iniciales— o, en los pedidos anteriores a la captura, el texto del
+backend «Identificación no registrada». Es independiente de la tarjeta de facturación: la factura
+puede salir a nombre de otra persona o empresa. La dirección de entrega muestra **«País:
+Colombia»** cuando el pedido lo registró (`shippingAddress.country`); los pedidos anteriores se ven
+como siempre, sin esa fila. No hay controles para editar ninguno de los dos, no aparecen en el
+listado, el inicio ni las búsquedas, y se leen con el mismo permiso que la ficha (`orders.read`).
+Con un backend anterior al campo, la tarjeta no se pinta.
+
+Despliegue: después del backend (en fase `compatible`) y antes de la web. Rollback coordinado:
+web → admin → backend; la revisión anterior del panel simplemente no pinta la tarjeta ni el país.
+
 ## Previsto, todavía no implementado
 
 Elementos que forman parte del diseño acordado, pero que aún no existen en el repositorio.
