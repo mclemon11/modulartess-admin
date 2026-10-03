@@ -958,17 +958,17 @@ describe('catálogo de categorías', () => {
   });
 });
 
-describe('zonas de envío: contrato del backend en 85da968', () => {
+describe('zonas de envío: contrato del backend en aa06139', () => {
   /*
-   * La copia es byte a byte la de `git show 85da968:openapi/openapi.json` del backend. Si alguien la
+   * La copia es byte a byte la de `git show aa06139:openapi/openapi.json` del backend. Si alguien la
    * cambia a mano o la actualiza sin regenerar, esto falla aquí.
    */
-  it('la copia comiteada es exactamente la del commit 85da968', () => {
+  it('la copia comiteada es exactamente la del commit aa06139', () => {
     const digest = createHash('sha256')
       .update(readFileSync('openapi/backend-v1.json'))
       .digest('hex');
 
-    expect(digest).toBe('877bb2951c2e5f01c6e4e346b6a05061e172a115c41ea5fc61dbaecb848138d1');
+    expect(digest).toBe('e8e2d4d7608fce09649cf8efc7cb9f23c57831648e0139c5903a93c11ac61f39');
   });
 
   it('publica las operaciones que el panel usa: cursor, restaurar, copias y relaciones', () => {

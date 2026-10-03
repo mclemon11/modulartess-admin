@@ -305,21 +305,56 @@ export function OrderSummaryCard({ order }: { readonly order: AdminOrder }) {
         </p>
         <p className={styles.amountRow}>
           <span className={styles.amountLabel}>Envío</span>
-          <span className={styles.amountValue}>{formatCop(order.shippingCop)}</span>
+          <span className={styles.amountValue}>{shippingAmountLabel(order)}</span>
         </p>
         <p className={styles.amountTotal}>
           <span>Total</span>
           <span className={styles.amountValue}>{formatCop(order.totalCop)}</span>
         </p>
       </div>
-      {/* El contrato fija el envío en cero mientras no exista la cotización. Decirlo evita que
-          alguien lo lea como «envío gratis». */}
-      {order.shippingCop === 0 ? (
-        <p className={catalog.hint}>
-          El envío todavía no se cotiza: el backend lo deja en cero en esta fase.
-        </p>
-      ) : null}
+      <ShippingNote order={order} />
     </section>
+  );
+}
+
+/**
+ * El envío del resumen, según su estado de precio. Un pedido con cotización manual tiene envío 0
+ * en el pago, pero **no** es gratis: se dice «pendiente de cotización», nunca «$ 0».
+ */
+export function shippingAmountLabel(order: AdminOrder): string {
+  switch (order.shipping?.pricingStatus) {
+    case 'free':
+      return 'Envío gratis';
+    case 'pending_manual_quote':
+      return 'Envío pendiente de cotización';
+    case 'priced':
+      return formatCop(order.shipping.amountCop ?? order.shippingCop);
+    default:
+      // Sin cotización (anterior a las zonas, o con ellas apagadas): el importe guardado.
+      return formatCop(order.shippingCop);
+  }
+}
+
+function ShippingNote({ order }: { readonly order: AdminOrder }) {
+  const shipping = order.shipping;
+  if (!shipping) {
+    // Decirlo evita que un cero de un pedido antiguo se lea como «envío gratis».
+    return order.shippingCop === 0 ? (
+      <p className={catalog.hint}>
+        Pedido creado sin cotización de envío: el envío no se calculó al comprar.
+      </p>
+    ) : null;
+  }
+  if (shipping.pricingStatus !== 'pending_manual_quote') return null;
+  const applied = shipping.applied
+    .filter((entry) => entry.outcome === 'manual_quote')
+    .map((entry) => (entry.ruleName ? `${entry.zoneName} · ${entry.ruleName}` : entry.zoneName));
+  return (
+    <p className={catalog.hint}>
+      El envío no se incluyó en el pago. El equipo debe contactar al cliente para cotizarlo.
+      Destino: {shipping.municipalityName}, {shipping.departmentName}.
+      {applied.length > 0 ? ` Zona y regla: ${applied.join('; ')}.` : ''}
+    </p>
   );
 }
 

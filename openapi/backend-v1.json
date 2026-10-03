@@ -335,13 +335,33 @@
             "nullable": true,
             "type": "object"
           },
+          "shipping": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminOrderShippingDto"
+              }
+            ],
+            "description": "The shipping quote the order was created with; null for orders without one.",
+            "nullable": true,
+            "type": "object"
+          },
           "shippingAddress": {
             "$ref": "#/components/schemas/OrderShippingAddressDto"
           },
           "shippingCop": {
-            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as \"$ 1.450.000\".",
+            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as \"$ 1.450.000\". Shipping included in the payment. 0 also when shipping is pending a manual quote: read shipping.pricingStatus.",
             "format": "int32",
             "type": "number"
+          },
+          "shippingPricingStatus": {
+            "description": "Same as shipping.pricingStatus; null for orders without a shipping quote.",
+            "enum": [
+              "free",
+              "priced",
+              "pending_manual_quote"
+            ],
+            "nullable": true,
+            "type": "string"
           },
           "status": {
             "description": "pending_payment → paid → preparing → ready_to_ship → shipped → delivered, with cancelled as the way out.",
@@ -401,6 +421,8 @@
           "items",
           "subtotalCop",
           "shippingCop",
+          "shippingPricingStatus",
+          "shipping",
           "totalCop",
           "createdAt",
           "updatedAt",
@@ -644,6 +666,140 @@
           "sku",
           "primaryImageUrl",
           "quantity"
+        ],
+        "type": "object"
+      },
+      "AdminOrderShippingAppliedDto": {
+        "properties": {
+          "costCop": {
+            "description": "Cost of this group; null while pending a manual quote.",
+            "nullable": true,
+            "type": "number"
+          },
+          "lineIndexes": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "outcome": {
+            "enum": [
+              "charged",
+              "free",
+              "manual_quote"
+            ],
+            "type": "string"
+          },
+          "rateType": {
+            "example": "manual_quote",
+            "nullable": true,
+            "type": "string"
+          },
+          "ruleId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "ruleName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "ruleVersion": {
+            "nullable": true,
+            "type": "number"
+          },
+          "zoneId": {
+            "type": "string"
+          },
+          "zoneName": {
+            "type": "string"
+          },
+          "zoneVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "zoneId",
+          "zoneName",
+          "zoneVersion",
+          "ruleId",
+          "ruleName",
+          "ruleVersion",
+          "rateType",
+          "outcome",
+          "costCop",
+          "lineIndexes"
+        ],
+        "type": "object"
+      },
+      "AdminOrderShippingDto": {
+        "properties": {
+          "amountCop": {
+            "description": "Quoted rate; 0 when free; null while pending a manual quote.",
+            "nullable": true,
+            "type": "number"
+          },
+          "applied": {
+            "description": "Zones and rules applied: the charges, or each line group while pending.",
+            "items": {
+              "$ref": "#/components/schemas/AdminOrderShippingAppliedDto"
+            },
+            "type": "array"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "includedInPayment": {
+            "description": "Whether shipping is part of this order's payment. false while pending a manual quote.",
+            "type": "boolean"
+          },
+          "label": {
+            "description": "Spanish label, ready to show: the free-shipping label when pricingStatus is free, the formatted rate when priced, or Envío pendiente de cotización.",
+            "example": "Envío pendiente de cotización",
+            "type": "string"
+          },
+          "municipalityCode": {
+            "type": "string"
+          },
+          "municipalityName": {
+            "type": "string"
+          },
+          "pricingStatus": {
+            "enum": [
+              "free",
+              "priced",
+              "pending_manual_quote"
+            ],
+            "type": "string"
+          },
+          "quotedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "quoteId": {
+            "type": "string"
+          },
+          "reason": {
+            "example": "manual_quote_rule",
+            "nullable": true,
+            "type": "string"
+          },
+          "rulesetRevision": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "pricingStatus",
+          "label",
+          "amountCop",
+          "includedInPayment",
+          "reason",
+          "municipalityCode",
+          "municipalityName",
+          "departmentName",
+          "quoteId",
+          "quotedAt",
+          "rulesetRevision",
+          "applied"
         ],
         "type": "object"
       },
@@ -3577,10 +3733,20 @@
             "type": "string"
           },
           "shippingCop": {
-            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as \"$ 1.450.000\". Always 0 in this phase: shipping quotes are not implemented.",
+            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as \"$ 1.450.000\". Shipping included in this payment: the quoted rate when shippingPricingStatus is priced, 0 when it is free, and 0 when it is pending_manual_quote — there it is NOT free, it is simply not charged now. Always read shippingPricingStatus before showing it.",
             "example": 0,
             "format": "int32",
             "type": "number"
+          },
+          "shippingPricingStatus": {
+            "description": "free: shipping is free. priced: shippingCop is the rate, already in totalCop. pending_manual_quote: shipping is not included in the payment; the team contacts the customer to quote it, so never show it as free. null: an order created without a shipping quote (before shipping zones, or with them off).",
+            "enum": [
+              "free",
+              "priced",
+              "pending_manual_quote"
+            ],
+            "nullable": true,
+            "type": "string"
           },
           "status": {
             "description": "Always pending_payment. Creating an order neither charges nor reserves stock; payment arrives with the payments phase.",
@@ -3619,6 +3785,7 @@
           "items",
           "subtotalCop",
           "shippingCop",
+          "shippingPricingStatus",
           "totalCop",
           "createdAt"
         ],
@@ -3758,10 +3925,20 @@
             "type": "string"
           },
           "shippingCop": {
-            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as \"$ 1.450.000\". Always 0 in this phase: shipping quotes are not implemented.",
+            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as \"$ 1.450.000\". Shipping included in this payment: the quoted rate when shippingPricingStatus is priced, 0 when it is free, and 0 when it is pending_manual_quote — there it is NOT free, it is simply not charged now. Always read shippingPricingStatus before showing it.",
             "example": 0,
             "format": "int32",
             "type": "number"
+          },
+          "shippingPricingStatus": {
+            "description": "free: shipping is free. priced: shippingCop is the rate, already in totalCop. pending_manual_quote: shipping is not included in the payment; the team contacts the customer to quote it, so never show it as free. null: an order created without a shipping quote (before shipping zones, or with them off).",
+            "enum": [
+              "free",
+              "priced",
+              "pending_manual_quote"
+            ],
+            "nullable": true,
+            "type": "string"
           },
           "status": {
             "description": "One of the seven statuses of the production order: pending_payment → paid → preparing → ready_to_ship → shipped → delivered, with cancelled as the way out. It is not the demo order's state machine.",
@@ -3813,6 +3990,7 @@
           "items",
           "subtotalCop",
           "shippingCop",
+          "shippingPricingStatus",
           "totalCop",
           "timeline",
           "payment",
@@ -6552,7 +6730,7 @@
             "type": "object"
           },
           "outcome": {
-            "description": "charged: totalCop is the shipping cost. free: every line is covered by a free rule and totalCop is 0. manual_quote: the cart needs a manual quote and cannot be paid online. unavailable: there is no shipping for that destination and cart. A destination or product without a rule is never free.",
+            "description": "charged: totalCop is the shipping cost. free: every line is covered by a free rule and totalCop is 0. manual_quote: the order can be confirmed and paid, but shipping is NOT included in the payment and totalCop is null — the team contacts the customer to quote it; never show it as free. unavailable: there is no shipping for that destination and cart, and no order can be created. A destination or product without a rule is never free.",
             "enum": [
               "charged",
               "free",

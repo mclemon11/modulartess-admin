@@ -1789,12 +1789,19 @@ export interface components {
             publicId: string;
             /** @description Carrier, tracking number and link, written when the order moved to shipped. Null before that, and for orders shipped before this field existed. */
             shipment: components["schemas"]["OrderShipmentDto"] | null;
+            /** @description The shipping quote the order was created with; null for orders without one. */
+            shipping: components["schemas"]["AdminOrderShippingDto"] | null;
             shippingAddress: components["schemas"]["OrderShippingAddressDto"];
             /**
              * Format: int32
-             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000".
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000". Shipping included in the payment. 0 also when shipping is pending a manual quote: read shipping.pricingStatus.
              */
             shippingCop: number;
+            /**
+             * @description Same as shipping.pricingStatus; null for orders without a shipping quote.
+             * @enum {string|null}
+             */
+            shippingPricingStatus: "free" | "priced" | "pending_manual_quote" | null;
             /**
              * @description pending_payment → paid → preparing → ready_to_ship → shipped → delivered, with cancelled as the way out.
              * @enum {string}
@@ -1903,6 +1910,45 @@ export interface components {
             quantity: number;
             /** @example TOCADOR-AURA-80-ROBLE */
             sku: string;
+        };
+        AdminOrderShippingAppliedDto: {
+            /** @description Cost of this group; null while pending a manual quote. */
+            costCop: number | null;
+            lineIndexes: number[];
+            /** @enum {string} */
+            outcome: "charged" | "free" | "manual_quote";
+            /** @example manual_quote */
+            rateType: string | null;
+            ruleId: string | null;
+            ruleName: string | null;
+            ruleVersion: number | null;
+            zoneId: string;
+            zoneName: string;
+            zoneVersion: number;
+        };
+        AdminOrderShippingDto: {
+            /** @description Quoted rate; 0 when free; null while pending a manual quote. */
+            amountCop: number | null;
+            /** @description Zones and rules applied: the charges, or each line group while pending. */
+            applied: components["schemas"]["AdminOrderShippingAppliedDto"][];
+            departmentName: string;
+            /** @description Whether shipping is part of this order's payment. false while pending a manual quote. */
+            includedInPayment: boolean;
+            /**
+             * @description Spanish label, ready to show: the free-shipping label when pricingStatus is free, the formatted rate when priced, or Envío pendiente de cotización.
+             * @example Envío pendiente de cotización
+             */
+            label: string;
+            municipalityCode: string;
+            municipalityName: string;
+            /** @enum {string} */
+            pricingStatus: "free" | "priced" | "pending_manual_quote";
+            /** Format: date-time */
+            quotedAt: string;
+            quoteId: string;
+            /** @example manual_quote_rule */
+            reason: string | null;
+            rulesetRevision: number;
         };
         AdminOrderSummaryDto: {
             /** Format: date-time */
@@ -3061,10 +3107,15 @@ export interface components {
             publicId: string;
             /**
              * Format: int32
-             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000". Always 0 in this phase: shipping quotes are not implemented.
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000". Shipping included in this payment: the quoted rate when shippingPricingStatus is priced, 0 when it is free, and 0 when it is pending_manual_quote — there it is NOT free, it is simply not charged now. Always read shippingPricingStatus before showing it.
              * @example 0
              */
             shippingCop: number;
+            /**
+             * @description free: shipping is free. priced: shippingCop is the rate, already in totalCop. pending_manual_quote: shipping is not included in the payment; the team contacts the customer to quote it, so never show it as free. null: an order created without a shipping quote (before shipping zones, or with them off).
+             * @enum {string|null}
+             */
+            shippingPricingStatus: "free" | "priced" | "pending_manual_quote" | null;
             /**
              * @description Always pending_payment. Creating an order neither charges nor reserves stock; payment arrives with the payments phase.
              * @example pending_payment
@@ -3143,10 +3194,15 @@ export interface components {
             publicId: string;
             /**
              * Format: int32
-             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000". Always 0 in this phase: shipping quotes are not implemented.
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. The currency symbol and the thousand separators belong to the frontend, which renders it as "$ 1.450.000". Shipping included in this payment: the quoted rate when shippingPricingStatus is priced, 0 when it is free, and 0 when it is pending_manual_quote — there it is NOT free, it is simply not charged now. Always read shippingPricingStatus before showing it.
              * @example 0
              */
             shippingCop: number;
+            /**
+             * @description free: shipping is free. priced: shippingCop is the rate, already in totalCop. pending_manual_quote: shipping is not included in the payment; the team contacts the customer to quote it, so never show it as free. null: an order created without a shipping quote (before shipping zones, or with them off).
+             * @enum {string|null}
+             */
+            shippingPricingStatus: "free" | "priced" | "pending_manual_quote" | null;
             /**
              * @description One of the seven statuses of the production order: pending_payment → paid → preparing → ready_to_ship → shipped → delivered, with cancelled as the way out. It is not the demo order's state machine.
              * @example pending_payment
@@ -4099,7 +4155,7 @@ export interface components {
             lines: components["schemas"]["ShippingQuoteLineDto"][];
             location: components["schemas"]["ShippingQuoteLocationDto"] | null;
             /**
-             * @description charged: totalCop is the shipping cost. free: every line is covered by a free rule and totalCop is 0. manual_quote: the cart needs a manual quote and cannot be paid online. unavailable: there is no shipping for that destination and cart. A destination or product without a rule is never free.
+             * @description charged: totalCop is the shipping cost. free: every line is covered by a free rule and totalCop is 0. manual_quote: the order can be confirmed and paid, but shipping is NOT included in the payment and totalCop is null — the team contacts the customer to quote it; never show it as free. unavailable: there is no shipping for that destination and cart, and no order can be created. A destination or product without a rule is never free.
              * @enum {string}
              */
             outcome: "charged" | "free" | "manual_quote" | "unavailable";

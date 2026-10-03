@@ -59,7 +59,8 @@ export const RATE_TYPE_HINTS: Readonly<Record<ShippingRateType, string>> = {
   per_unit: 'El monto se multiplica por las unidades del pedido que caen en esta regla.',
   base_plus_additional:
     'La primera unidad paga el valor base y cada unidad siguiente, el valor adicional.',
-  manual_quote: 'Sin monto: el envío se cotiza a mano después del pedido.',
+  manual_quote:
+    'Permite confirmar el pedido sin incluir el envío en el pago. El equipo debe contactar al cliente para cotizarlo.',
 };
 
 export const SCOPE_LABELS: Readonly<Record<ShippingRuleScope, string>> = {
