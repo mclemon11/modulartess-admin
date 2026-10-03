@@ -106,9 +106,40 @@ describe('.gcloudignore', () => {
   const GCLOUDIGNORE = readFileSync('.gcloudignore', 'utf8').split('\n');
 
   it('excluye del archivo que gcloud sube lo que nunca debe salir de la máquina', () => {
-    for (const entry of ['.env', '.env.*', '.git', 'node_modules', '.next', 'coverage']) {
+    for (const entry of ['.env', '.env.*', '.git', 'node_modules', '.next', '/coverage/']) {
       expect(GCLOUDIGNORE, entry).toContain(entry);
     }
+  });
+
+  /*
+   * `.gcloudignore` sigue la sintaxis de `.gitignore`: un patrón sin barra excluye **cualquier**
+   * directorio con ese nombre, también dentro de `src/`. Así se perdió la ruta del BFF
+   * `zones/[zoneId]/coverage` en la imagen. Ningún patrón sin anclar puede coincidir con un
+   * directorio de `src/app`.
+   *
+   * `test` es un caso conocido y anterior: excluye `src/app/api/admin/integrations/wompi/test`
+   * de la imagen. Se deja registrado aquí, sin corregirlo, porque afecta a la integración de pagos
+   * y queda fuera de este cambio.
+   */
+  it('ningún patrón sin anclar excluye una ruta de src/app', () => {
+    const KNOWN = new Set(['test']);
+    const names = new Set<string>();
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir)) {
+        const path = join(dir, entry);
+        if (statSync(path).isDirectory()) {
+          names.add(entry);
+          walk(path);
+        }
+      }
+    };
+    walk('src/app');
+    const unanchored = GCLOUDIGNORE.map((line) => line.trim()).filter(
+      (line) =>
+        line !== '' && !line.startsWith('#') && !line.startsWith('/') && !/[*/!]/.test(line),
+    );
+    expect(unanchored.filter((pattern) => names.has(pattern) && !KNOWN.has(pattern))).toEqual([]);
+    expect(names.has('coverage')).toBe(true);
   });
 
   it('excluye claves, logs y temporales', () => {
@@ -138,7 +169,7 @@ describe('.gcloudignore', () => {
 
 describe('.dockerignore', () => {
   it('excluye el historial, las dependencias y los artefactos', () => {
-    for (const entry of ['.git', 'node_modules', '.next', 'coverage', 'docs', 'deploy']) {
+    for (const entry of ['.git', 'node_modules', '.next', '/coverage', 'docs', 'deploy']) {
       expect(DOCKERIGNORE.split('\n'), entry).toContain(entry);
     }
   });

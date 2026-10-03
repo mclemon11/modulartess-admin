@@ -479,7 +479,7 @@ expect_has "${OUT}" "_TAG=git-abcdef123456" "y sí muestra las sustituciones pú
 group ".gcloudignore"
 GI="${REPO_ROOT}/.gcloudignore"
 if [ -f "${GI}" ]; then pass ".gcloudignore existe"; else fail ".gcloudignore existe"; fi
-for entry in ".env" ".env.*" ".git" "node_modules" ".next" "coverage" "*.pem" "*.key" "secrets" "*.log" "tmp"; do
+for entry in ".env" ".env.*" ".git" "node_modules" ".next" "/coverage/" "*.pem" "*.key" "secrets" "*.log" "tmp"; do
   if grep -qxF "${entry}" "${GI}"; then pass ".gcloudignore excluye ${entry}"; else fail ".gcloudignore excluye ${entry}"; fi
 done
 for keep in "Dockerfile" "package.json" "pnpm-lock.yaml" "pnpm-workspace.yaml" ".npmrc" "next.config.ts" "tsconfig.json"; do

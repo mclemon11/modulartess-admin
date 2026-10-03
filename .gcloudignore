@@ -32,8 +32,9 @@ dist
 *.tsbuildinfo
 next-env.d.ts
 
-# Pruebas y cobertura
-coverage
+# Pruebas y cobertura. Anclado a la raíz: sin la barra, `coverage` excluía también la ruta
+# `src/app/api/admin/shipping/zones/[zoneId]/coverage/` y el panel no podía editar coberturas.
+/coverage/
 .nyc_output
 test
 **/*.test.ts

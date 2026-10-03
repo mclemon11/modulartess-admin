@@ -23,8 +23,8 @@ dist
 *.tsbuildinfo
 next-env.d.ts
 
-# Pruebas y cobertura
-coverage
+# Pruebas y cobertura. Anclado a la raíz, igual que en .gcloudignore.
+/coverage
 .nyc_output
 test
 **/*.test.ts
