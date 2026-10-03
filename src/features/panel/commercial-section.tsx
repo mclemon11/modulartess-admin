@@ -131,6 +131,25 @@ export function CommercialSection({
         />
       </div>
 
+      <div className={styles.checkboxField}>
+        <input
+          aria-describedby={`${id}-promo-badge-hint`}
+          checked={draft.promotionBadgeEnabled}
+          className={styles.checkbox}
+          disabled={disabled}
+          id={`${id}-promo-badge`}
+          onChange={(event) => onChange({ ...draft, promotionBadgeEnabled: event.target.checked })}
+          type="checkbox"
+        />
+        <label className={styles.label} htmlFor={`${id}-promo-badge`}>
+          Mostrar etiqueta de promoción
+        </label>
+      </div>
+      <span className={styles.hint} id={`${id}-promo-badge-hint`}>
+        Solo controla la etiqueta sobre la imagen. El precio anterior y el porcentaje de descuento
+        se conservan.
+      </span>
+
       <fieldset className={group.group} disabled={disabled}>
         <legend className={group.legend}>Preparación (días hábiles)</legend>
         <div className={styles.row}>

@@ -151,6 +151,8 @@ describe('copia versionada del contrato', () => {
       'inventory',
       'name',
       'priceCop',
+      // Opcional; omitido, el producto nace sin etiqueta de promoción.
+      'promotionBadgeEnabled',
       'shortDescription',
       'sku',
       'slug',
@@ -958,17 +960,17 @@ describe('catálogo de categorías', () => {
   });
 });
 
-describe('zonas de envío: contrato del backend en aa06139', () => {
+describe('zonas de envío: contrato del backend en 77f5aa1', () => {
   /*
-   * La copia es byte a byte la de `git show aa06139:openapi/openapi.json` del backend. Si alguien la
+   * La copia es byte a byte la de `git show 77f5aa1:openapi/openapi.json` del backend. Si alguien la
    * cambia a mano o la actualiza sin regenerar, esto falla aquí.
    */
-  it('la copia comiteada es exactamente la del commit aa06139', () => {
+  it('la copia comiteada es exactamente la del commit 77f5aa1', () => {
     const digest = createHash('sha256')
       .update(readFileSync('openapi/backend-v1.json'))
       .digest('hex');
 
-    expect(digest).toBe('e8e2d4d7608fce09649cf8efc7cb9f23c57831648e0139c5903a93c11ac61f39');
+    expect(digest).toBe('d34803f6b52483c2b00cca9c9c210acb8e0cdb97e824f37e708af916e2695a1d');
   });
 
   it('publica las operaciones que el panel usa: cursor, restaurar, copias y relaciones', () => {

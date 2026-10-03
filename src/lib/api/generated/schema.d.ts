@@ -2121,6 +2121,8 @@ export interface components {
              */
             priceCop: number;
             productType: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Shows the promotion badge over the image when there is a real discount. Only the badge: compareAtPriceCop and the discount percentage are published either way. Products saved before this field read as true (the previous behaviour); new products start as false. */
+            promotionBadgeEnabled: boolean;
             /** @description Short plain text, at most 24 characters, no HTML. Empty or null uses the default. Default: «Promoción». Only published when some sellable option has a real discount. */
             promotionLabel: string | null;
             /** @description Computed by the backend from the authoritative record, images and variants included. publish consumes this very evaluation, so ready:false means publish will be rejected with exactly these requirements. */
@@ -2679,6 +2681,8 @@ export interface components {
              * @example 1450000
              */
             priceCop: number;
+            /** @description Shows the promotion badge over the image when there is a real discount. Omitted: false. */
+            promotionBadgeEnabled?: boolean;
             /** @description Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations. */
             shortDescription?: string;
             /** @example TOCADOR-AURA-80 */
@@ -3754,7 +3758,7 @@ export interface components {
             priceToCop: number;
             primaryImage: components["schemas"]["PublicProductImageDto"] | null;
             productType: components["schemas"]["ProductTaxonomyDto"] | null;
-            /** @description Promotion badge text, already defaulted. Published only when compareAtPriceCop is not null on this card. */
+            /** @description Promotion badge text, already defaulted. Published only when compareAtPriceCop is not null on this card and the product has its badge enabled; null otherwise, while compareAtPriceCop is still published. */
             promotionLabel: string | null;
             /** @description Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations. */
             shortDescription: string;
@@ -3813,7 +3817,7 @@ export interface components {
             /** @description Primary active image, or null when the product has none. */
             primaryImage: components["schemas"]["PublicProductImageDto"] | null;
             productType: components["schemas"]["ProductTaxonomyDto"] | null;
-            /** @description Promotion badge text, already defaulted. Only published when the base option or some active variant has a valid compareAtPriceCop; show it only when the price being displayed has a real discount. */
+            /** @description Promotion badge text, already defaulted. Only published when the base option or some active variant has a valid compareAtPriceCop and the product has its badge enabled; null otherwise. A null badge does not hide compareAtPriceCop or the discount: show those whenever they are present. */
             promotionLabel: string | null;
             /** @description Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations. */
             shortDescription: string;
@@ -4524,6 +4528,8 @@ export interface components {
             preparationDaysMin?: number | null;
             priceCop?: number;
             productType?: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Shows or hides only the promotion badge over the image. Does not touch compareAtPriceCop, the discount percentage, featured, the new badge or any other field. */
+            promotionBadgeEnabled?: boolean;
             /** @description Short plain text, at most 24 characters, no HTML. Empty or null uses the default. */
             promotionLabel?: string | null;
             /** @description Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations. */

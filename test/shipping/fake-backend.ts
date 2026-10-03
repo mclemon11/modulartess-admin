@@ -149,6 +149,7 @@ function product(
     newUntil: null,
     newLabel: null,
     promotionLabel: null,
+    promotionBadgeEnabled: false,
     preparationDaysMin: null,
     preparationDaysMax: null,
     variants: variants.map((variant) => ({

@@ -94,7 +94,22 @@ describe('cuerpo enviado', () => {
       promotionLabel: null,
       preparationDaysMin: null,
       preparationDaysMax: null,
+      // El interruptor viaja siempre en edición: es un booleano, no algo que borrar.
+      promotionBadgeEnabled: false,
     });
+  });
+
+  it('la etiqueta de promoción viaja sola y no mezcla nada más', () => {
+    // Activada en el alta: viaja. Desactivada: no hace falta, un producto nuevo empieza sin ella.
+    expect(commercialCreateBody(draft({ promotionBadgeEnabled: true }))).toEqual({
+      promotionBadgeEnabled: true,
+    });
+    expect(commercialCreateBody(draft({ promotionBadgeEnabled: false }))).toEqual({});
+    // En edición, apagarla no toca el precio anterior.
+    const body = commercialBody(
+      draft({ compareAtPriceCop: '1.690.000', promotionBadgeEnabled: false }),
+    );
+    expect(body).toMatchObject({ compareAtPriceCop: 1_690_000, promotionBadgeEnabled: false });
   });
 
   it('en el alta solo viaja lo escrito', () => {
@@ -117,6 +132,7 @@ describe('cuerpo enviado', () => {
         newUntil: '2026-10-15T14:30:00.000Z',
         newLabel: null,
         promotionLabel: 'Oferta',
+        promotionBadgeEnabled: true,
         preparationDaysMin: 5,
         preparationDaysMax: 10,
       }),
@@ -127,6 +143,7 @@ describe('cuerpo enviado', () => {
       promotionLabel: 'Oferta',
       preparationMin: '5',
       preparationMax: '10',
+      promotionBadgeEnabled: true,
     });
   });
 });
@@ -143,6 +160,26 @@ describe('sección', () => {
         sellsByVariants={sellsByVariants}
       />,
     );
+
+  it('la casilla de la etiqueta de promoción tiene su texto y no mezcla otros controles', () => {
+    const off = render({ promotionBadgeEnabled: false, compareAtPriceCop: '1.690.000' });
+    expect(off).toContain('Mostrar etiqueta de promoción');
+    expect(off).toContain(
+      'Solo controla la etiqueta sobre la imagen. El precio anterior y el porcentaje de descuento se conservan.',
+    );
+    const checkbox = /<input[^>]*type="checkbox"[^>]*>/.exec(
+      off.slice(off.indexOf('promo-badge') - 400, off.indexOf('Mostrar etiqueta de promoción')),
+    )?.[0];
+    expect(checkbox).toBeDefined();
+    expect(checkbox).not.toContain('checked');
+    expect(render({ promotionBadgeEnabled: true })).toMatch(
+      /type="checkbox"[^>]*checked|checked=""[^>]*type="checkbox"/,
+    );
+    // Apagada, el precio anterior y la vista previa del descuento siguen ahí.
+    expect(off).toContain('1.690.000');
+    // No es «Destacado» ni «Nuevo»: esos viven en otros controles.
+    expect(off).not.toContain('Destacado en la tienda');
+  });
 
   it('tiene todos los campos con etiqueta', () => {
     const html = render();

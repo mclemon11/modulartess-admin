@@ -33,6 +33,11 @@ export type CommercialDraft = {
   readonly promotionLabel: string;
   readonly preparationMin: string;
   readonly preparationMax: string;
+  /**
+   * «Mostrar etiqueta de promoción»: solo la etiqueta sobre la imagen. El precio anterior y el
+   * porcentaje de descuento se publican igual. Un producto nuevo empieza sin ella.
+   */
+  readonly promotionBadgeEnabled: boolean;
 };
 
 export const EMPTY_COMMERCIAL: CommercialDraft = {
@@ -42,9 +47,11 @@ export const EMPTY_COMMERCIAL: CommercialDraft = {
   promotionLabel: '',
   preparationMin: '',
   preparationMax: '',
+  promotionBadgeEnabled: false,
 };
 
-export type CommercialField = keyof CommercialDraft;
+/** Los campos de texto del borrador: los que se escriben y pueden tener un problema. */
+export type CommercialField = Exclude<keyof CommercialDraft, 'promotionBadgeEnabled'>;
 
 export type CommercialProblems = Partial<Record<CommercialField, string>>;
 
@@ -56,6 +63,7 @@ export type CommercialSource = {
   readonly promotionLabel: string | null;
   readonly preparationDaysMin: number | null;
   readonly preparationDaysMax: number | null;
+  readonly promotionBadgeEnabled: boolean;
 };
 
 /** Lo que se envía en el `PATCH`. `null` borra; nunca se omite en edición. */
@@ -66,6 +74,7 @@ export type CommercialBody = {
   promotionLabel: string | null;
   preparationDaysMin: number | null;
   preparationDaysMax: number | null;
+  promotionBadgeEnabled: boolean;
 };
 
 /** Instante UTC del backend → valor del campo en hora de Colombia. */
@@ -92,6 +101,7 @@ export function commercialFromProduct(product: CommercialSource): CommercialDraf
     promotionLabel: product.promotionLabel ?? '',
     preparationMin: product.preparationDaysMin === null ? '' : String(product.preparationDaysMin),
     preparationMax: product.preparationDaysMax === null ? '' : String(product.preparationDaysMax),
+    promotionBadgeEnabled: product.promotionBadgeEnabled,
   };
 }
 
@@ -203,13 +213,19 @@ export function commercialBody(draft: CommercialDraft): CommercialBody {
     promotionLabel: label(draft.promotionLabel),
     preparationDaysMin: dayValue(draft.preparationMin) ?? null,
     preparationDaysMax: dayValue(draft.preparationMax) ?? null,
+    promotionBadgeEnabled: draft.promotionBadgeEnabled,
   };
 }
 
-/** En el alta, solo lo que se escribió: un producto nuevo no tiene nada que borrar. */
+/**
+ * En el alta, solo lo que se escribió: un producto nuevo no tiene nada que borrar. La etiqueta de
+ * promoción solo viaja si se activó: un producto nuevo ya empieza sin ella.
+ */
 export function commercialCreateBody(draft: CommercialDraft): Partial<CommercialBody> {
   const body = commercialBody(draft);
   return Object.fromEntries(
-    Object.entries(body).filter(([, value]) => value !== null),
+    Object.entries(body).filter(
+      ([key, value]) => value !== null && !(key === 'promotionBadgeEnabled' && value === false),
+    ),
   ) as Partial<CommercialBody>;
 }

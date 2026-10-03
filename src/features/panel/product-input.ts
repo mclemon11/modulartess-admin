@@ -127,6 +127,9 @@ export function parseCreateProduct(raw: unknown): CreateProductRequest | null {
     raw.inventory === undefined ? undefined : parseSetInventoryControl(raw.inventory);
 
   if (inventory === null) return null;
+  if (raw.promotionBadgeEnabled !== undefined && typeof raw.promotionBadgeEnabled !== 'boolean') {
+    return null;
+  }
 
   // `status` no se acepta: el backend crea siempre en `draft`, y ofrecerlo mentiría.
   return {
@@ -135,6 +138,9 @@ export function parseCreateProduct(raw: unknown): CreateProductRequest | null {
     name,
     priceCop: price,
     ...(inventory === undefined ? {} : { inventory }),
+    ...(raw.promotionBadgeEnabled === undefined
+      ? {}
+      : { promotionBadgeEnabled: raw.promotionBadgeEnabled }),
     ...(shortDescription === undefined ? {} : { shortDescription }),
     ...(description === undefined ? {} : { description }),
   };
@@ -400,6 +406,12 @@ export function parseUpdateProduct(raw: unknown): UpdateProductRequest | null {
   if (promotionLabel !== undefined) body.promotionLabel = promotionLabel;
   if (preparationMin !== undefined) body.preparationDaysMin = preparationMin;
   if (preparationMax !== undefined) body.preparationDaysMax = preparationMax;
+
+  // Solo la etiqueta sobre la imagen; un booleano o nada.
+  if (raw.promotionBadgeEnabled !== undefined) {
+    if (typeof raw.promotionBadgeEnabled !== 'boolean') return null;
+    body.promotionBadgeEnabled = raw.promotionBadgeEnabled;
+  }
 
   return body;
 }
