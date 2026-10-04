@@ -146,13 +146,14 @@ export function ProductVariants({
   }
 
   const activeImages = product.images.filter((image) => image.status === 'active');
+  const activeVideos = product.videos.filter((video) => video.status === 'active');
   const swatchValidation =
     swatch === null
       ? { byOption: {}, general: [] }
-      : validateSwatch(
-          swatch,
-          activeImages.map((image) => image.id),
-        );
+      : validateSwatch(swatch, [
+          ...activeImages.map((image) => image.id),
+          ...activeVideos.map((video) => video.id),
+        ]);
   const swatchPending = swatchChanged(swatch, saved);
   const textAxesSaved = product.attributes.filter((axis) => axis.presentation !== 'swatch');
   const variantAxes = saved === null ? axes : [...axes, swatchAsAxis(saved)];
@@ -422,11 +423,20 @@ export function ProductVariants({
           <SwatchAxisEditor
             attributes={product.attributes}
             disabled={busy || !permissions.canUpdate}
-            images={activeImages.map((image) => ({
-              id: image.id,
-              url: image.publicUrl,
-              altText: image.altText,
-            }))}
+            images={[
+              ...activeImages.map((image) => ({
+                id: image.id,
+                url: image.publicUrl,
+                altText: image.altText,
+                kind: 'image' as const,
+              })),
+              ...activeVideos.map((video) => ({
+                id: video.id,
+                url: video.poster?.publicUrl ?? null,
+                altText: video.title,
+                kind: 'video' as const,
+              })),
+            ]}
             newId={() => crypto.randomUUID()}
             onChange={(next) => {
               setSwatch(next);

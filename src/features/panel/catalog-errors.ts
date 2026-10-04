@@ -31,6 +31,9 @@ export const CATALOG_MESSAGES: Readonly<Record<string, string>> = {
     'No se puede retirar ese color o acabado: lo usan variantes activas. Archívalas antes y vuelve a intentarlo.',
   image_limit:
     'El producto ya tiene el máximo de imágenes activas. Archiva alguna antes de subir otra.',
+  video_limit:
+    'El producto ya tiene el máximo de 3 videos activos. Elimina alguno antes de subir otro.',
+  video_not_found: 'Ese video ya no existe en el producto. Recarga para ver la galería actual.',
   idempotency_conflict:
     'Esa operación ya se había enviado con otros datos. Recarga el producto antes de repetirla.',
   category_not_found:
@@ -59,6 +62,32 @@ export const CATALOG_MESSAGES: Readonly<Record<string, string>> = {
     'La imagen se subió, pero el backend no la devolvió como portada. Recarga el producto para ver cómo quedó antes de reintentarlo.',
 };
 
+/**
+ * Motivos de `video_invalid`, uno por comprobación del backend (ADR 0026). El motivo llega como
+ * referencia validada; uno desconocido cae en el mensaje general de video.
+ */
+export const VIDEO_REASON_MESSAGES: Readonly<Record<string, string>> = {
+  video_empty: 'El archivo está vacío.',
+  video_too_large: 'El video pesa más de 20 MB. Recórtalo o comprímelo antes de subirlo.',
+  video_content_type_missing: 'El navegador no indicó el tipo del archivo. Elige un MP4.',
+  video_content_type_mismatch: 'Solo se admiten videos MP4 (video/mp4).',
+  video_extension_missing: 'El archivo no tiene extensión. Debe terminar en .mp4.',
+  video_extension_mismatch: 'El archivo debe terminar en .mp4.',
+  video_format_unsupported:
+    'El contenido no es un MP4 admitido: puede ser otro formato renombrado (QuickTime, M4V, GIF…).',
+  video_container_invalid: 'El MP4 está incompleto o dañado. Expórtalo de nuevo como MP4 estándar.',
+  video_title_required:
+    'El video necesita un título: es el nombre que leerán los lectores de pantalla.',
+  video_title_too_long: 'El título admite como máximo 200 caracteres.',
+  video_archived: 'Ese video ya se eliminó y no se puede modificar.',
+  poster_invalid: 'El póster debe ser una imagen JPG, PNG o WebP de 10 MB como máximo.',
+  update_requires_a_field: 'No hay cambios que guardar.',
+  image_required_with_videos:
+    'Un producto publicado con videos necesita al menos una imagen activa. Sube o conserva una imagen.',
+  media_order_mismatch:
+    'La galería cambió mientras la ordenabas. Recarga el producto y vuelve a ordenarla.',
+};
+
 export const GENERIC_CATALOG_MESSAGE =
   'No pudimos completar la operación. Inténtalo de nuevo en unos momentos.';
 
@@ -73,6 +102,13 @@ export function describeCatalogFailure(code: string, reference?: string): string
     return `El backend rechazó la operación por un conflicto que el panel no reconoce (código: ${
       reference ?? 'sin código'
     }). No se aplicó el cambio.`;
+  }
+
+  if (code === 'video_invalid') {
+    return (
+      (reference === undefined ? undefined : VIDEO_REASON_MESSAGES[reference]) ??
+      'El video o su póster no cumplen las reglas de la galería.'
+    );
   }
 
   return CATALOG_MESSAGES[code] ?? GENERIC_CATALOG_MESSAGE;

@@ -63,7 +63,7 @@ describe('copia versionada del contrato', () => {
     ]);
   });
 
-  it('publica las diecisiete operaciones de catálogo administrativo', () => {
+  it('publica las veintidós operaciones de catálogo administrativo', () => {
     const operations: string[] = [];
 
     for (const [path, node] of Object.entries(contract.paths)) {
@@ -85,6 +85,8 @@ describe('copia versionada del contrato', () => {
       'PATCH /v1/admin/products/{productId}',
       'PATCH /v1/admin/products/{productId}/images/{imageId}',
       'PATCH /v1/admin/products/{productId}/variants/{variantId}',
+      // Galería multimedia (ADR 0026 del backend).
+      'PATCH /v1/admin/products/{productId}/videos/{videoId}',
       'POST /v1/admin/products',
       'POST /v1/admin/products/{productId}/archive',
       'POST /v1/admin/products/{productId}/images',
@@ -94,9 +96,14 @@ describe('copia versionada del contrato', () => {
       'POST /v1/admin/products/{productId}/variants',
       'POST /v1/admin/products/{productId}/variants/{variantId}/archive',
       'POST /v1/admin/products/{productId}/variants/{variantId}/inventory-adjustments',
+      'POST /v1/admin/products/{productId}/videos',
+      'POST /v1/admin/products/{productId}/videos/{videoId}/delete',
+      'POST /v1/admin/products/{productId}/videos/{videoId}/poster',
       // Las dos rutas de los modos. Son `PUT` y no `POST` a propósito: escriben el estado final,
       // no acumulan un movimiento.
       'PUT /v1/admin/products/{productId}/inventory',
+      // Orden conjunto de la galería: escribe el orden final, como los modos de inventario.
+      'PUT /v1/admin/products/{productId}/media/order',
       'PUT /v1/admin/products/{productId}/variants/{variantId}/inventory',
     ]);
   });
@@ -104,8 +111,8 @@ describe('copia versionada del contrato', () => {
   it('describe cada parámetro de ruta en las operaciones dinámicas', () => {
     const dynamic = Object.entries(contract.paths).filter(([path]) => path.includes('{productId}'));
 
-    // 13 del catálogo y la de relaciones de envíos del producto (GET y POST).
-    expect(dynamic.length).toBe(14);
+    // 18 del catálogo —cinco de la galería multimedia— y la de relaciones de envíos del producto.
+    expect(dynamic.length).toBe(19);
 
     let declarations = 0;
 
@@ -137,7 +144,7 @@ describe('copia versionada del contrato', () => {
       }
     }
 
-    expect(declarations).toBe(17);
+    expect(declarations).toBe(22);
   });
 
   it('el alta de producto no admite clasificación ni ejes: eso viaja en el PATCH', () => {
@@ -270,6 +277,8 @@ describe('copia versionada del contrato', () => {
       [
         'POST /v1/admin/products/{productId}/images',
         'POST /v1/admin/products/{productId}/inventory-adjustments',
+        // Subir un video, igual que una imagen: un reintento no crea otro.
+        'POST /v1/admin/products/{productId}/videos',
         'POST /v1/admin/products/{productId}/variants/{variantId}/inventory-adjustments',
         'POST /v1/orders',
         // Las dos rutas que usa el panel desde los dos modos. La clave es obligatoria ahí, y por eso
@@ -307,7 +316,8 @@ describe('copia versionada del contrato', () => {
     const readiness = contract.components.schemas.PublicationReadinessDto;
 
     expect(readiness.required).toEqual(['ready', 'missing']);
-    expect(readiness.properties.missing.items.enum).toHaveLength(9);
+    // Nueve generales y dos que solo se exigen con videos (ADR 0026 del backend).
+    expect(readiness.properties.missing.items.enum).toHaveLength(11);
 
     /*
      * Lo que el contrato dejó de exigir.
@@ -960,17 +970,17 @@ describe('catálogo de categorías', () => {
   });
 });
 
-describe('zonas de envío: contrato del backend en 77f5aa1', () => {
+describe('contrato del backend de la rama feat/product-gallery-videos', () => {
   /*
-   * La copia es byte a byte la de `git show 77f5aa1:openapi/openapi.json` del backend. Si alguien la
-   * cambia a mano o la actualiza sin regenerar, esto falla aquí.
+   * La copia es byte a byte la de `openapi/openapi.json` del backend en la rama de la galería
+   * multimedia. Si alguien la cambia a mano o la actualiza sin regenerar, esto falla aquí.
    */
-  it('la copia comiteada es exactamente la del commit 77f5aa1', () => {
+  it('la copia comiteada es exactamente la del backend con la galería multimedia', () => {
     const digest = createHash('sha256')
       .update(readFileSync('openapi/backend-v1.json'))
       .digest('hex');
 
-    expect(digest).toBe('d34803f6b52483c2b00cca9c9c210acb8e0cdb97e824f37e708af916e2695a1d');
+    expect(digest).toBe('c231d8d8188c7afb050cd02c19e24cff6031585fa5bd904e2dbcb5dd757c5880');
   });
 
   it('publica las operaciones que el panel usa: cursor, restaurar, copias y relaciones', () => {

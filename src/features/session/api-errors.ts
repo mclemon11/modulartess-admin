@@ -26,6 +26,9 @@ export const SESSION_ERROR_CODES = [
   'variant_combination_conflict',
   'attribute_option_in_use',
   'image_limit',
+  'video_invalid',
+  'video_not_found',
+  'video_limit',
   'idempotency_conflict',
   'category_not_found',
   'category_archived',
@@ -101,6 +104,9 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
   variant_combination_conflict: 'Ya existe una variante con esa combinación.',
   attribute_option_in_use: 'Esa opción la usan variantes activas.',
   image_limit: 'El producto ya tiene el máximo de imágenes activas.',
+  video_invalid: 'El video o su póster no cumplen las reglas de la galería.',
+  video_not_found: 'Ese video ya no existe en el producto.',
+  video_limit: 'El producto ya tiene el máximo de videos activos.',
   idempotency_conflict: 'Esa operación ya se envió con otros datos.',
   category_not_found: 'Esa categoría no existe.',
   category_archived: 'Esa categoría está archivada.',
@@ -184,6 +190,9 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   variant_combination_conflict: 409,
   attribute_option_in_use: 409,
   image_limit: 409,
+  video_invalid: 400,
+  video_not_found: 404,
+  video_limit: 409,
   idempotency_conflict: 409,
   category_not_found: 404,
   category_archived: 409,
@@ -276,6 +285,12 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'attribute_option_in_use';
     case 'backend_product_image_limit':
       return 'image_limit';
+    case 'backend_product_video_invalid':
+      return 'video_invalid';
+    case 'backend_product_video_not_found':
+      return 'video_not_found';
+    case 'backend_product_video_limit':
+      return 'video_limit';
     case 'backend_idempotency_conflict':
       return 'idempotency_conflict';
     case 'backend_product_category_not_found':

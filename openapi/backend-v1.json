@@ -1207,6 +1207,13 @@
             },
             "type": "array"
           },
+          "gallery": {
+            "description": "Active images and videos in gallery order: the order the storefront shows. Without videos it is the active images in their order. The primary image (images[].isPrimary) is independent and always an image.",
+            "items": {
+              "$ref": "#/components/schemas/ProductGalleryEntryDto"
+            },
+            "type": "array"
+          },
           "id": {
             "example": "prd_0123456789abcdef0123456789abcdef",
             "type": "string"
@@ -1336,6 +1343,13 @@
             "example": 1,
             "minimum": 1,
             "type": "number"
+          },
+          "videos": {
+            "description": "Active and deleted videos. At most 3 active ones. Empty for products without videos.",
+            "items": {
+              "$ref": "#/components/schemas/AdminProductVideoDto"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -1354,6 +1368,8 @@
           "publishedAt",
           "archivedAt",
           "images",
+          "videos",
+          "gallery",
           "category",
           "productType",
           "attributes",
@@ -1404,6 +1420,13 @@
             "description": "Exactly one active image is primary while the product has any.",
             "type": "boolean"
           },
+          "mediaType": {
+            "description": "Always image.",
+            "enum": [
+              "image"
+            ],
+            "type": "string"
+          },
           "objectName": {
             "description": "Backend-generated object name. Never derived from the uploaded filename.",
             "example": "products/prd_0123456789abcdef/img_0123456789abcdef.jpg",
@@ -1444,6 +1467,7 @@
           }
         },
         "required": [
+          "mediaType",
           "id",
           "productId",
           "objectName",
@@ -1582,6 +1606,161 @@
         },
         "required": [
           "items"
+        ],
+        "type": "object"
+      },
+      "AdminProductVideoDto": {
+        "properties": {
+          "archivedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "contentType": {
+            "enum": [
+              "video/mp4"
+            ],
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "durationSeconds": {
+            "description": "Seconds, one decimal, read from the MP4 movie header. null when the file does not declare it legibly: it is never guessed.",
+            "nullable": true,
+            "type": "number"
+          },
+          "id": {
+            "example": "vid_0123456789abcdef0123456789abcdef",
+            "type": "string"
+          },
+          "mediaType": {
+            "description": "Always video.",
+            "enum": [
+              "video"
+            ],
+            "type": "string"
+          },
+          "objectName": {
+            "description": "Backend-generated object name. Never derived from the uploaded filename.",
+            "example": "products/prd_0123456789abcdef/vid_0123456789abcdef.mp4",
+            "type": "string"
+          },
+          "poster": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminProductVideoPosterDto"
+              }
+            ],
+            "description": "null while the poster is pending. A video without poster is never published and blocks publishing the product (video_posters).",
+            "nullable": true,
+            "type": "object"
+          },
+          "posterState": {
+            "enum": [
+              "pending",
+              "ready"
+            ],
+            "type": "string"
+          },
+          "productId": {
+            "type": "string"
+          },
+          "publicUrl": {
+            "description": "Stable public URL, readable by anyone who knows it, including while the product is a draft. Deleting the video removes the object afterwards.",
+            "format": "uri",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "maximum": 20971520,
+            "type": "number"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "example": "active",
+            "type": "string"
+          },
+          "storageState": {
+            "description": "stored while active; removal_pending after delete until every object is gone from the bucket; removed afterwards. Repeating the delete retries a pending removal.",
+            "enum": [
+              "stored",
+              "removal_pending",
+              "removed"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "description": "Accessible name of the video. Also the poster's alternative text.",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "mediaType",
+          "id",
+          "productId",
+          "objectName",
+          "publicUrl",
+          "contentType",
+          "sizeBytes",
+          "durationSeconds",
+          "title",
+          "status",
+          "poster",
+          "posterState",
+          "storageState",
+          "createdAt",
+          "updatedAt",
+          "archivedAt",
+          "version"
+        ],
+        "type": "object"
+      },
+      "AdminProductVideoPosterDto": {
+        "properties": {
+          "contentType": {
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ],
+            "type": "string"
+          },
+          "objectName": {
+            "description": "Backend-generated object name.",
+            "type": "string"
+          },
+          "publicUrl": {
+            "format": "uri",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "maximum": 10485760,
+            "type": "number"
+          },
+          "uploadedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "objectName",
+          "publicUrl",
+          "contentType",
+          "sizeBytes",
+          "uploadedAt"
         ],
         "type": "object"
       },
@@ -3355,6 +3534,26 @@
         ],
         "type": "object"
       },
+      "DeleteProductVideoResultDto": {
+        "properties": {
+          "alreadyDeleted": {
+            "description": "True when the video had already been deleted: nothing changed, expectedVersion was not checked, and any pending object removal was retried.",
+            "type": "boolean"
+          },
+          "product": {
+            "$ref": "#/components/schemas/AdminProductDto"
+          },
+          "video": {
+            "$ref": "#/components/schemas/AdminProductVideoDto"
+          }
+        },
+        "required": [
+          "product",
+          "video",
+          "alreadyDeleted"
+        ],
+        "type": "object"
+      },
       "DemoProductDto": {
         "properties": {
           "currency": {
@@ -4762,7 +4961,7 @@
             "type": "string"
           },
           "imageIds": {
-            "description": "Active images of THIS product that illustrate the option. Archiving an image detaches it from every option in the same operation.",
+            "description": "Active images or videos of THIS product that illustrate the option (the name predates videos). Archiving an image or deleting a video detaches it from every option in the same operation.",
             "items": {
               "type": "string"
             },
@@ -4986,6 +5185,26 @@
         ],
         "type": "object"
       },
+      "ProductGalleryEntryDto": {
+        "properties": {
+          "id": {
+            "description": "images[].id or videos[].id.",
+            "type": "string"
+          },
+          "mediaType": {
+            "enum": [
+              "image",
+              "video"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "mediaType",
+          "id"
+        ],
+        "type": "object"
+      },
       "ProductImageResultDto": {
         "properties": {
           "image": {
@@ -5003,6 +5222,17 @@
         "required": [
           "product",
           "image"
+        ],
+        "type": "object"
+      },
+      "ProductMediaReorderResultDto": {
+        "properties": {
+          "product": {
+            "$ref": "#/components/schemas/AdminProductDto"
+          }
+        },
+        "required": [
+          "product"
         ],
         "type": "object"
       },
@@ -5138,6 +5368,59 @@
         ],
         "type": "object"
       },
+      "ProductVideoErrorResponseDto": {
+        "properties": {
+          "code": {
+            "example": "product_video_invalid",
+            "type": "string"
+          },
+          "message": {
+            "example": "The video request is invalid",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Only on product_video_invalid: which check failed, from a closed set. Never file content, paths or object names.",
+            "enum": [
+              "video_empty",
+              "video_too_large",
+              "video_content_type_missing",
+              "video_content_type_mismatch",
+              "video_extension_missing",
+              "video_extension_mismatch",
+              "video_format_unsupported",
+              "video_container_invalid",
+              "video_title_required",
+              "video_title_too_long",
+              "video_archived",
+              "poster_invalid",
+              "update_requires_a_field",
+              "image_required_with_videos",
+              "media_order_mismatch"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object"
+      },
+      "ProductVideoResultDto": {
+        "properties": {
+          "product": {
+            "$ref": "#/components/schemas/AdminProductDto"
+          },
+          "video": {
+            "$ref": "#/components/schemas/AdminProductVideoDto"
+          }
+        },
+        "required": [
+          "product",
+          "video"
+        ],
+        "type": "object"
+      },
       "PublicationReadinessDto": {
         "properties": {
           "missing": {
@@ -5156,7 +5439,9 @@
                 "product_type",
                 "sellable_option",
                 "positive_price",
-                "unique_variant_combinations"
+                "unique_variant_combinations",
+                "image_with_videos",
+                "video_posters"
               ],
               "type": "string"
             },
@@ -5311,7 +5596,7 @@
             "type": "string"
           },
           "imageUrls": {
-            "description": "URLs of the product images that illustrate this option, as in images[].url.",
+            "description": "URLs of the product images that illustrate this option, as in images[].url. Images only; see mediaUrls for the full gallery.",
             "items": {
               "type": "string"
             },
@@ -5320,6 +5605,13 @@
           "label": {
             "example": "Roble natural",
             "type": "string"
+          },
+          "mediaUrls": {
+            "description": "URLs of the media (images and videos) associated with this option, as in media[].url. Projections written before videos equal imageUrls.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "position": {
             "minimum": 0,
@@ -5344,7 +5636,8 @@
           "hex",
           "position",
           "variantIds",
-          "imageUrls"
+          "imageUrls",
+          "mediaUrls"
         ],
         "type": "object"
       },
@@ -5507,7 +5800,7 @@
             "type": "string"
           },
           "images": {
-            "description": "Active images, in order.",
+            "description": "Active images, in order. Never contains videos: cards, Open Graph, JSON-LD, cart and checkout keep using images and primaryImage.",
             "items": {
               "$ref": "#/components/schemas/PublicProductImageDto"
             },
@@ -5518,6 +5811,27 @@
           },
           "measurements": {
             "type": "string"
+          },
+          "media": {
+            "description": "The product gallery in the order chosen in the panel: images and published videos, discriminated by mediaType. A video may come first; the primary image is still primaryImage. Without videos it equals images. Projections written before this field derive it from images.",
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "image": "#/components/schemas/PublicProductImageMediaDto",
+                  "video": "#/components/schemas/PublicProductVideoMediaDto"
+                },
+                "propertyName": "mediaType"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PublicProductImageMediaDto"
+                },
+                {
+                  "$ref": "#/components/schemas/PublicProductVideoMediaDto"
+                }
+              ]
+            },
+            "type": "array"
           },
           "name": {
             "type": "string"
@@ -5621,6 +5935,7 @@
           "updatedAt",
           "primaryImage",
           "images",
+          "media",
           "priceFromCop",
           "priceToCop",
           "featured",
@@ -5659,6 +5974,39 @@
           }
         },
         "required": [
+          "id",
+          "url",
+          "altText",
+          "position"
+        ],
+        "type": "object"
+      },
+      "PublicProductImageMediaDto": {
+        "properties": {
+          "altText": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "mediaType": {
+            "enum": [
+              "image"
+            ],
+            "type": "string"
+          },
+          "position": {
+            "description": "Index in media.",
+            "minimum": 0,
+            "type": "number"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mediaType",
           "id",
           "url",
           "altText",
@@ -5731,6 +6079,85 @@
           "priceCop",
           "compareAtPriceCop",
           "availability"
+        ],
+        "type": "object"
+      },
+      "PublicProductVideoMediaDto": {
+        "properties": {
+          "durationSeconds": {
+            "description": "Seconds, or null when unknown.",
+            "nullable": true,
+            "type": "number"
+          },
+          "id": {
+            "type": "string"
+          },
+          "mediaType": {
+            "enum": [
+              "video"
+            ],
+            "type": "string"
+          },
+          "mimeType": {
+            "enum": [
+              "video/mp4"
+            ],
+            "type": "string"
+          },
+          "position": {
+            "description": "Index in media.",
+            "minimum": 0,
+            "type": "number"
+          },
+          "posterImage": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicProductVideoPosterDto"
+              }
+            ],
+            "description": "Always present: a video without poster is not published."
+          },
+          "sizeBytes": {
+            "maximum": 20971520,
+            "type": "number"
+          },
+          "title": {
+            "description": "Accessible name of the video.",
+            "type": "string"
+          },
+          "url": {
+            "description": "MP4 file. Never an embed or iframe.",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mediaType",
+          "id",
+          "url",
+          "mimeType",
+          "sizeBytes",
+          "durationSeconds",
+          "title",
+          "position",
+          "posterImage"
+        ],
+        "type": "object"
+      },
+      "PublicProductVideoPosterDto": {
+        "properties": {
+          "altText": {
+            "description": "Equal to the video title.",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "altText"
         ],
         "type": "object"
       },
@@ -5870,6 +6297,27 @@
         "required": [
           "name",
           "expectedVersion"
+        ],
+        "type": "object"
+      },
+      "ReorderProductMediaRequestDto": {
+        "properties": {
+          "expectedVersion": {
+            "description": "Product version the caller last read.",
+            "minimum": 1,
+            "type": "number"
+          },
+          "mediaIds": {
+            "description": "Every active image and video id exactly once, in the desired gallery order. Images keep that relative order as their own position; the primary image does not change.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "mediaIds"
         ],
         "type": "object"
       },
@@ -8017,6 +8465,28 @@
         ],
         "type": "object"
       },
+      "UpdateProductVideoRequestDto": {
+        "properties": {
+          "expectedVersion": {
+            "description": "Product version the caller last read.",
+            "minimum": 1,
+            "type": "number"
+          },
+          "position": {
+            "description": "Target index in the gallery (images and videos). The rest keep their order.",
+            "minimum": 0,
+            "type": "number"
+          },
+          "title": {
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ],
+        "type": "object"
+      },
       "UpdateWompiIntegrationRequestDto": {
         "properties": {
           "enabledForNewPayments": {
@@ -8112,6 +8582,68 @@
         "required": [
           "product",
           "image",
+          "replayed"
+        ],
+        "type": "object"
+      },
+      "UploadProductVideoPosterRequestDto": {
+        "properties": {
+          "expectedVersion": {
+            "description": "Product version the caller last read.",
+            "type": "string"
+          },
+          "file": {
+            "description": "JPEG, PNG or WebP, up to 10485760 bytes, validated with the image rules.",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "expectedVersion"
+        ],
+        "type": "object"
+      },
+      "UploadProductVideoRequestDto": {
+        "properties": {
+          "expectedVersion": {
+            "description": "Product version the caller last read.",
+            "type": "string"
+          },
+          "file": {
+            "description": "MP4 only (video/mp4, .mp4). Up to 20971520 bytes. The container is inspected: an ISO BMFF file whose first box is ftyp with an allowed major brand and a single moov box. QuickTime, M4V, GIF, HTML, embeds and arbitrary URLs are rejected.",
+            "format": "binary",
+            "type": "string"
+          },
+          "title": {
+            "description": "Mandatory accessible title. Whitespace is collapsed.",
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "title",
+          "expectedVersion"
+        ],
+        "type": "object"
+      },
+      "UploadProductVideoResultDto": {
+        "properties": {
+          "product": {
+            "$ref": "#/components/schemas/AdminProductDto"
+          },
+          "replayed": {
+            "description": "True when the idempotency key had already been applied. The freshly uploaded object is removed and nothing changed.",
+            "type": "boolean"
+          },
+          "video": {
+            "$ref": "#/components/schemas/AdminProductVideoDto"
+          }
+        },
+        "required": [
+          "product",
+          "video",
           "replayed"
         ],
         "type": "object"
@@ -12636,6 +13168,115 @@
         ]
       }
     },
+    "/v1/admin/products/{productId}/media/order": {
+      "put": {
+        "description": "mediaIds must list every active image and video exactly once. Images take that relative order as their own position; the primary image does not change. Requires expectedVersion and products.update.",
+        "operationId": "AdminProductsController_reorderMedia",
+        "parameters": [
+          {
+            "description": "Backend-generated product identifier.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "example": "prd_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderProductMediaRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductMediaReorderResultDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductVideoErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_invalid or product_video_invalid (media_order_mismatch)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_version_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Reorder the whole gallery",
+        "tags": [
+          "admin-products"
+        ]
+      }
+    },
     "/v1/admin/products/{productId}/publish": {
       "post": {
         "description": "Needs name, SKU, slug and priceCop greater than zero. A product with no stock is published as out_of_stock. Requires expectedVersion and products.publish.",
@@ -13420,6 +14061,481 @@
           }
         ],
         "summary": "Adjust the stock of a variant",
+        "tags": [
+          "admin-products"
+        ]
+      }
+    },
+    "/v1/admin/products/{productId}/videos": {
+      "post": {
+        "description": "MP4 only, up to 20971520 bytes, at most 3 active videos per product. Extension, declared Content-Type and the real container (ftyp brand, box layout, moov) must all say MP4. The object name is generated by the backend. The video is appended to the gallery WITHOUT a poster: it is not published, and the product cannot be published, until a poster is uploaded. An active product needs at least one active image before it accepts a video. Requires expectedVersion, an Idempotency-Key and products.update.",
+        "operationId": "AdminProductsController_uploadVideo",
+        "parameters": [
+          {
+            "description": "8-128 characters. A retry returns the same result and uploads nothing new.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Backend-generated product identifier.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "example": "prd_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadProductVideoRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadProductVideoResultDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductVideoErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_video_invalid (with reason) or product_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_version_conflict, product_video_limit or idempotency_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "catalogue_unavailable or product_media_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Upload a gallery video (MP4)",
+        "tags": [
+          "admin-products"
+        ]
+      }
+    },
+    "/v1/admin/products/{productId}/videos/{videoId}": {
+      "patch": {
+        "description": "position is the target index in the gallery (images and videos). A deleted video cannot be edited. Requires expectedVersion and products.update.",
+        "operationId": "AdminProductsController_updateVideo",
+        "parameters": [
+          {
+            "description": "Backend-generated video identifier. Never reused, not even after deleting.",
+            "in": "path",
+            "name": "videoId",
+            "required": true,
+            "schema": {
+              "example": "vid_0123456789abcdef",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Backend-generated product identifier.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "example": "prd_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductVideoRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductVideoResultDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductVideoErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_invalid or product_video_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found or product_video_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_version_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Edit the title or gallery position of a video",
+        "tags": [
+          "admin-products"
+        ]
+      }
+    },
+    "/v1/admin/products/{productId}/videos/{videoId}/delete": {
+      "post": {
+        "description": "Removes the video from the gallery and the public projection in one transaction, detaches it from every option, then deletes its objects from the bucket. If the bucket fails, storageState stays removal_pending and repeating the call retries. Repeating it on a deleted video is a no-op that ignores expectedVersion (alreadyDeleted=true). Requires expectedVersion and products.archive.",
+        "operationId": "AdminProductsController_deleteVideo",
+        "parameters": [
+          {
+            "description": "Backend-generated video identifier. Never reused, not even after deleting.",
+            "in": "path",
+            "name": "videoId",
+            "required": true,
+            "schema": {
+              "example": "vid_0123456789abcdef",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Backend-generated product identifier.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "example": "prd_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductTransitionRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteProductVideoResultDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found or product_video_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_version_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Delete a gallery video",
+        "tags": [
+          "admin-products"
+        ]
+      }
+    },
+    "/v1/admin/products/{productId}/videos/{videoId}/poster": {
+      "post": {
+        "description": "JPEG, PNG or WebP up to 10485760 bytes, validated with the image rules. Every poster gets a new object name; the previous one is removed from the bucket after the video stops referencing it. Requires expectedVersion and products.update.",
+        "operationId": "AdminProductsController_uploadVideoPoster",
+        "parameters": [
+          {
+            "description": "Backend-generated video identifier. Never reused, not even after deleting.",
+            "in": "path",
+            "name": "videoId",
+            "required": true,
+            "schema": {
+              "example": "vid_0123456789abcdef",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Backend-generated product identifier.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "example": "prd_0123456789abcdef",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadProductVideoPosterRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductVideoResultDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductVideoErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_video_invalid (poster_invalid, video_archived) or product_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_not_found or product_video_not_found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_version_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Upload or replace the poster of a video",
         "tags": [
           "admin-products"
         ]

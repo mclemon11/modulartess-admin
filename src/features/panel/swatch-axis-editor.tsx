@@ -26,8 +26,11 @@ import {
 /** Imagen activa del producto, con lo necesario para elegirla. */
 export type SwatchImage = {
   readonly id: string;
-  readonly url: string;
+  /** Imagen, o póster del video. `null` en un video sin póster todavía. */
+  readonly url: string | null;
   readonly altText: string;
+  /** Las opciones también admiten videos activos (ADR 0026). Sin indicar, imagen. */
+  readonly kind?: 'image' | 'video';
 };
 
 /**
@@ -338,10 +341,10 @@ function OptionCard({
           Podrás asociar imágenes cuando el producto exista y sus imágenes estén subidas.
         </p>
       ) : images.length === 0 ? (
-        <p className={styles.hint}>El producto no tiene imágenes activas que asociar.</p>
+        <p className={styles.hint}>El producto no tiene imágenes ni videos activos que asociar.</p>
       ) : (
         <fieldset className={styles.images} disabled={disabled}>
-          <legend className={styles.label}>Imágenes de {name}</legend>
+          <legend className={styles.label}>Imágenes y videos de {name}</legend>
           <ul className={styles.imageList}>
             {images.map((image) => {
               const checked = option.imageIds.includes(image.id);
@@ -355,9 +358,14 @@ function OptionCard({
                       }
                       type="checkbox"
                     />
-                    {/* eslint-disable-next-line @next/next/no-img-element -- miniatura del bucket público, sin optimizar a propósito */}
-                    <img alt="" className={styles.thumb} src={image.url} />
+                    {image.url === null ? (
+                      <span className={styles.thumb} aria-hidden="true" />
+                    ) : (
+                      /* eslint-disable-next-line @next/next/no-img-element -- miniatura del bucket público, sin optimizar a propósito */
+                      <img alt="" className={styles.thumb} src={image.url} />
+                    )}
                     <span className={styles.imageAlt}>
+                      {image.kind === 'video' ? 'Video: ' : ''}
                       {image.altText || 'Imagen sin texto alternativo'}
                     </span>
                   </label>

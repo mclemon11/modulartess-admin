@@ -6,6 +6,7 @@ import { primaryImage } from './product-thumb';
 
 function image(overrides: Partial<AdminProductImage>): AdminProductImage {
   return {
+    mediaType: 'image',
     id: 'img_1',
     productId: 'prd_1',
     objectName: 'products/prd_1/img_1.jpg',

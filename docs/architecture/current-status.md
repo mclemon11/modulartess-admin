@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-10-03 (zonas de envío, contrato `85da968`).
+Última actualización: 2026-10-03 (galería multimedia con videos MP4, ADR 0011).
 
 ## Fase
 
@@ -1988,6 +1988,14 @@ completarse: liberarla al fallar convertiría un reintento en una operación nue
 **producto**: el contrato versiona el producto entero. Un `409` no se reintenta: se explica y se
 ofrece recargar. No hay actualización optimista en ningún punto —el estado sale de la respuesta
 autoritativa— y si nada cambió no se llama.
+
+## Galería multimedia (videos MP4): implementada, sin desplegar
+
+[`ADR 0011`](../decisions/0011-product-gallery-videos.md). Sección «Galería multimedia» con el orden
+conjunto de imágenes y videos, subida de MP4 (20 MB, solo `video/mp4`), póster, título, vista previa
+sin reproducción automática y eliminación confirmada. Los colores pueden asociar videos. Rutas BFF
+nuevas en `src/app/api/admin/products/[productId]/videos/**` y `media/order`. Despliegue: backend →
+panel → web. Pendiente: subtítulos.
 
 ## Portada y Galería
 

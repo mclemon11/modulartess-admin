@@ -9,6 +9,7 @@
  */
 
 import { IMAGE_ALT_MAX_LENGTH } from '@/lib/api/image-limits';
+import { VIDEO_TITLE_MAX_LENGTH } from '@/lib/api/video-limits';
 import {
   ATTRIBUTE_KEY_PATTERN,
   ATTRIBUTE_MAX_AXES,
@@ -577,6 +578,67 @@ export function parseUpdateProductImage(raw: unknown): UpdateProductImageRequest
   }
 
   return touched ? body : null;
+}
+
+/** Identificador de imagen o video tal como lo genera el backend. */
+const MEDIA_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** Título y/o posición en la galería de un video. Al menos uno de los dos. */
+export function parseUpdateProductVideo(
+  raw: unknown,
+): { expectedVersion: number; title?: string; position?: number } | null {
+  if (!isRecord(raw)) return null;
+
+  const expectedVersion = wholeNumber(raw.expectedVersion, 1);
+
+  if (expectedVersion === null) return null;
+
+  const body: { expectedVersion: number; title?: string; position?: number } = { expectedVersion };
+
+  if (raw.title !== undefined) {
+    if (
+      typeof raw.title !== 'string' ||
+      raw.title.trim().length === 0 ||
+      raw.title.length > VIDEO_TITLE_MAX_LENGTH
+    ) {
+      return null;
+    }
+
+    body.title = raw.title.trim();
+  }
+
+  if (raw.position !== undefined) {
+    const position = wholeNumber(raw.position, 0);
+
+    if (position === null) return null;
+
+    body.position = position;
+  }
+
+  return body.title === undefined && body.position === undefined ? null : body;
+}
+
+/** Orden completo de la galería: identificadores únicos, con forma de identificador. */
+export function parseReorderMedia(
+  raw: unknown,
+): { expectedVersion: number; mediaIds: string[] } | null {
+  if (!isRecord(raw) || !Array.isArray(raw.mediaIds)) return null;
+
+  const expectedVersion = wholeNumber(raw.expectedVersion, 1);
+
+  if (expectedVersion === null || raw.mediaIds.length === 0 || raw.mediaIds.length > 64) {
+    return null;
+  }
+
+  const mediaIds = raw.mediaIds.filter(
+    (id): id is string => typeof id === 'string' && MEDIA_ID.test(id),
+  );
+
+  if (mediaIds.length !== raw.mediaIds.length || new Set(mediaIds).size !== mediaIds.length) {
+    return null;
+  }
+
+  return { expectedVersion, mediaIds };
 }
 
 /**

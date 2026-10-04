@@ -62,6 +62,8 @@ function product(overrides: Partial<AdminProduct> = {}): AdminProduct {
     attributes: [],
     variants: [],
     images: [],
+    videos: [],
+    gallery: [],
     inventory: {
       mode: 'tracked',
       quantity: 3,

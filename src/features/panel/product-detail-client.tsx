@@ -52,6 +52,7 @@ import {
   type DetailPermissions,
 } from './product-permissions';
 import { ProductImages } from './product-images';
+import { ProductMediaGallery } from './product-media-gallery';
 import { ProductVariants } from './product-variants';
 import { PublicationChecklist } from './publication-checklist';
 import { describeReadiness, SECTION_IDS } from './publication-readiness';
@@ -686,6 +687,12 @@ export function ProductDetailClient({
 
             <div className={styles.anchorTarget} id={SECTION_IDS.imagenes}>
               <ProductImages
+                canArchive={imagePermissions(role).canArchive}
+                canEdit={imagePermissions(role).canEdit}
+                onProduct={applyProduct}
+                product={product}
+              />
+              <ProductMediaGallery
                 canArchive={imagePermissions(role).canArchive}
                 canEdit={imagePermissions(role).canEdit}
                 onProduct={applyProduct}

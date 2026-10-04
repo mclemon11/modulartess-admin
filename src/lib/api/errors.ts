@@ -149,6 +149,14 @@ export const BACKEND_FAILURE_CODES = [
   'backend_product_attribute_option_in_use',
   /** 409 `product_image_limit`: el producto ya tiene el máximo de imágenes activas. */
   'backend_product_image_limit',
+  /**
+   * Galería multimedia (ADR 0026 del backend). `product_video_invalid` lleva un motivo de una lista
+   * cerrada —tamaño, tipo, contenedor, póster…—, que viaja en `BackendFailure.reference` para que el
+   * panel diga exactamente qué falló.
+   */
+  'backend_product_video_invalid',
+  'backend_product_video_not_found',
+  'backend_product_video_limit',
   /** 409 `idempotency_conflict`: la misma clave llegó con otro cuerpo. */
   'backend_idempotency_conflict',
   /**
@@ -350,6 +358,8 @@ const CATALOG_CODES: Readonly<Record<string, BackendFailureCode>> = {
   product_variant_combination_conflict: 'backend_product_variant_combination_conflict',
   product_attribute_option_in_use: 'backend_product_attribute_option_in_use',
   product_image_limit: 'backend_product_image_limit',
+  product_video_not_found: 'backend_product_video_not_found',
+  product_video_limit: 'backend_product_video_limit',
   idempotency_conflict: 'backend_idempotency_conflict',
   product_category_not_found: 'backend_product_category_not_found',
   product_category_archived: 'backend_product_category_archived',
@@ -371,6 +381,16 @@ export function catalogFailure(
   options: { readonly notFound: BackendFailureCode } = { notFound: 'backend_not_found' },
 ): BackendFailure {
   const code = upstreamErrorCode(error);
+
+  // El motivo se valida como identificador, igual que cualquier referencia: nunca un texto libre.
+  if (code === 'product_video_invalid') {
+    const reason =
+      typeof error === 'object' && error !== null && 'reason' in error
+        ? safeErrorReference((error as { reason: unknown }).reason)
+        : null;
+
+    return new BackendFailure('backend_product_video_invalid', reason);
+  }
 
   if (code !== null && Object.hasOwn(CATALOG_CODES, code)) {
     return new BackendFailure(CATALOG_CODES[code] as BackendFailureCode);

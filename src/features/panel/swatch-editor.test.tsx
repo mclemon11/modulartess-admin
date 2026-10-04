@@ -161,13 +161,13 @@ describe('opciones', () => {
 describe('imágenes', () => {
   it('asocia imágenes existentes con casillas y texto alternativo', () => {
     const html = editor(saved());
-    expect(html).toContain('Imágenes de Roble');
+    expect(html).toContain('Imágenes y videos de Roble');
     expect(html).toContain('type="checkbox"');
     expect(html).toContain('Frente en roble');
   });
 
   it('producto sin imágenes activas', () => {
-    expect(editor(saved(), { images: [] })).toContain('no tiene imágenes activas');
+    expect(editor(saved(), { images: [] })).toContain('no tiene imágenes ni videos activos');
   });
 
   it('en el alta, antes de existir el producto, no se simulan asociaciones', () => {
@@ -237,6 +237,8 @@ describe('permisos', () => {
     attributes: AXES,
     variants: VARIANTS,
     images: [],
+    videos: [],
+    gallery: [],
   } as unknown as AdminProduct;
 
   it('un rol sin products.update ve los colores pero no puede cambiarlos', () => {

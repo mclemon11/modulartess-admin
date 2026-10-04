@@ -22,10 +22,13 @@ const ENUM = contract.components.schemas.PublicationReadinessDto.properties.miss
   .enum as readonly PublicationRequirement[];
 
 describe('traducción de los requisitos de publicación', () => {
-  it('el contrato publica los nueve códigos que el panel conoce', () => {
+  it('el contrato publica los once códigos que el panel conoce', () => {
     expect([...ENUM].sort()).toEqual(
       [
         'category',
+        // Solo con videos en la galería (ADR 0026 del backend).
+        'image_with_videos',
+        'video_posters',
         'name',
         'positive_price',
         'product_type',
@@ -106,12 +109,34 @@ describe('resumen', () => {
     expect(groups[0]?.items.map((item) => item.title)).toEqual(['Falta el nombre', 'Falta el SKU']);
   });
 
-  it.each(['imagenes', 'detalles'])('nunca agrupa nada en la sección «%s»', (section) => {
-    // Imágenes y detalles adicionales son opcionales: ningún código del contrato lleva ya a esas
-    // secciones. «Descripción» sí recibe uno, la descripción corta, que ahora vive en esa tarjeta.
+  it('nunca agrupa nada en la sección «detalles»', () => {
+    // Los detalles adicionales son opcionales: ningún código del contrato lleva ya a esa sección.
+    // «Descripción» sí recibe uno, la descripción corta, que ahora vive en esa tarjeta.
     const groups = groupBySection({ ready: false, missing: [...ENUM] });
 
-    expect(groups.map((group) => group.section)).not.toContain(section);
+    expect(groups.map((group) => group.section)).not.toContain('detalles');
+  });
+
+  it('las imágenes solo aparecen como requisito cuando hay videos', () => {
+    // Sin videos el backend no emite ninguno de los dos y un producto sin imágenes se publica.
+    const withoutVideos = ENUM.filter(
+      (code) => code !== 'image_with_videos' && code !== 'video_posters',
+    );
+
+    expect(
+      groupBySection({ ready: false, missing: [...withoutVideos] }).map((group) => group.section),
+    ).not.toContain('imagenes');
+    expect(
+      groupBySection({ ready: false, missing: ['image_with_videos', 'video_posters'] }),
+    ).toEqual([
+      {
+        section: 'imagenes',
+        items: [
+          expect.objectContaining({ title: 'Falta una imagen para acompañar los videos' }),
+          expect.objectContaining({ title: 'Hay videos sin póster' }),
+        ],
+      },
+    ]);
   });
 
   it('sin requisitos pendientes no hay grupos', () => {

@@ -15,6 +15,10 @@ import type {
   ProductVariantResult,
   UploadProductImageResult,
   VariantInventoryAdjustmentResult,
+  DeleteProductVideoResult,
+  ProductMediaReorderResult,
+  ProductVideoResult,
+  UploadProductVideoResult,
 } from '@/lib/api/catalog';
 import type { ProductCategory } from '@/lib/api/categories';
 
@@ -212,6 +216,109 @@ export function archiveProductImage(
     `/api/admin/products/${encodeURIComponent(productId)}/images/${encodeURIComponent(imageId)}/archive`,
     'POST',
     { expectedVersion },
+    200,
+  );
+}
+
+/** Ruta de un video dentro de su producto. Los identificadores se codifican siempre. */
+function videoPath(productId: string, videoId: string): string {
+  return `/api/admin/products/${encodeURIComponent(productId)}/videos/${encodeURIComponent(videoId)}`;
+}
+
+/** Envío multipart al BFF. El navegador fija el `Content-Type` con su `boundary`. */
+async function sendForm<T>(
+  path: string,
+  form: FormData,
+  headers: Record<string, string>,
+  successStatus: number,
+): Promise<MutationResult<T>> {
+  let response: Response;
+
+  try {
+    response = await fetch(path, {
+      method: 'POST',
+      headers,
+      body: form,
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+  } catch {
+    return { ok: false, code: 'service_unavailable' };
+  }
+
+  if (response.status === successStatus) {
+    try {
+      return { ok: true, data: (await response.json()) as T };
+    } catch {
+      return { ok: false, code: 'internal_error' };
+    }
+  }
+
+  try {
+    const failure = readFailurePayload(await response.json());
+
+    if (failure !== null) {
+      return failure;
+    }
+  } catch {
+    // Cuerpo ilegible: el corte por tamaño de Cloud Run no trae JSON.
+  }
+
+  return { ok: false, code: response.status === 413 ? 'video_invalid' : 'internal_error' };
+}
+
+/** Sube un video MP4. La clave de idempotencia la genera quien elige el archivo. */
+export function uploadProductVideo(
+  productId: string,
+  form: FormData,
+  idempotencyKey: string,
+): Promise<MutationResult<UploadProductVideoResult>> {
+  return sendForm<UploadProductVideoResult>(
+    `/api/admin/products/${encodeURIComponent(productId)}/videos`,
+    form,
+    { 'x-idempotency-key': idempotencyKey },
+    201,
+  );
+}
+
+export function uploadProductVideoPoster(
+  productId: string,
+  videoId: string,
+  form: FormData,
+): Promise<MutationResult<ProductVideoResult>> {
+  return sendForm<ProductVideoResult>(`${videoPath(productId, videoId)}/poster`, form, {}, 201);
+}
+
+export function updateProductVideo(
+  productId: string,
+  videoId: string,
+  body: unknown,
+): Promise<MutationResult<ProductVideoResult>> {
+  return send<ProductVideoResult>(videoPath(productId, videoId), 'PATCH', body, 200);
+}
+
+export function deleteProductVideo(
+  productId: string,
+  videoId: string,
+  expectedVersion: number,
+): Promise<MutationResult<DeleteProductVideoResult>> {
+  return send<DeleteProductVideoResult>(
+    `${videoPath(productId, videoId)}/delete`,
+    'POST',
+    { expectedVersion },
+    200,
+  );
+}
+
+export function reorderProductMedia(
+  productId: string,
+  expectedVersion: number,
+  mediaIds: readonly string[],
+): Promise<MutationResult<ProductMediaReorderResult>> {
+  return send<ProductMediaReorderResult>(
+    `/api/admin/products/${encodeURIComponent(productId)}/media/order`,
+    'PUT',
+    { expectedVersion, mediaIds },
     200,
   );
 }

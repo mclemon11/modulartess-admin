@@ -139,6 +139,8 @@ function product(
     publishedAt: status === 'active' ? NOW : null,
     archivedAt: status === 'archived' ? NOW : null,
     images: [],
+    videos: [],
+    gallery: [],
     category: cat === null ? null : { slug: cat.slug, name: cat.name },
     productType: null,
     attributes: [],

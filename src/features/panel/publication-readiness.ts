@@ -141,6 +141,16 @@ const REQUIREMENTS: Readonly<Record<PublicationRequirement, RequirementCopy>> = 
     hint: 'Dos variantes activas no pueden compartir la misma combinación de ejes.',
     section: 'variantes',
   },
+  image_with_videos: {
+    title: 'Falta una imagen para acompañar los videos',
+    hint: 'Con videos en la galería, el producto necesita al menos una imagen activa: es la que usan la portada, los listados y los enlaces compartidos.',
+    section: 'imagenes',
+  },
+  video_posters: {
+    title: 'Hay videos sin póster',
+    hint: 'Cada video necesita su póster —la miniatura que se ve antes de reproducirlo—. Súbelo en «Galería multimedia» o elimina el video.',
+    section: 'imagenes',
+  },
 };
 
 /**

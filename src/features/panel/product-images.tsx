@@ -603,9 +603,9 @@ export function ProductImages({
       <section className={styles.card} id={IMAGE_ANCHORS.galeria}>
         <div className={styles.cardPad}>
           <SectionHeading
-            hint="Las demás imágenes del producto, en el orden en que se verán."
+            hint="Las demás imágenes del producto. Su orden junto a los videos se decide en «Galería multimedia»."
             icon="imagenes"
-            title="Galería"
+            title="Galería de imágenes"
           />
 
           {canEdit ? (

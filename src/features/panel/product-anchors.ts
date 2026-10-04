@@ -9,6 +9,7 @@
 export const IMAGE_ANCHORS = {
   portada: 'portada',
   galeria: 'galeria',
+  multimedia: 'galeria-multimedia',
 } as const;
 
 export type ImageAnchor = (typeof IMAGE_ANCHORS)[keyof typeof IMAGE_ANCHORS];

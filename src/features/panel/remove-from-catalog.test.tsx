@@ -88,6 +88,8 @@ describe('listado de productos', () => {
     attributes: [],
     variants: [],
     images: [],
+    videos: [],
+    gallery: [],
     inventory: { mode: 'tracked', quantity: 3, lowStockThreshold: 1, status: 'in_stock' },
     publicationReadiness: { ready: false, missing: ['category'] },
     createdAt: '2026-09-01T00:00:00.000Z',

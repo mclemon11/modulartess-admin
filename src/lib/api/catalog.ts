@@ -99,6 +99,14 @@ export type AdminProductImage = components['schemas']['AdminProductImageDto'];
 export type UploadProductImageResult = components['schemas']['UploadProductImageResultDto'];
 export type ProductImageResult = components['schemas']['ProductImageResultDto'];
 export type UpdateProductImageRequest = components['schemas']['UpdateProductImageRequestDto'];
+export type AdminProductVideo = components['schemas']['AdminProductVideoDto'];
+export type ProductGalleryEntry = components['schemas']['ProductGalleryEntryDto'];
+export type ProductVideoResult = components['schemas']['ProductVideoResultDto'];
+export type UploadProductVideoResult = components['schemas']['UploadProductVideoResultDto'];
+export type DeleteProductVideoResult = components['schemas']['DeleteProductVideoResultDto'];
+export type UpdateProductVideoRequest = components['schemas']['UpdateProductVideoRequestDto'];
+export type ReorderProductMediaRequest = components['schemas']['ReorderProductMediaRequestDto'];
+export type ProductMediaReorderResult = components['schemas']['ProductMediaReorderResultDto'];
 export type AdminProductVariant = components['schemas']['AdminProductVariantDto'];
 export type AdminProductVariantList = components['schemas']['AdminProductVariantListDto'];
 /**
@@ -443,6 +451,149 @@ export async function archiveProductImage(
         headers: sessionHeaders(sessionMaterial),
       },
     );
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
+  }
+
+  return response.data;
+}
+
+/**
+ * Sube un video MP4 a la galería. Mismo transporte que `uploadProductImage`: el `FormData` viaja tal
+ * cual y la `Idempotency-Key` es obligatoria. El video entra sin póster, pendiente.
+ */
+export async function uploadProductVideo(
+  sessionMaterial: string,
+  productId: string,
+  idempotencyKey: string,
+  form: FormData,
+): Promise<UploadProductVideoResult> {
+  let response;
+
+  try {
+    response = await backendClient().POST('/v1/admin/products/{productId}/videos', {
+      params: { path: { productId }, header: { 'Idempotency-Key': idempotencyKey } },
+      headers: sessionHeaders(sessionMaterial),
+      body: form as unknown as never,
+      bodySerializer: (value: unknown) => value as BodyInit,
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
+  }
+
+  return response.data;
+}
+
+/** Sube o cambia el póster de un video. Cada póster es un objeto nuevo; el anterior se retira. */
+export async function uploadProductVideoPoster(
+  sessionMaterial: string,
+  productId: string,
+  videoId: string,
+  form: FormData,
+): Promise<ProductVideoResult> {
+  let response;
+
+  try {
+    response = await backendClient().POST(
+      '/v1/admin/products/{productId}/videos/{videoId}/poster',
+      {
+        params: { path: { productId, videoId } },
+        headers: sessionHeaders(sessionMaterial),
+        body: form as unknown as never,
+        bodySerializer: (value: unknown) => value as BodyInit,
+      },
+    );
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
+  }
+
+  return response.data;
+}
+
+/** Cambia el título o la posición del video en la galería. */
+export async function updateProductVideo(
+  sessionMaterial: string,
+  productId: string,
+  videoId: string,
+  body: UpdateProductVideoRequest,
+): Promise<ProductVideoResult> {
+  let response;
+
+  try {
+    response = await backendClient().PATCH('/v1/admin/products/{productId}/videos/{videoId}', {
+      params: { path: { productId, videoId } },
+      body,
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
+  }
+
+  return response.data;
+}
+
+/**
+ * Elimina un video. Sale de la galería y de la tienda de inmediato y sus objetos se borran después.
+ * Repetirlo sobre un video ya eliminado no cambia nada (`alreadyDeleted: true`).
+ */
+export async function deleteProductVideo(
+  sessionMaterial: string,
+  productId: string,
+  videoId: string,
+  expectedVersion: number,
+): Promise<DeleteProductVideoResult> {
+  let response;
+
+  try {
+    response = await backendClient().POST(
+      '/v1/admin/products/{productId}/videos/{videoId}/delete',
+      {
+        params: { path: { productId, videoId } },
+        body: { expectedVersion },
+        headers: sessionHeaders(sessionMaterial),
+      },
+    );
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw catalogFailure(response.response.status, response.error, RESOURCE);
+  }
+
+  return response.data;
+}
+
+/** Reordena la galería entera: todas las imágenes y videos activos, cada uno una vez. */
+export async function reorderProductMedia(
+  sessionMaterial: string,
+  productId: string,
+  body: ReorderProductMediaRequest,
+): Promise<ProductMediaReorderResult> {
+  let response;
+
+  try {
+    response = await backendClient().PUT('/v1/admin/products/{productId}/media/order', {
+      params: { path: { productId } },
+      body,
+      headers: sessionHeaders(sessionMaterial),
+    });
   } catch (error) {
     throw toFailure(error);
   }
