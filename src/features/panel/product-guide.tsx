@@ -173,6 +173,12 @@ export function GuideBody({
           una falla el resto se queda esperando sin reenviar las que ya subieron.
         </p>
         <p>
+          Si llegas al límite, usa <strong>«Quitar imagen»</strong> para liberar un espacio. También
+          puedes quitar la portada: la siguiente foto pasa a ser portada automáticamente. La
+          confirmación explica el efecto antes de guardar y la foto retirada sale de la tienda de
+          inmediato.
+        </p>
+        <p>
           <strong>Las imágenes son opcionales para publicar.</strong> El contrato no las exige; que
           un producto se vea mejor con ellas es otra cosa.
         </p>

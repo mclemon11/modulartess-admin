@@ -15,6 +15,12 @@ import {
 } from './catalog-client';
 import { describeCatalogFailure } from './catalog-errors';
 import { runCoverFlow } from './cover-flow';
+import {
+  describeImageRemovalFailure,
+  IMAGE_REMOVAL_BUSY_MESSAGE,
+  LAST_IMAGE_WITH_VIDEOS_MESSAGE,
+  type ImageRemovalOutcome,
+} from './image-removal';
 import { uploadQueueSequentially } from './create-product-flow';
 import {
   addToQueue,
@@ -56,8 +62,8 @@ import { SectionHeading } from './section-icon';
  * implementaciones de cola, y no puede haberlas, porque cada subida incrementa la versión del
  * producto y dos a la vez se pisarían.
  *
- * Archivar depende de un permiso distinto al de editar: es una transición de estado, no un cambio
- * de contenido, y `moderator` no la tiene.
+ * Retirar una imagen usa el mismo permiso de edición que subirla: quien administra la galería
+ * puede corregir una carga equivocada sin obtener permiso para archivar el producto o una variante.
  */
 export function ProductImages({
   product,
@@ -68,12 +74,7 @@ export function ProductImages({
   readonly product: AdminProduct;
   /** Subir, cambiar el texto alternativo, reordenar y designar la portada. */
   readonly canEdit: boolean;
-  /**
-   * Archivar, que es una transición de estado y no una edición.
-   *
-   * Va por separado porque `moderator` puede editar imágenes pero no archivarlas: agruparlas bajo
-   * un único permiso le mostraría una acción que el backend le rechazaría.
-   */
+  /** Retirar una imagen activa de la galería y del escaparate. */
   readonly canArchive: boolean;
   readonly onProduct: (next: AdminProduct) => void;
 }) {
@@ -122,6 +123,8 @@ export function ProductImages({
   const archived = product.images.filter((image) => image.status === 'archived');
   const cover = active.find((image) => image.isPrimary) ?? null;
   const gallery = active.filter((image) => !image.isPrimary);
+  const hasActiveVideos = product.videos.some((video) => video.status === 'active');
+  const lastImageRequiredByVideo = active.length === 1 && hasActiveVideos;
   /*
    * Cuántas imágenes activas habrá: las que ya tiene el producto más las que **faltan por subir**.
    *
@@ -150,7 +153,7 @@ export function ProductImages({
   function settle<T extends { product: AdminProduct }>(
     result: MutationResult<T>,
     message: (data: T) => string,
-  ) {
+  ): boolean {
     release(lock.current);
     setBusy(false);
 
@@ -159,11 +162,12 @@ export function ProductImages({
       onProduct(result.data.product);
       setNotice(message(result.data));
 
-      return;
+      return true;
     }
 
     setConflict(result.code === 'version_conflict');
     setFailure(describeCatalogFailure(result.code, result.reference));
+    return false;
   }
 
   /** Aplica un cambio de la cola, revocando lo que haya quedado huérfano. */
@@ -195,7 +199,7 @@ export function ProductImages({
         pendingUploads(current).length + active.length >= IMAGE_MAX_ACTIVE
       ) {
         setFailure(
-          `El producto admite ${IMAGE_MAX_ACTIVE} imágenes activas y ya no caben más; archiva alguna primero.`,
+          `El producto admite ${IMAGE_MAX_ACTIVE} imágenes activas y ya no caben más; quita una imagen antes de agregar otra.`,
         );
         break;
       }
@@ -440,15 +444,34 @@ export function ProductImages({
     );
   }
 
-  async function handleArchive(image: AdminProductImage) {
+  async function handleArchive(image: AdminProductImage): Promise<ImageRemovalOutcome> {
     if (!begin()) {
-      return;
+      return { ok: false, message: IMAGE_REMOVAL_BUSY_MESSAGE };
     }
 
-    settle(
-      await archiveProductImage(product.id, image.id, product.version),
-      () => 'Imagen archivada. El objeto sigue existiendo y su URL pública continúa activa.',
-    );
+    const result = await archiveProductImage(product.id, image.id, product.version);
+    const removed = settle(result, (data) => {
+      const nextCover = data.product.images.find(
+        (candidate) => candidate.status === 'active' && candidate.isPrimary,
+      );
+
+      if (image.isPrimary && nextCover !== undefined) {
+        return 'Portada retirada. La siguiente imagen activa quedó como portada.';
+      }
+
+      return image.isPrimary
+        ? 'Portada retirada. El producto quedó sin imágenes activas.'
+        : 'Imagen retirada de la galería y de la tienda.';
+    });
+
+    if (removed || result.ok) return { ok: true };
+
+    // `settle` ya dejó el fallo en la sección; el diálogo, que la tapa, necesita su propio texto.
+    const message = describeImageRemovalFailure(result.code, result.reference);
+
+    if (message === LAST_IMAGE_WITH_VIDEOS_MESSAGE) setFailure(message);
+
+    return { ok: false, message };
   }
 
   const actions: EntryActions = {
@@ -525,16 +548,30 @@ export function ProductImages({
           ) : null}
           {!canEdit && cover !== null ? <p className={styles.imageAlt}>{cover.altText}</p> : null}
 
+          {canArchive && cover !== null ? (
+            <RemoveProductImageButton
+              busy={busy}
+              image={cover}
+              isLastActive={active.length === 1}
+              lastImageRequiredByVideo={lastImageRequiredByVideo}
+              onRemove={() => handleArchive(cover)}
+            />
+          ) : null}
+
           {canEdit ? (
             candidate === null ? (
               <ImageDropzone
                 buttonLabel={cover === null ? 'Agregar portada' : 'Cambiar portada'}
                 disabled={busy || atLimit}
-                hint={
+                hint={`${
                   cover === null
                     ? 'Una sola imagen. JPG, PNG o WebP · 10 MB como máximo.'
-                    : 'Una sola imagen. Al subirla queda como portada; la anterior no se borra ni se archiva: pasa a la galería.'
-                }
+                    : 'Una sola imagen. Al subirla queda como portada; la anterior no se quita: pasa a la galería.'
+                }${
+                  atLimit
+                    ? ` Has llegado al límite de ${IMAGE_MAX_ACTIVE}: quita una imagen para poder agregar otra.`
+                    : ''
+                }`}
                 multiple={false}
                 onFiles={(files) => enqueue(files, 'cover')}
                 title={
@@ -624,7 +661,9 @@ export function ProductImages({
                 buttonLabel="Agregar imágenes a la galería"
                 disabled={busy || atLimit}
                 hint={`JPG, PNG o WebP · 10 MB por imagen${
-                  atLimit ? ` · has llegado al límite de ${IMAGE_MAX_ACTIVE}` : ''
+                  atLimit
+                    ? ` · has llegado al límite de ${IMAGE_MAX_ACTIVE}; quita una para liberar espacio`
+                    : ''
                 }`}
                 multiple
                 onFiles={(files) => enqueue(files, 'gallery')}
@@ -758,14 +797,13 @@ export function ProductImages({
                         </button>
                       ) : null}
                       {canArchive ? (
-                        <button
-                          className={styles.iconButton}
-                          disabled={busy}
-                          onClick={() => void handleArchive(image)}
-                          type="button"
-                        >
-                          Archivar
-                        </button>
+                        <RemoveProductImageButton
+                          busy={busy}
+                          image={image}
+                          isLastActive={false}
+                          lastImageRequiredByVideo={false}
+                          onRemove={() => handleArchive(image)}
+                        />
                       ) : null}
                     </div>
                   ) : null}
@@ -776,13 +814,13 @@ export function ProductImages({
 
           <p className={styles.inlineNote}>
             Al guardar, las imágenes quedan en una URL pública —también en borrador y después de
-            archivarlas—. No subas nada que deba permanecer privado.
+            quitarlas—. No subas nada que deba permanecer privado.
           </p>
 
           {archived.length === 0 ? null : (
             <>
               <h3 className={styles.sectionTitle} style={{ marginTop: 'var(--space-lg)' }}>
-                Archivadas ({archived.length})
+                Retiradas ({archived.length})
               </h3>
               <p className={styles.hint}>
                 Fuera de la tienda, pero el objeto no se borró: su URL pública sigue funcionando.
@@ -807,6 +845,119 @@ export function ProductImages({
         </div>
       </section>
     </div>
+  );
+}
+
+/** Confirmación explícita para retirar una imagen activa sin confundirla con archivar el producto. */
+function RemoveProductImageButton({
+  image,
+  busy,
+  isLastActive,
+  lastImageRequiredByVideo,
+  onRemove,
+}: {
+  readonly image: AdminProductImage;
+  readonly busy: boolean;
+  readonly isLastActive: boolean;
+  readonly lastImageRequiredByVideo: boolean;
+  readonly onRemove: () => Promise<ImageRemovalOutcome>;
+}) {
+  const id = useId();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [removing, setRemoving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const isCover = image.isPrimary;
+  const buttonLabel = isCover ? 'Quitar portada' : 'Quitar imagen';
+
+  async function confirm() {
+    setRemoving(true);
+    setError(null);
+
+    const outcome = await onRemove();
+
+    setRemoving(false);
+
+    // Solo un éxito cierra el diálogo: un 409 o cualquier otro fallo se queda a la vista aquí.
+    if (outcome.ok) {
+      dialog.current?.close();
+    } else {
+      setError(outcome.message);
+    }
+  }
+
+  return (
+    <>
+      <button
+        aria-describedby={lastImageRequiredByVideo ? `${id}-blocked` : undefined}
+        className={styles.buttonDanger}
+        disabled={busy || lastImageRequiredByVideo}
+        onClick={() => {
+          setError(null);
+          dialog.current?.showModal();
+        }}
+        type="button"
+      >
+        {buttonLabel}
+      </button>
+      {lastImageRequiredByVideo ? (
+        <p className={styles.hint} id={`${id}-blocked`}>
+          {LAST_IMAGE_WITH_VIDEOS_MESSAGE}
+        </p>
+      ) : null}
+      <dialog
+        aria-describedby={`${id}-remove-text`}
+        aria-labelledby={`${id}-remove-title`}
+        className={styles.previewDialog}
+        // Escape no cierra mientras se guarda: el resultado tiene que verse en el diálogo.
+        onCancel={(event) => {
+          if (removing) event.preventDefault();
+        }}
+        ref={dialog}
+      >
+        <div className={styles.previewDialogBody}>
+          <h2 className={styles.sectionTitle} id={`${id}-remove-title`}>
+            ¿{buttonLabel}?
+          </h2>
+          <div className={styles.pageLead} id={`${id}-remove-text`}>
+            <p>La foto saldrá del producto y de la tienda de inmediato.</p>
+            {isCover && !isLastActive ? (
+              <p>La siguiente imagen activa pasará a ser la portada automáticamente.</p>
+            ) : null}
+            {isCover && isLastActive ? (
+              <p>El producto quedará sin imágenes hasta que agregues una nueva portada.</p>
+            ) : null}
+            <p>
+              Esta acción libera uno de los {IMAGE_MAX_ACTIVE} espacios de la galería. El registro y
+              el archivo se conservan internamente y no se pueden restaurar desde el panel.
+            </p>
+          </div>
+          {error === null ? null : (
+            <p className={styles.error} role="alert">
+              {error}
+            </p>
+          )}
+          <div className={styles.actions}>
+            <button
+              className={styles.buttonDanger}
+              disabled={busy || removing}
+              onClick={() => void confirm()}
+              type="button"
+            >
+              {removing ? 'Quitando…' : buttonLabel}
+            </button>
+            <button
+              autoFocus
+              className={styles.buttonSecondary}
+              disabled={removing}
+              onClick={() => dialog.current?.close()}
+              type="button"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </dialog>
+    </>
   );
 }
 

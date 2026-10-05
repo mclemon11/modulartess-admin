@@ -970,17 +970,26 @@ describe('catálogo de categorías', () => {
   });
 });
 
-describe('contrato del backend de la rama feat/product-gallery-videos', () => {
+describe('contrato del backend con galería multimedia y retirada editable de imágenes', () => {
   /*
-   * La copia es byte a byte la de `openapi/openapi.json` del backend en la rama de la galería
-   * multimedia. Si alguien la cambia a mano o la actualiza sin regenerar, esto falla aquí.
+   * La copia es byte a byte la de `openapi/openapi.json` del backend que permite a quien administra
+   * la galería retirar una foto. Si alguien la cambia a mano o la actualiza sin regenerar, esto
+   * falla aquí.
    */
   it('la copia comiteada es exactamente la del backend con la galería multimedia', () => {
     const digest = createHash('sha256')
       .update(readFileSync('openapi/backend-v1.json'))
       .digest('hex');
 
-    expect(digest).toBe('c231d8d8188c7afb050cd02c19e24cff6031585fa5bd904e2dbcb5dd757c5880');
+    expect(digest).toBe('47ecca7cb2560ebc0301313218198aa8a6b60d920fa9ed39540c5810975a7386');
+  });
+
+  it('retirar una imagen exige products.update, sin ampliar el archivado de productos', () => {
+    const operation = contract.paths['/v1/admin/products/{productId}/images/{imageId}/archive']
+      .post as { description?: string };
+
+    expect(operation.description).toContain('products.update');
+    expect(operation.description).not.toContain('Requires expectedVersion and products.archive');
   });
 
   it('publica las operaciones que el panel usa: cursor, restaurar, copias y relaciones', () => {

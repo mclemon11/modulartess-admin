@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-10-03 (galería multimedia con videos MP4, ADR 0011).
+Última actualización: 2026-10-04 (retirada clara de imágenes y portada desde la ficha).
 
 ## Fase
 
@@ -139,7 +139,7 @@ Implementado en el repositorio y comprobado con dobles locales.
 | Catálogo enriquecido      | Listo     | Clasificación, contenido visible y detalles adicionales, separados.            |
 | Editor editorial          | Listo     | Topes de 180, 3000, 5 × 60; contadores, «Opcional» y orden real.               |
 | Variantes                 | Listo     | Ejes, combinaciones, precio, inventario por modo y archivado por variante.     |
-| Imágenes de producto      | Listo     | Subir, editar texto alternativo, orden, principal y archivar.                  |
+| Imágenes de producto      | Listo     | Subir, editar, ordenar, elegir portada y retirar con confirmación.             |
 | Alta completa             | Listo     | Un envío: crea el borrador, enriquece, sube y crea variantes.                  |
 | Reanudación tras fallo    | Listo     | No recrea nada guardado; reintenta solo lo que falta.                          |
 | Catálogo de categorías    | Listo     | Listar, buscar, filtrar, crear, renombrar, archivar y reactivar.               |
@@ -2015,6 +2015,14 @@ operación presentada como «Galería» habría decidido la portada sin decirlo.
 
 El contador cuenta las diez activas del contrato **incluyendo la portada**. Las imágenes siguen
 siendo opcionales para publicar.
+
+La ficha ofrece «Quitar portada» y «Quitar imagen», siempre con confirmación. Retirar una foto la
+saca de la proyección pública, libera uno de los diez espacios y conserva el registro interno; el
+panel no promete un borrado físico. Si se retira la portada, el backend asciende la siguiente
+imagen activa. La única imagen no se puede retirar mientras haya videos activos que necesiten una
+portada: la pantalla lo explica y guía a agregar otra foto o eliminar primero los videos. La acción
+usa `products.update`, igual que subir y ordenar; esto permite a `moderator` corregir una carga sin
+darle permiso para archivar productos o variantes.
 
 ### Cómo se representa una candidata a portada
 

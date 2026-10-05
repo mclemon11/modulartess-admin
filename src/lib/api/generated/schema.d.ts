@@ -691,7 +691,7 @@ export interface paths {
         put?: never;
         /**
          * Archive a product image
-         * @description Removes it from the public projection immediately and promotes another primary when needed. The object is NOT deleted from Cloud Storage and its URL keeps working for anyone who knows it; the identifier is never reused. Requires expectedVersion and products.archive, which moderator does not have.
+         * @description Removes it from the public projection immediately and promotes another primary when needed. The object is NOT deleted from Cloud Storage and its URL keeps working for anyone who knows it; the identifier is never reused. Requires expectedVersion and products.update, so every role allowed to manage the gallery can correct an uploaded image without gaining permission to archive products or variants.
          */
         post: operations["AdminProductsController_archiveImage"];
         delete?: never;

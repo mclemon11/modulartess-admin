@@ -90,13 +90,14 @@ describe('permisos de variantes por rol', () => {
 });
 
 describe('acciones sobre imágenes', () => {
-  it('moderator edita imágenes pero NO puede archivarlas', () => {
-    // Editar el texto alternativo, reordenar y designar principal son ediciones; archivar es una
-    // transición de estado, y ese permiso no lo tiene.
-    expect(imagePermissions('moderator')).toEqual({ canEdit: true, canArchive: false });
+  it('moderator administra la galería completa, incluida la retirada de una foto', () => {
+    expect(imagePermissions('moderator')).toEqual({ canEdit: true, canArchive: true });
+    // El permiso amplio sigue separado: no puede archivar el producto ni sus variantes.
+    expect(detailPermissions('moderator').canArchive).toBe(false);
+    expect(variantPermissions('moderator').canArchive).toBe(false);
   });
 
-  it.each(['super_admin', 'master_admin'])('%s sí archiva imágenes', (role) => {
+  it.each(['super_admin', 'master_admin'])('%s sí retira imágenes', (role) => {
     expect(imagePermissions(role)).toEqual({ canEdit: true, canArchive: true });
   });
 

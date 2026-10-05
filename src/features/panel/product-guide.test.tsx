@@ -69,6 +69,12 @@ describe('41. explica los dos modos', () => {
     expect(CREATE).toContain('primera imagen que aparece en la tienda');
     expect(CREATE).toContain('son todas las demás');
   });
+
+  it('explica cómo liberar un espacio y qué pasa al quitar la portada', () => {
+    expect(EDIT).toContain('«Quitar imagen»');
+    expect(EDIT).toContain('liberar un espacio');
+    expect(EDIT).toContain('la siguiente foto pasa a ser portada automáticamente');
+  });
 });
 
 describe('42. no afirma que las imágenes sean obligatorias', () => {

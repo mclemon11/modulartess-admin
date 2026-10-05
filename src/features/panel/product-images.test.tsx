@@ -8,7 +8,7 @@ import { addToQueue, type QueuedImage } from './image-queue';
 import { IMAGE_ANCHORS } from './product-anchors';
 import { ProductImages } from './product-images';
 
-import type { AdminProduct, AdminProductImage } from '@/lib/api/catalog';
+import type { AdminProduct, AdminProductImage, AdminProductVideo } from '@/lib/api/catalog';
 
 /**
  * Portada y Galería: dos bloques, no una rejilla con una estrellita.
@@ -33,8 +33,11 @@ function image(id: string, position: number, isPrimary: boolean): AdminProductIm
   } as unknown as AdminProductImage;
 }
 
-function product(images: readonly AdminProductImage[]): AdminProduct {
-  return { id: 'prd_1', version: 3, images, variants: [] } as unknown as AdminProduct;
+function product(
+  images: readonly AdminProductImage[],
+  videos: readonly AdminProductVideo[] = [],
+): AdminProduct {
+  return { id: 'prd_1', version: 3, images, videos, variants: [] } as unknown as AdminProduct;
 }
 
 function queued(n: number, altText = `Foto ${n}`): QueuedImage {
@@ -55,6 +58,10 @@ function editHtml(images: readonly AdminProductImage[]): string {
   return renderToStaticMarkup(
     <ProductImages canArchive canEdit onProduct={noop} product={product(images)} />,
   );
+}
+
+function video(id = 'vid_1'): AdminProductVideo {
+  return { id, status: 'active', title: 'Video del producto' } as unknown as AdminProductVideo;
 }
 
 describe('25. Portada y Galería están separadas', () => {
@@ -186,6 +193,25 @@ describe('34. el límite cuenta portada y galería', () => {
 
     expect(html).toContain('10 de 10 imágenes activas');
     expect(html).toContain('has llegado al límite de 10');
+    expect(html).toContain('quita una para liberar espacio');
+    expect(html).toContain('Quitar imagen');
+    // «Cambiar portada» también suma una imagen: con el tope alcanzado lo dice y explica la salida.
+    expect(html).toContain(
+      'Has llegado al límite de 10: quita una imagen para poder agregar otra.',
+    );
+    expect(html).toMatch(/<input[^>]*disabled=""[^>]*>/);
+  });
+
+  it('con nueve activas se vuelve a poder agregar', () => {
+    const images = Array.from({ length: 9 }, (_, index) =>
+      image(`img_${index}`, index, index === 0),
+    );
+    const html = editHtml(images);
+
+    expect(html).toContain('9 de 10 imágenes activas');
+    expect(html).not.toContain('límite de 10');
+    expect(html).not.toMatch(/<input[^>]*type="file"[^>]*disabled=""/);
+    expect(html).not.toMatch(/<input[^>]*disabled=""[^>]*type="file"/);
   });
 
   /*
@@ -208,11 +234,91 @@ describe('34. el límite cuenta portada y galería', () => {
   });
 });
 
+describe('40. retirar imágenes es un flujo completo y comprensible', () => {
+  it('la portada se puede quitar y avisa qué ocurrirá con la siguiente', () => {
+    const html = editHtml([image('img_1', 0, true), image('img_2', 1, false)]);
+
+    expect(html).toContain('Quitar portada');
+    expect(html).toContain('La siguiente imagen activa pasará a ser la portada automáticamente');
+    expect(html).toContain('libera uno de los 10 espacios de la galería');
+    expect(html).toContain('no se pueden restaurar desde el panel');
+  });
+
+  it('cada foto secundaria tiene una acción llamada Quitar imagen', () => {
+    const html = editHtml([image('img_1', 0, true), image('img_2', 1, false)]);
+
+    expect(html).toContain('Quitar imagen');
+    expect(html).not.toContain('>Archivar<');
+  });
+
+  it('la única imagen explica que el producto quedará sin fotos', () => {
+    const html = editHtml([image('img_1', 0, true)]);
+
+    expect(html).toContain('El producto quedará sin imágenes hasta que agregues una nueva portada');
+  });
+
+  it('la última imagen no se puede retirar mientras un video activo dependa de ella', () => {
+    const html = renderToStaticMarkup(
+      <ProductImages
+        canArchive
+        canEdit
+        onProduct={noop}
+        product={product([image('img_1', 0, true)], [video()])}
+      />,
+    );
+
+    expect(html).toContain('No puedes quitar la única imagen mientras haya videos activos');
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Quitar portada<\/button>/);
+  });
+
+  it('la confirmación usa un diálogo accesible: nombre, descripción y Cancelar', () => {
+    const html = editHtml([image('img_1', 0, true)]);
+    const dialog = /<dialog[^>]*>[\s\S]*?<\/dialog>/.exec(html)?.[0] ?? '';
+    const labelledBy = /aria-labelledby="([^"]+)"/.exec(dialog)?.[1];
+    const describedBy = /aria-describedby="([^"]+)"/.exec(dialog)?.[1];
+
+    // Nombre y descripción apuntan a elementos que existen dentro del propio diálogo.
+    expect(labelledBy).toBeDefined();
+    expect(describedBy).toBeDefined();
+    expect(dialog).toContain(`id="${labelledBy}"`);
+    expect(dialog).toContain(`id="${describedBy}"`);
+    expect(dialog).toMatch(/<h2[^>]*>¿Quitar portada\?<\/h2>/);
+    expect(dialog).toContain('La foto saldrá del producto y de la tienda de inmediato.');
+    expect(dialog).toMatch(/<button[^>]*>Cancelar<\/button>/);
+  });
+
+  it('el diálogo solo se cierra con éxito y muestra el fallo dentro, sin cerrarse con Escape', () => {
+    const source = executable(read('src/features/panel/product-images.tsx'));
+    const confirm = /async function confirm\(\) \{[\s\S]*?\n {2}\}/.exec(source)?.[0] ?? '';
+
+    // El único `close()` del flujo de confirmación está detrás de `outcome.ok`.
+    expect(confirm).toMatch(
+      /if \(outcome\.ok\) \{\s*dialog\.current\?\.close\(\);\s*\} else \{\s*setError\(outcome\.message\);/,
+    );
+    expect(confirm.match(/close\(\)/g)).toHaveLength(1);
+    expect(source).toContain('if (removing) event.preventDefault();');
+    expect(source).toMatch(
+      /\{error === null \? null : \(\s*<p className=\{styles\.error\} role="alert">/,
+    );
+  });
+
+  it('un fallo de la retirada nunca se presenta como éxito', () => {
+    const source = executable(read('src/features/panel/product-images.tsx'));
+    const handler = /async function handleArchive\([\s\S]*?\n {2}\}/.exec(source)?.[0] ?? '';
+
+    // El éxito depende de la respuesta del backend; cualquier otra rama devuelve `ok: false`.
+    expect(handler).toContain('if (removed || result.ok) return { ok: true };');
+    expect(handler.match(/ok: true/g)).toHaveLength(1);
+    expect(handler).toContain('return { ok: false, message };');
+  });
+});
+
 describe('35 y 36. cambiar la portada no archiva la anterior', () => {
   const html = editHtml([image('img_1', 0, true), image('img_2', 1, false)]);
 
   it('se dice explícitamente', () => {
-    expect(html).toContain('la anterior no se borra ni se archiva: pasa a la galería');
+    expect(html).toContain('la anterior no se quita: pasa a la galería');
+    expect(html).not.toMatch(/archiv(?!o)/i);
   });
 
   it('una imagen existente puede pasar a ser portada', () => {

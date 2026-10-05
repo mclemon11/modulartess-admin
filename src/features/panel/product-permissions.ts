@@ -2,7 +2,7 @@
  * Permisos de la pantalla de detalle, derivados del rol.
  *
  * Se extrae de la página para poder comprobarlo sin renderizar: es la función que decide si
- * `moderator` ve «Archivar», y esa decisión merece una prueba propia.
+ * `moderator` ve cada acción, y esa decisión merece una prueba propia.
  *
  * Solo decide **qué se muestra**. La autoridad sigue siendo el backend, que rechaza cualquier
  * petición que el rol no permita aunque llegue fabricada a mano.
@@ -26,8 +26,7 @@ export function detailPermissions(role: string): DetailPermissions {
     canCreate: can(role, 'products.create'),
     canUpdate: can(role, 'products.update'),
     canPublish: can(role, 'products.publish'),
-    // Archivar —el producto, sus imágenes y sus variantes— es una transición de estado, no una
-    // edición.
+    // Este permiso solo controla el producto. Imágenes y variantes deciden el suyo por separado.
     canArchive: can(role, 'products.archive'),
     canAdjustInventory: can(role, 'inventory.adjust'),
   };
@@ -62,9 +61,9 @@ export function variantPermissions(role: string): VariantPermissions {
 /**
  * Permisos del gestor de imágenes.
  *
- * Editar el texto alternativo, reordenar y designar principal son ediciones (`products.update`);
- * archivar es una transición de estado (`products.archive`). `moderator` tiene lo primero y no lo
- * segundo, así que no puede ir en un único permiso.
+ * Subir, editar, reordenar, designar principal y retirar una foto son ediciones de la galería
+ * (`products.update`). Esto permite corregir una carga equivocada sin conceder el permiso más
+ * amplio de archivar productos o variantes.
  */
 export type ImagePermissions = {
   readonly canEdit: boolean;
@@ -74,7 +73,7 @@ export type ImagePermissions = {
 export function imagePermissions(role: string): ImagePermissions {
   return {
     canEdit: can(role, 'products.update'),
-    canArchive: can(role, 'products.archive'),
+    canArchive: can(role, 'products.update'),
   };
 }
 
