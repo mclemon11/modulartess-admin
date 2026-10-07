@@ -20,6 +20,11 @@ export const PERMISSIONS = [
   'orders.read',
   'orders.update_status',
   'orders.cancel',
+  /*
+   * Cambiar los productos de un pedido (ADR 0013). Recalcula lo que se cobra, así que no es
+   * `orders.update_status`: lo tienen `super_admin` y `master_admin`, nunca `moderator`.
+   */
+  'orders.edit_items',
   'products.read',
   'products.create',
   'products.update',
@@ -34,6 +39,13 @@ export const PERMISSIONS = [
    * desenlace de un pago son cosas distintas.
    */
   'payments.simulate',
+  /*
+   * Elegir el medio de pago de un pedido —Transferencia bancaria, Efectivo, Addi o Wompi— y
+   * registrar el desenlace de un pago manual (ADR 0028 del backend). Es una afirmación sobre
+   * dinero recibido: lo tienen `super_admin` y `master_admin`, nunca `moderator`. No es
+   * `payments.simulate`: aquí no se simula nada, y Wompi nunca admite un desenlace manual.
+   */
+  'payments.manage_manual',
   /*
    * Ver la configuración de una integración y la bandeja de incidencias.
    *
@@ -113,6 +125,8 @@ const MASTER_ADMIN: readonly Permission[] = [
   'orders.read',
   'orders.update_status',
   'orders.cancel',
+  'orders.edit_items',
+  'payments.manage_manual',
   'products.read',
   'products.create',
   'products.update',

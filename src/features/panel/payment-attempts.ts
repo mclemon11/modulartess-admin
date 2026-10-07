@@ -178,6 +178,60 @@ export function presentCheckoutState(
   };
 }
 
+/**
+ * Estado de un pago **manual** —Transferencia bancaria, Efectivo o Addi— para la tarjeta de pago.
+ *
+ * Un pago manual no tiene checkout ni intentos: decir «Pago no iniciado» de un pedido confirmado a
+ * mano sería falso. Sale del medio publicado en `paymentEditing` y de `payment.status`, nada más.
+ */
+export function presentManualPayment(
+  methodLabel: string,
+  paymentStatus: PaymentStatus,
+): CheckoutState {
+  switch (paymentStatus) {
+    case 'approved':
+      return {
+        kind: 'approved',
+        title: `Pagado por ${methodLabel}`,
+        text: 'Confirmado manualmente desde el panel.',
+        tone: 'success',
+        inconsistent: false,
+      };
+    case 'processing':
+      return {
+        kind: 'transaction_pending',
+        title: `${methodLabel}: en verificación`,
+        text: 'El pago se está verificando. Se confirma a mano desde «Editar pedido».',
+        tone: 'info',
+        inconsistent: false,
+      };
+    case 'declined':
+      return {
+        kind: 'declined',
+        title: `${methodLabel}: rechazado`,
+        text: 'Se registró como rechazado desde el panel.',
+        tone: 'danger',
+        inconsistent: false,
+      };
+    case 'voided':
+      return {
+        kind: 'voided',
+        title: `${methodLabel}: anulado`,
+        text: 'Se registró como anulado desde el panel.',
+        tone: 'warning',
+        inconsistent: false,
+      };
+    default:
+      return {
+        kind: 'not_started',
+        title: `Pago por ${methodLabel}: pendiente`,
+        text: 'Se registra a mano desde «Editar pedido». La tienda no ofrece pago en línea para este pedido.',
+        tone: 'neutral',
+        inconsistent: false,
+      };
+  }
+}
+
 /** Ambiente de un intento, en el vocabulario del proveedor (`sandbox | production`). */
 export function describeAttemptEnvironment(
   environment: AdminPaymentAttempt['environment'],

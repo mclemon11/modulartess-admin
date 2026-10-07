@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-10-04 (retirada clara de imágenes y portada desde la ficha).
+Última actualización: 2026-10-07 (edición controlada de pedidos, ADR 0013).
 
 ## Fase
 
@@ -126,7 +126,8 @@ Implementado en el repositorio y comprobado con dobles locales.
 | Ruta protegida `/panel`   | Listo     | Server Component; verifica en cada visita; solo muestra el rol.                |
 | Shell del panel           | Listo     | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión.           |
 | Catálogo de productos     | Listo     | Listado, alta, detalle, edición, publicar, archivar e inventario en dos modos. |
-| Pago del pedido           | Listo     | Estado, entorno, checkout efectivo, intentos reales e historial. Sin método.   |
+| Pago del pedido           | Listo     | Estado, entorno, checkout efectivo, intentos, historial y pago manual.         |
+| Editar pedido             | Listo     | Estado, notas, productos y pago con revisión del backend (ADR 0013).           |
 | Simulador de pago         | Listo     | Staging, `payments.simulate`, botones del backend, `eventId` en RAM.           |
 | Notificaciones            | Listo     | Tarjeta de solo lectura; sin preview ni reenvío, que no existen.               |
 | Preparación para publicar | Listo     | `publicationReadiness` del backend, traducida y enlazada por sección.          |

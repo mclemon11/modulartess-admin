@@ -97,6 +97,14 @@ function order(overrides: Partial<AdminOrder> = {}): AdminOrder {
     paymentAttempts: [attempt()],
     paymentEvents: [],
     notifications: [],
+    paymentEditing: {
+      method: 'wompi',
+      methodLabel: 'Wompi',
+      manual: false,
+      methodLocked: null,
+      statusLocked: 'payment_status_automatic',
+      manualEvents: [],
+    },
     paymentSimulationEnabled: false,
     availableSimulationEvents: [],
     paymentSummary: summary(card()),
@@ -377,5 +385,70 @@ describe('barrido de datos sensibles', () => {
     for (const needle of ['console.', 'localStorage', 'sessionStorage', 'gtag', 'dataLayer']) {
       expect(source, needle).not.toContain(needle);
     }
+  });
+});
+
+/* Pago manual (ADR 0028 del backend): sin checkout, sin intentos y sin medio informado por un proveedor. */
+describe('pago manual', () => {
+  const MANUAL = { code: 'manual', label: 'Pago manual' } as const;
+  const CASH = {
+    method: 'cash',
+    methodLabel: 'Efectivo',
+    manual: true,
+    methodLocked: 'payment_not_pending',
+    statusLocked: 'payment_settled',
+    manualEvents: [],
+  } as AdminOrder['paymentEditing'];
+
+  it('confirmado a mano: dice que está pagado y con qué medio, nunca «Pago no iniciado»', () => {
+    const html = detail(
+      order({
+        payment: { ...order().payment, status: 'approved', statusLabel: 'Pagado' },
+        paymentEditing: CASH,
+        paymentSummary: summary(null, MANUAL),
+        paymentAttempts: [],
+      }),
+    );
+
+    expect(html).toContain('Pagado por Efectivo');
+    expect(html).toContain('Confirmado manualmente desde el panel.');
+    expect(html).toContain('Efectivo');
+    expect(html).not.toContain('Pago no iniciado');
+    expect(html).not.toContain('No informado');
+    expect(html).not.toContain('Wompi');
+  });
+
+  it('pendiente con un medio manual: explica que la tienda no ofrece pago en línea', () => {
+    const html = detail(
+      order({
+        payment: {
+          ...order().payment,
+          status: 'pending',
+          statusLabel: 'Pendiente',
+          approvedAt: null,
+        },
+        paymentEditing: {
+          ...CASH,
+          method: 'bank_transfer',
+          methodLabel: 'Transferencia bancaria',
+          methodLocked: null,
+          statusLocked: null,
+          manualEvents: ['processing', 'approved', 'voided'],
+        },
+        paymentSummary: null,
+        paymentAttempts: [],
+      }),
+    );
+
+    expect(html).toContain('Pago por Transferencia bancaria: pendiente');
+    expect(html).toContain('La tienda no ofrece pago en línea para este pedido.');
+  });
+
+  it('en el listado se lee «Pago manual», sin «Medio no informado»', () => {
+    expect(compactPaymentSummary(summary(null, MANUAL))).toEqual({
+      visible: 'Pago manual',
+      spoken: 'Pago con Pago manual',
+    });
+    expect(paymentMethodFacts(MANUAL, null)).toEqual([]);
   });
 });

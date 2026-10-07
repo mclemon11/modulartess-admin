@@ -9,7 +9,14 @@
  * datos del pedido viven en memoria mientras la pantalla está abierta y desaparecen con ella.
  */
 
-import type { AdminOrder, OrderShipmentInput } from '@/lib/api/orders';
+import type {
+  AdminOrder,
+  EditOrderRequest,
+  EditOrderResult,
+  OrderShipmentInput,
+} from '@/lib/api/orders';
+
+import type { OrderPickerProduct } from './order-edit';
 
 export type OrderMutationResult =
   | { readonly ok: true; readonly data: AdminOrder }
@@ -206,5 +213,111 @@ export async function fetchOrder(orderId: string): Promise<AdminOrder | null> {
     return response.status === 200 ? ((await response.json()) as AdminOrder) : null;
   } catch {
     return null;
+  }
+}
+
+/** Resultado de la edición o de su vista previa. El fallo conserva el motivo de lista cerrada. */
+export type OrderEditResult =
+  | { readonly ok: true; readonly data: EditOrderResult }
+  | {
+      readonly ok: false;
+      readonly code: string;
+      readonly reference: string | null;
+      readonly ambiguous: boolean;
+    };
+
+const REFERENCE = /^[a-z][a-z0-9_]{0,63}$/;
+
+async function postEdit(url: string, body: EditOrderRequest): Promise<OrderEditResult> {
+  const failure = (code: string, reference: string | null = null): OrderEditResult => ({
+    ok: false,
+    code,
+    reference,
+    ambiguous: isAmbiguous(code),
+  });
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+  } catch {
+    return failure('service_unavailable');
+  }
+
+  let payload: unknown;
+
+  try {
+    payload = await response.json();
+  } catch {
+    return failure('internal_error');
+  }
+
+  if (response.status === 200) return { ok: true, data: payload as EditOrderResult };
+
+  if (typeof payload === 'object' && payload !== null) {
+    const { code, reference } = payload as { code?: unknown; reference?: unknown };
+
+    if (typeof code === 'string' && code.length > 0) {
+      return failure(
+        code,
+        typeof reference === 'string' && REFERENCE.test(reference) ? reference : null,
+      );
+    }
+  }
+
+  return failure('internal_error');
+}
+
+/** Vista previa: el backend calcula todo y no guarda nada. */
+export function previewOrderEdit(
+  orderId: string,
+  body: EditOrderRequest,
+): Promise<OrderEditResult> {
+  return postEdit(`/api/admin/orders/${encodeURIComponent(orderId)}/edit/preview`, body);
+}
+
+export function saveOrderEdit(orderId: string, body: EditOrderRequest): Promise<OrderEditResult> {
+  return postEdit(`/api/admin/orders/${encodeURIComponent(orderId)}/edit`, body);
+}
+
+export type OrderCatalogSearchResult =
+  | {
+      readonly ok: true;
+      readonly items: readonly OrderPickerProduct[];
+      readonly nextPageToken: string | null;
+    }
+  | { readonly ok: false };
+
+/** Productos publicados para agregar a un pedido. Búsqueda en el servidor, con cursor. */
+export async function searchOrderProducts(
+  q: string,
+  pageToken: string | null = null,
+): Promise<OrderCatalogSearchResult> {
+  const params = new URLSearchParams();
+
+  if (q.trim() !== '') params.set('q', q.trim());
+  if (pageToken !== null) params.set('pageToken', pageToken);
+
+  try {
+    const response = await fetch(`/api/admin/orders/catalog?${params.toString()}`, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+
+    if (!response.ok) return { ok: false };
+
+    const page = (await response.json()) as {
+      items: OrderPickerProduct[];
+      nextPageToken: string | null;
+    };
+
+    return { ok: true, items: page.items, nextPageToken: page.nextPageToken };
+  } catch {
+    return { ok: false };
   }
 }

@@ -11,14 +11,15 @@ import 'server-only';
  * `Authorization` con el identity token IAM lo pone el middleware compartido de `backendClient()`:
  * son dos canales separados y no se mezclan.
  *
- * El contrato publica **cinco** operaciones administrativas de pedido y ninguna más: listado,
- * ficha, transición de estado, cancelación y el simulador de pago de staging. No hay búsqueda, ni
- * filtros, ni contadores, ni exportación, ni edición del cliente, ni pasarela real, ni reembolso, ni
- * vista previa o reenvío de correo: lo que no está aquí es porque no está en OpenAPI.
+ * El contrato publica las operaciones administrativas de pedido que hay aquí y ninguna más:
+ * listado, ficha, transición de estado, cancelación, edición controlada —estado, notas internas y
+ * productos, con su vista previa— y el simulador de pago de staging. No hay búsqueda, ni filtros, ni
+ * exportación, ni edición del cliente, ni pasarela real, ni reembolso: lo que no está aquí es
+ * porque no está en OpenAPI.
  */
 
 import { backendClient } from './backend-client';
-import { BackendFailure, failureCodeFromStatus } from './errors';
+import { BackendFailure, failureCodeFromStatus, orderEditFailure } from './errors';
 import type { components } from './generated/schema';
 import { ADMIN_SESSION_HEADER } from './session-material';
 
@@ -43,6 +44,9 @@ export type UpdateOrderStatusRequest = components['schemas']['UpdateOrderStatusR
 export type OrderShipment = components['schemas']['OrderShipmentDto'];
 export type OrderShipmentInput = components['schemas']['OrderShipmentInputDto'];
 export type CancelOrderRequest = components['schemas']['CancelOrderRequestDto'];
+export type EditOrderRequest = components['schemas']['EditOrderRequestDto'];
+export type EditOrderResult = components['schemas']['EditOrderResultDto'];
+export type EditOrderLine = components['schemas']['CreateOrderItemDto'];
 export type StatusReminderRequest = components['schemas']['StatusReminderRequestDto'];
 export type StatusReminderResponse = components['schemas']['StatusReminderResponseDto'];
 export type SimulatePaymentRequest = components['schemas']['SimulatePaymentRequestDto'];
@@ -325,6 +329,43 @@ export async function simulateOrderPayment(
     }
 
     throw new BackendFailure(failureCodeFromStatus(status, RESOURCE));
+  }
+
+  return response.data;
+}
+
+/**
+ * Edición controlada del pedido (ADR 0028 del backend), o su vista previa.
+ *
+ * El cuerpo ya llega validado en su forma por el BFF; el backend vuelve a validarlo todo y es quien
+ * resuelve precios, envío y totales. La vista previa no escribe nada.
+ */
+export async function editOrder(
+  sessionMaterial: string,
+  orderId: string,
+  body: EditOrderRequest,
+  options: { readonly preview: boolean },
+): Promise<EditOrderResult> {
+  let response;
+
+  try {
+    response = options.preview
+      ? await backendClient().POST('/v1/admin/orders/{orderId}/edit/preview', {
+          params: { path: { orderId } },
+          body,
+          headers: sessionHeaders(sessionMaterial),
+        })
+      : await backendClient().POST('/v1/admin/orders/{orderId}/edit', {
+          params: { path: { orderId } },
+          body,
+          headers: sessionHeaders(sessionMaterial),
+        });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw orderEditFailure(response.response.status, response.error);
   }
 
   return response.data;

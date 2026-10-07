@@ -48,6 +48,9 @@ export const SESSION_ERROR_CODES = [
   'account_sync_pending',
   'refund_required',
   'shipment_invalid',
+  'order_edit_blocked',
+  'order_line_rejected',
+  'order_transition_invalid',
   'status_reminder_not_allowed',
   'notifications_unavailable',
   'payment_transition_invalid',
@@ -134,6 +137,9 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
     'Este pedido ya está pagado y cancelarlo exigiría devolver el dinero. El flujo de reembolso todavía no está disponible.',
   shipment_invalid:
     'Revisa el envío: hacen falta la transportadora, el número de guía y un enlace https de seguimiento.',
+  order_edit_blocked: 'El estado del pedido o de su pago no permite este cambio.',
+  order_line_rejected: 'Uno de los productos no se puede agregar tal como está.',
+  order_transition_invalid: 'Ese cambio de estado no está disponible desde el estado actual.',
   status_reminder_not_allowed: 'Este pedido está cancelado: no admite un recordatorio de estado.',
   notifications_unavailable:
     'La entrega de correo está apagada en este despliegue. No se registró ningún recordatorio.',
@@ -212,6 +218,9 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   account_sync_pending: 503,
   refund_required: 409,
   shipment_invalid: 400,
+  order_edit_blocked: 409,
+  order_line_rejected: 400,
+  order_transition_invalid: 409,
   status_reminder_not_allowed: 409,
   notifications_unavailable: 503,
   payment_transition_invalid: 409,
@@ -329,6 +338,12 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'refund_required';
     case 'backend_order_shipment_invalid':
       return 'shipment_invalid';
+    case 'backend_order_edit_blocked':
+      return 'order_edit_blocked';
+    case 'backend_order_line_rejected':
+      return 'order_line_rejected';
+    case 'backend_order_transition_invalid':
+      return 'order_transition_invalid';
     case 'backend_status_reminder_not_allowed':
       return 'status_reminder_not_allowed';
     case 'backend_notifications_unavailable':

@@ -388,7 +388,7 @@ describe('tipos generados', () => {
  * el contrato y se actualiza la copia, esto falla aquí en lugar de fallar en producción.
  */
 describe('pedidos administrativos', () => {
-  it('publica exactamente las seis operaciones que el panel usa', () => {
+  it('publica exactamente las ocho operaciones que el panel usa', () => {
     const operations: string[] = [];
 
     for (const [path, node] of Object.entries(contract.paths)) {
@@ -405,6 +405,8 @@ describe('pedidos administrativos', () => {
       'GET /v1/admin/orders',
       'GET /v1/admin/orders/{orderId}',
       'POST /v1/admin/orders/{orderId}/cancel',
+      'POST /v1/admin/orders/{orderId}/edit',
+      'POST /v1/admin/orders/{orderId}/edit/preview',
       'POST /v1/admin/orders/{orderId}/notifications/status-reminder',
       'POST /v1/admin/orders/{orderId}/payment-simulation',
       'POST /v1/admin/orders/{orderId}/status',
@@ -507,8 +509,11 @@ describe('pedidos administrativos', () => {
       (path) =>
         path.includes('notification') ||
         path.includes('email') ||
-        // La vista previa de envíos no es un correo: calcula una cotización y no crea nada.
-        (path.includes('preview') && path !== '/v1/admin/shipping/preview'),
+        // Las vistas previas de envíos y de la edición de un pedido no son correos: calculan y no
+        // crean nada.
+        (path.includes('preview') &&
+          path !== '/v1/admin/shipping/preview' &&
+          path !== '/v1/admin/orders/{orderId}/edit/preview'),
     );
     expect(paths).toEqual(['/v1/admin/orders/{orderId}/notifications/status-reminder']);
     expect(
@@ -970,18 +975,18 @@ describe('catálogo de categorías', () => {
   });
 });
 
-describe('contrato del backend con galería multimedia y retirada editable de imágenes', () => {
+describe('contrato del backend con la edición controlada de pedidos', () => {
   /*
    * La copia es byte a byte la de `openapi/openapi.json` del backend que permite a quien administra
    * la galería retirar una foto. Si alguien la cambia a mano o la actualiza sin regenerar, esto
    * falla aquí.
    */
-  it('la copia comiteada es exactamente la del backend con la galería multimedia', () => {
+  it('la copia comiteada es exactamente la del backend con la edición de pedidos', () => {
     const digest = createHash('sha256')
       .update(readFileSync('openapi/backend-v1.json'))
       .digest('hex');
 
-    expect(digest).toBe('47ecca7cb2560ebc0301313218198aa8a6b60d920fa9ed39540c5810975a7386');
+    expect(digest).toBe('efaba299de722fcb0bbfaf0910485d992eabd10ff011e92f6375363e64f949b6');
   });
 
   it('retirar una imagen exige products.update, sin ampliar el archivado de productos', () => {
