@@ -19,6 +19,7 @@ import {
   describePaymentEnvironment,
   presentAttempt,
   presentCheckoutState,
+  presentManualPayment,
 } from './payment-attempts';
 import { attemptPaymentFacts, paymentCardSummary, paymentMethodFacts } from './payment-method';
 import { PaymentStatusBadge } from './payment-status-badge';
@@ -392,7 +393,10 @@ export function OrderPaymentCard({
 }) {
   const { payment, paymentAttempts } = order;
   const latest = paymentAttempts[0];
-  const checkout = presentCheckoutState(paymentAttempts, payment.status, now);
+  // Un medio manual no tiene checkout: su estado se cuenta con el medio, no con los intentos.
+  const checkout = order.paymentEditing.manual
+    ? presentManualPayment(order.paymentEditing.methodLabel, payment.status)
+    : presentCheckoutState(paymentAttempts, payment.status, now);
   const charged = paymentCardSummary(order.paymentSummary, paymentAttempts);
 
   return (
@@ -415,6 +419,11 @@ export function OrderPaymentCard({
       </div>
 
       <dl className={styles.facts}>
+        {/* Un pago manual no tiene medio informado por un proveedor: es el del pedido. Con Wompi,
+            el medio lo cuentan las filas del proveedor. */}
+        {order.paymentEditing.manual ? (
+          <Fact label="Medio de pago" value={order.paymentEditing.methodLabel} />
+        ) : null}
         <Fact label="Entorno" value={describePaymentEnvironment(payment.environment)} />
         {charged === null ? null : (
           <>

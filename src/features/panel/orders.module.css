@@ -1186,3 +1186,19 @@
   border-radius: var(--radius-md);
   background-color: var(--color-panel-surface);
 }
+
+/* Notas internas del pedido: texto del equipo, con sus saltos de línea. */
+.internalNotes {
+  margin: 0 0 var(--space-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* «Editar pedido» junto a las acciones de estado; el aviso de la edición baja a su propia línea. */
+.headActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}

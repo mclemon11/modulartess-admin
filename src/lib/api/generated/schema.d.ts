@@ -371,6 +371,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/orders/{orderId}/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Edit status, internal notes, lines and payment of an order
+         * @description Changes ONLY status, internal notes, lines, payment method and the outcome of a manual payment. Customer, address, contact, payment references, Wompi data, identifiers, dates, history and amounts are not editable: the body is strict and any other field is rejected with 400. Status uses exactly the transitions AND the consequences of POST /status: the same domain rules and the same notification planner, so the same transition writes the same emails on both paths. Cancelling stays in POST /cancel. Lines are resolved against the published catalogue with checkout's rules —required variant, availability, quantity and current price— and subtotal, shipping and total are recomputed by the backend; the panel never sends an amount. A paid order only accepts line changes that keep the paid total; a pending order only while no checkout was ever opened; never with a payment in flight; never once shipped, delivered or cancelled. Payment: the method (one of the published payment methods) changes only while the payment is pending and no Wompi checkout was ever opened. Manual methods accept processing, approved, declined or voided through the existing payment state machine (source admin_manual); Wompi is always automatic. Nothing is sent to Wompi; no refund, balance, transaction or reference is created. A manual outcome cannot be combined with status or lines, so one edit writes the emails of at most one event. Atomic, with expectedVersion: a change in between answers 409 order_version_conflict. One new version per edit, audited as order.edit with actor, changed fields, totals and, for payments, method and status before and after. Requires orders.update_status for status and notes (all three roles), orders.edit_items for lines and payments.manage_manual for payments (super_admin and master_admin).
+         */
+        post: operations["AdminOrdersController_edit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/orders/{orderId}/edit/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview an order edit without saving it
+         * @description Same body, same permissions and exactly the same checks as POST /edit —version, transition, payment method and manual payment outcome, paid total, catalogue prices and shipping re-quote— but nothing is written: no new version, no audit, no email. Returns the order as it would be after the edit, so the panel can show the backend's totals before confirming.
+         */
+        post: operations["AdminOrdersController_previewEdit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/orders/{orderId}/notifications/status-reminder": {
         parameters: {
             query?: never;
@@ -1874,12 +1914,15 @@ export interface components {
             /** @description Immutable snapshot taken when the order was created. Read-only: nothing has been sent to DIAN or to an invoicing provider. */
             electronicInvoice: components["schemas"]["AdminOrderElectronicInvoiceDto"];
             id: string;
+            /** @description Internal notes written by the team from the panel. Admin only: never published to the storefront, an email or a link. Null when there are none. */
+            internalNotes: string | null;
             items: components["schemas"]["OrderLineDto"][];
             /** @description Outbox messages for this order, oldest first. Bodies and recipients are never returned. */
             notifications: components["schemas"]["AdminNotificationDto"][];
             payment: components["schemas"]["OrderPaymentDto"];
             /** @description Payment attempts opened for this order, NEWEST FIRST. Every attempt is returned regardless of its environment: they are NOT filtered by the order's payment.environment, because an order still carrying its initial value would otherwise hide a real production attempt. Empty when nobody has opened a checkout. */
             paymentAttempts: components["schemas"]["AdminPaymentAttemptDto"][];
+            paymentEditing: components["schemas"]["AdminOrderPaymentEditingDto"];
             /** @description Append-only payment history. Separate from the order timeline on purpose. */
             paymentEvents: components["schemas"]["AdminPaymentEventDto"][];
             /** @description Whether the staging payment simulator is switched on in this deployment. When false the simulation route answers as if it did not exist. */
@@ -1994,6 +2037,26 @@ export interface components {
             items: components["schemas"]["AdminOrderListItemDto"][];
             /** @description Opaque cursor for the next page, or null when there are no more. Page size defaults to 20 and tops out at 50. */
             nextPageToken: string | null;
+        };
+        AdminOrderPaymentEditingDto: {
+            /** @description false for wompi, whose status is automatic; true for every other method. */
+            manual: boolean;
+            /** @description Manual outcomes available from the current status. Empty for Wompi. */
+            manualEvents: ("processing" | "approved" | "declined" | "voided")[];
+            /** @enum {string} */
+            method: "wompi" | "addi" | "bank_transfer" | "cash";
+            /** @example Transferencia bancaria */
+            methodLabel: string;
+            /**
+             * @description Why the method cannot change now, or null when it can.
+             * @enum {string|null}
+             */
+            methodLocked: "payment_not_pending" | "checkout_opened" | null;
+            /**
+             * @description Why the payment status cannot be set manually now, or null when it can.
+             * @enum {string|null}
+             */
+            statusLocked: "payment_status_automatic" | "checkout_opened" | "payment_settled" | null;
         };
         AdminOrderPreviewLineDto: {
             /**
@@ -2122,7 +2185,7 @@ export interface components {
              * @description payment_simulator is the staging-only administrative surface; provider_webhook is the future verified gateway webhook.
              * @enum {string}
              */
-            source: "payment_simulator" | "provider_webhook" | "provider_reconciliation";
+            source: "payment_simulator" | "provider_webhook" | "provider_reconciliation" | "admin_manual";
             /** @enum {string} */
             status: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
         };
@@ -2151,7 +2214,7 @@ export interface components {
              * @example wompi
              * @enum {string}
              */
-            code: "wompi" | "simulator";
+            code: "wompi" | "simulator" | "manual";
             /** @example Wompi */
             label: string;
         };
@@ -3143,6 +3206,52 @@ export interface components {
             slug: string;
             variants: components["schemas"]["ProductVariantDto"][];
         };
+        EditOrderPaymentChangeDto: {
+            /** @enum {string} */
+            methodAfter: "wompi" | "addi" | "bank_transfer" | "cash";
+            /** @enum {string} */
+            methodBefore: "wompi" | "addi" | "bank_transfer" | "cash";
+            /** @enum {string} */
+            statusAfter: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+            /** @enum {string} */
+            statusBefore: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+        };
+        EditOrderRequestDto: {
+            /** @description Version the caller last read. */
+            expectedVersion: number;
+            /** @description Internal notes, at most 2000 characters after trimming. null or an empty string clears them. Requires orders.update_status. */
+            internalNotes?: string | null;
+            /** @description The complete list of lines after the edit: product, variant and quantity, never a price. Each line is resolved against the published catalogue with the same rules as checkout, and subtotal, shipping (re-quoted for the stored destination when the order was quoted) and total are recomputed by the backend. The same product and variant twice is rejected. Blocked with 409 order_edit_blocked when the order is shipped, delivered or cancelled (items_locked_status), a payment is in flight (payment_in_flight), a pending order ever opened a checkout (checkout_opened: its signed amount could still be approved), the new total of a paid order differs from what was paid (paid_total_changed), or the order's shipping can no longer be re-quoted (shipping_not_recalculable). Requires orders.edit_items, which moderator does not have. */
+            items?: components["schemas"]["CreateOrderItemDto"][];
+            /**
+             * @description Payment method of the order. wompi is automatic; the other methods are manual while they have no integration. Only while the payment is pending and no Wompi checkout was ever opened (order_edit_blocked payment_not_pending or checkout_opened). Moving away from Wompi stops the storefront from opening a Wompi checkout for this order (payment_checkout_not_allowed payment_method_offline) and supersedes the pending payment reminder. Requires payments.manage_manual.
+             * @enum {string}
+             */
+            paymentMethod?: "wompi" | "addi" | "bank_transfer" | "cash";
+            /**
+             * @description Manual payment outcome, applied with the existing payment state machine and recorded in the payment history with source admin_manual: processing (in verification), approved (confirmed), declined (rejected) or voided (cancelled), only when the machine allows it from the current status. Only for manual methods: a Wompi payment is always automatic (order_edit_blocked payment_status_automatic). approved moves the order to paid and writes the usual payment_approved emails; processing, declined and voided write no email, because their templates offer an online retry a manual method does not have. Cannot be combined with status or items in the same edit. Requires payments.manage_manual.
+             * @enum {string}
+             */
+            paymentStatus?: "processing" | "approved" | "declined" | "voided";
+            /** @description Required together with status=shipped and rejected otherwise (order_shipment_invalid), as in POST /status. */
+            shipment?: components["schemas"]["OrderShipmentInputDto"];
+            /**
+             * @description Target status, with exactly the transitions of POST /status: paid→preparing, preparing→ready_to_ship, ready_to_ship→shipped and shipped→delivered. Sending the current status changes nothing. Cancelling stays in POST /cancel. Same consequences as POST /status, including the same customer emails from the same planner: preparing, ready_to_ship, shipped and delivered each write one customer email and one admin email. Requires orders.update_status.
+             * @enum {string}
+             */
+            status?: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
+        };
+        EditOrderResultDto: {
+            /** @description Fields that actually change. Asking for the current value of a field does not count. */
+            changedFields: ("status" | "internalNotes" | "items" | "paymentMethod" | "paymentStatus")[];
+            /** @description Customer emails this edit writes —or would write, in a preview—, by event. At most one event per edit. */
+            customerNotifications: ("order_received" | "payment_reminder" | "payment_processing" | "payment_approved" | "payment_declined" | "payment_voided" | "payment_expired" | "payment_error" | "order_preparing" | "order_ready_to_ship" | "order_shipped" | "order_delivered" | "order_cancelled" | "order_status_reminder")[];
+            /** @description The order after the edit, or as it would be after it in a preview. */
+            order: components["schemas"]["AdminOrderDto"];
+            payment: components["schemas"]["EditOrderPaymentChangeDto"];
+            /** @description Consequences worth confirming. Blocks are not warnings: they answer 409. payment_reminder_scheduled: going back to wompi schedules a new payment reminder one hour later; nothing is sent when saving. It appears only when that reminder is (or, in a preview, would be) actually scheduled, and carries no recipient, message id or content. */
+            warnings: ("online_checkout_disabled" | "payment_reminder_superseded" | "manual_payment_confirmation" | "customer_email" | "payment_reminder_scheduled")[];
+        };
         ErrorIssueDto: {
             /** @example Invalid email address */
             message: string;
@@ -3323,6 +3432,18 @@ export interface components {
             /** @example +57 300 000 0000 */
             phone: string;
         };
+        OrderEditErrorDto: {
+            /** @example invalid_request */
+            code: string;
+            issues?: components["schemas"]["ErrorIssueDto"][];
+            /** @example The request is invalid */
+            message: string;
+            /**
+             * @description Only with code order_edit_blocked: why the edit cannot be applied.
+             * @enum {string}
+             */
+            reason?: "items_locked_status" | "payment_in_flight" | "checkout_opened" | "paid_total_changed" | "shipping_not_recalculable" | "payment_not_pending" | "payment_status_automatic" | "payment_status_transition_invalid";
+        };
         OrderLineDto: {
             attributes: components["schemas"]["ProductVariantAttributeDto"][];
             /** @example Tocador Aura */
@@ -3490,7 +3611,7 @@ export interface components {
              * @description Where approvedAt came from, WITHOUT which the date cannot be read honestly. provider_event: the instant signed inside the provider's event, which is the real approval time. reconciliation_observed: the approval was discovered by asking, and the documented query returns no approval instant, so the date is when WE observed it — an upper bound, not the provider's clock. legacy: derived from the history of an order written before the payment model. null when there is no approval.
              * @enum {string|null}
              */
-            approvedAtSource: "provider_event" | "reconciliation_observed" | "legacy" | null;
+            approvedAtSource: "provider_event" | "reconciliation_observed" | "legacy" | "manual_confirmation" | null;
             /**
              * @description Payment attempts opened so far. 0 while nobody has tried to pay.
              * @example 0
@@ -3592,7 +3713,7 @@ export interface components {
              * @description Closed reason. order_cancelled and order_not_pending_payment: the order no longer accepts a payment. payment_already_approved: it is already paid, and a new checkout would be a duplicate charge. payment_in_progress: the provider has a live transaction for it; wait for its outcome. attempt_not_reconstructable: the open attempt predates the stored checkout combination and cannot be reopened. It is re-evaluated inside the same atomic operation that opens the attempt, so an approval that lands between the order read and the opening is still refused.
              * @enum {string}
              */
-            reason?: "order_cancelled" | "order_not_pending_payment" | "payment_already_approved" | "payment_in_progress" | "attempt_not_reconstructable";
+            reason?: "order_cancelled" | "order_not_pending_payment" | "payment_already_approved" | "payment_in_progress" | "attempt_not_reconstructable" | "payment_method_offline";
         };
         PaymentIncidentDto: {
             /** @description Our attempt, if identified. */
@@ -6416,6 +6537,166 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_edit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated internal identifier, not the human-readable publicId. */
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditOrderRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditOrderResultDto"];
+                };
+            };
+            /** @description order_request_invalid (unknown field, empty edit, nothing changes, notes too long, duplicate line, unknown paymentMethod or paymentStatus, paymentStatus combined with status or items), order_shipment_invalid, order_product_unavailable, order_variant_required, order_variant_unavailable or order_out_of_stock */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_version_conflict (reload), order_transition_invalid, order_edit_blocked with its reason, or order_shipping_unavailable */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderEditErrorDto"];
+                };
+            };
+            /** @description order_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_previewEdit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Backend-generated internal identifier, not the human-readable publicId. */
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditOrderRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditOrderResultDto"];
+                };
+            };
+            /** @description Same as POST /edit */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description Same as POST /edit */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderEditErrorDto"];
                 };
             };
             /** @description order_unavailable */

@@ -11,6 +11,8 @@
  * - Una tarjeta es «Tarjeta». Crédito o débito aparece **solo** si el backend publica `cardType`,
  *   porque el proveedor no siempre permite distinguirlo.
  * - El simulador tiene su propio proveedor y no dice Wompi en ningún sitio.
+ * - Un pago manual (`manual`, ADR 0028 del backend) no tiene medio informado por un proveedor: su
+ *   medio es el del pedido, que la tarjeta enseña aparte, y nunca se dice «No informado».
  * - La terminación se enseña como `•••• 1234` y se lee como «terminada en 1234».
  *
  * Módulo puro.
@@ -54,7 +56,9 @@ export function paymentMethodFacts(
   method: AdminPaymentMethod | null,
 ): readonly PaymentFact[] {
   if (method === null) {
-    return [{ label: 'Medio de pago', value: notReportedBy(provider) }];
+    return provider.code === 'manual'
+      ? []
+      : [{ label: 'Medio de pago', value: notReportedBy(provider) }];
   }
 
   const facts: PaymentFact[] = [{ label: 'Medio de pago', value: method.label }];
@@ -132,7 +136,7 @@ export function compactPaymentSummary(summary: AdminPaymentSummary): {
   const provider = summary.provider.label;
   const method = summary.paymentMethod;
 
-  if (summary.provider.code === 'simulator') {
+  if (summary.provider.code === 'simulator' || summary.provider.code === 'manual') {
     return { visible: provider, spoken: `Pago con ${provider}` };
   }
 

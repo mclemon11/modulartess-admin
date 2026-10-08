@@ -5,6 +5,7 @@ import { useState } from 'react';
 import catalog from './catalog.module.css';
 import { formatDateTime } from './format';
 import { OrderActionsBar } from './order-actions-bar';
+import { OrderEditControl } from './order-edit-dialog';
 import {
   OrderActivityCard,
   OrderAddressCard,
@@ -73,7 +74,10 @@ export function OrderDetailView({
             {order.items.length === 1 ? '' : 's'}
           </p>
         </div>
-        <OrderActionsBar onUpdated={setOrder} order={order} role={role} />
+        <div className={styles.headActions}>
+          <OrderEditControl onUpdated={setOrder} order={order} role={role} />
+          <OrderActionsBar onUpdated={setOrder} order={order} role={role} />
+        </div>
       </header>
 
       <div className={styles.detailGrid}>
@@ -88,6 +92,15 @@ export function OrderDetailView({
           </section>
 
           <OrderProductsCard order={order} />
+          <section className={`${catalog.card} ${catalog.cardPad}`}>
+            <SectionHeading icon="estado" title="Notas internas" />
+            {order.internalNotes === null ? (
+              <p className={catalog.hint}>Sin notas. Se agregan con «Editar pedido».</p>
+            ) : (
+              <p className={styles.internalNotes}>{order.internalNotes}</p>
+            )}
+            <p className={catalog.hint}>Solo las ve el equipo en el panel.</p>
+          </section>
           <OrderActivityCard order={order} />
           <OrderNotificationsCard
             order={order}

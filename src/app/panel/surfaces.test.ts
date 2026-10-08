@@ -321,11 +321,19 @@ describe('detalle del pedido', () => {
     'Imprimir pedido',
     'Ver perfil',
     'Ver en mapa',
-    'Notas internas',
     'Observaciones del cliente',
     'Canal de venta',
   ])('no monta «%s», que no tiene contrato', (needle) => {
     expect(rendered(ORDER_DETAIL) + rendered(ORDER_CARDS)).not.toContain(needle);
+  });
+
+  /*
+   * «Notas internas» sí existe desde ADR 0013: el contrato publica `AdminOrderDto.internalNotes` y
+   * la operación que las escribe. La tarjeta se monta porque hay contrato, no como adorno.
+   */
+  it('monta «Notas internas» porque el contrato las publica', () => {
+    expect(rendered(ORDER_DETAIL)).toContain('Notas internas');
+    expect(rendered(ORDER_DETAIL)).toContain('order.internalNotes');
   });
 
   /*

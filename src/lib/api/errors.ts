@@ -36,6 +36,13 @@ export const BACKEND_FAILURE_CODES = [
    */
   'backend_order_shipment_invalid',
   /**
+   * Edición de pedidos (ADR 0028 del backend). `order_edit_blocked` lleva su motivo de una lista
+   * cerrada en `reference`; las líneas rechazadas por el catálogo llevan el código del backend.
+   */
+  'backend_order_edit_blocked',
+  'backend_order_line_rejected',
+  'backend_order_transition_invalid',
+  /**
    * 409 `order_status_reminder_not_allowed`: el pedido está cancelado y no admite un recordatorio
    * de estado. Recargar no lo cambia, así que tiene su propio texto.
    */
@@ -533,4 +540,44 @@ export function listingFailure(
   }
 
   return failure;
+}
+
+/** Códigos de línea que el backend usa al resolver productos contra el catálogo. */
+const ORDER_LINE_CODES: ReadonlySet<string> = new Set([
+  'order_product_unavailable',
+  'order_variant_required',
+  'order_variant_unavailable',
+  'order_out_of_stock',
+  'order_shipping_unavailable',
+]);
+
+/**
+ * Traduce una respuesta fallida de la edición de un pedido a un fallo estable.
+ *
+ * Distingue lo que el panel tiene que explicar de forma distinta: conflicto de versión (recargar),
+ * bloqueo con su motivo, transición inexistente, línea rechazada por el catálogo y datos de envío
+ * inválidos. El resto cae al estado HTTP. Ningún texto del backend viaja: solo identificadores.
+ */
+export function orderEditFailure(status: number, error: unknown): BackendFailure {
+  const code = upstreamErrorCode(error);
+
+  if (code === 'order_version_conflict') return new BackendFailure('backend_conflict');
+  if (code === 'order_edit_blocked') {
+    const reason =
+      typeof error === 'object' && error !== null && 'reason' in error
+        ? safeErrorReference((error as { reason: unknown }).reason)
+        : null;
+
+    return new BackendFailure('backend_order_edit_blocked', reason);
+  }
+  if (code === 'order_transition_invalid') {
+    return new BackendFailure('backend_order_transition_invalid');
+  }
+  if (code === 'order_shipment_invalid')
+    return new BackendFailure('backend_order_shipment_invalid');
+  if (code !== null && ORDER_LINE_CODES.has(code)) {
+    return new BackendFailure('backend_order_line_rejected', code);
+  }
+
+  return new BackendFailure(failureCodeFromStatus(status, { notFound: 'backend_not_found' }), code);
 }
