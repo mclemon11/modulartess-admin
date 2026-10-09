@@ -1925,6 +1925,8 @@ export interface components {
             paymentEditing: components["schemas"]["AdminOrderPaymentEditingDto"];
             /** @description Append-only payment history. Separate from the order timeline on purpose. */
             paymentEvents: components["schemas"]["AdminPaymentEventDto"][];
+            /** @description Manual reconciliation of the payment (ADR 0029), separate from the provider attempt, which stays in paymentAttempts and paymentEvents exactly as Wompi reported it. null when the order was never reconciled. */
+            paymentReconciliation: components["schemas"]["AdminOrderPaymentReconciliationDto"] | null;
             /** @description Whether the staging payment simulator is switched on in this deployment. When false the simulation route answers as if it did not exist. */
             paymentSimulationEnabled: boolean;
             /** @description How the approved payment was made: provider, environment and safe method summary. null while the payment is not approved. The per-attempt detail is in paymentAttempts. */
@@ -2009,6 +2011,8 @@ export interface components {
             id: string;
             /** @description Total number of lines in the order. The panel subtracts one from it to say "and N more products"; the backend does not compose that text. */
             itemCount: number;
+            /** @description Current manual reconciliation (ADR 0029), so a row can show the provider attempt and the final payment apart. null when the order was never reconciled. */
+            paymentReconciliation: components["schemas"]["AdminOrderPaymentReconciliationSummaryDto"] | null;
             /**
              * @description Payment state, so the list can tell a pending order from a declined one without opening each. It is already in the order document: the row costs no extra read.
              * @enum {string}
@@ -2052,11 +2056,87 @@ export interface components {
              * @enum {string|null}
              */
             methodLocked: "payment_not_pending" | "checkout_opened" | null;
+            /** @description Manual reconciliation (ADR 0029). Requires payments.manage_manual. */
+            reconciliation: components["schemas"]["AdminOrderReconciliationEditingDto"];
             /**
              * @description Why the payment status cannot be set manually now, or null when it can.
              * @enum {string|null}
              */
             statusLocked: "payment_status_automatic" | "checkout_opened" | "payment_settled" | null;
+        };
+        AdminOrderPaymentReconciliationConflictDto: {
+            /** Format: date-time */
+            detectedAt: string;
+            /**
+             * @description duplicate_approval: Wompi approved after the team recorded the payment through another method (possible duplicate charge). provider_approved_after_reconciliation: Wompi approved after the team recorded unpaid or failed.
+             * @enum {string}
+             */
+            kind: "duplicate_approval" | "provider_approved_after_reconciliation";
+            /** @example Posible pago duplicado */
+            kindLabel: string;
+        };
+        AdminOrderPaymentReconciliationDto: {
+            conflicts: components["schemas"]["AdminOrderPaymentReconciliationConflictDto"][];
+            current: components["schemas"]["AdminOrderPaymentReconciliationEntryDto"];
+            /** @description Every reconciliation, newest first. Append-only. */
+            entries: components["schemas"]["AdminOrderPaymentReconciliationEntryDto"][];
+            reviewRequired: boolean;
+            /**
+             * @description The current reconciliation status, or review_required while there is a conflict.
+             * @enum {string}
+             */
+            status: "pending" | "unpaid" | "failed" | "paid" | "review_required";
+            /** @example Revisión requerida */
+            statusLabel: string;
+        };
+        AdminOrderPaymentReconciliationEntryDto: {
+            /** @example master_admin */
+            actorRole: string;
+            actorUid: string;
+            externalPaymentId: string | null;
+            /** @enum {string} */
+            finalMethod: "wompi" | "addi" | "bank_transfer" | "cash";
+            /** @example Transferencia bancaria */
+            finalMethodLabel: string;
+            id: string;
+            /**
+             * @description external_channel: paid through another method. manual_confirmation: Wompi is kept and a person marked it paid — NOT a Wompi confirmation. administrative_outcome: pending, unpaid or failed.
+             * @enum {string}
+             */
+            kind: "external_channel" | "manual_confirmation" | "administrative_outcome";
+            /** @example Pago por otro medio */
+            kindLabel: string;
+            /** @description Team note. Admin-only: never sent to the storefront, an email or the audit log. */
+            note: string | null;
+            /** @description Order version this reconciliation produced. */
+            orderVersion: number;
+            /** @enum {string} */
+            originalMethod: "wompi" | "addi" | "bank_transfer" | "cash";
+            /** @example Wompi */
+            originalMethodLabel: string;
+            /** @enum {string} */
+            paymentStatusAfter: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+            /** @enum {string} */
+            paymentStatusBefore: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+            /** @description Local number of the provider attempt this reconciliation left untouched; null when no checkout was ever opened. */
+            preservedAttemptNumber: number | null;
+            /** Format: date-time */
+            recordedAt: string;
+            /** @enum {string} */
+            status: "pending" | "unpaid" | "failed" | "paid";
+            /** @example Pagado */
+            statusLabel: string;
+        };
+        AdminOrderPaymentReconciliationSummaryDto: {
+            /** @enum {string} */
+            finalMethod: "wompi" | "addi" | "bank_transfer" | "cash";
+            /** @example Transferencia bancaria */
+            finalMethodLabel: string;
+            reviewRequired: boolean;
+            /** @enum {string} */
+            status: "pending" | "unpaid" | "failed" | "paid" | "review_required";
+            /** @example Pagado */
+            statusLabel: string;
         };
         AdminOrderPreviewLineDto: {
             /**
@@ -2073,6 +2153,20 @@ export interface components {
             quantity: number;
             /** @example TOCADOR-AURA-80-ROBLE */
             sku: string;
+        };
+        AdminOrderReconciliationEditingDto: {
+            externalPaymentIdRequiredFor: ("pending" | "unpaid" | "failed" | "paid")[];
+            /**
+             * @description Why the payment cannot be reconciled now, or null when it can.
+             * @enum {string|null}
+             */
+            locked: "payment_confirmed_by_provider" | "reconciliation_payment_settled" | "reconciliation_order_closed" | null;
+            methods: ("wompi" | "addi" | "bank_transfer" | "cash")[];
+            /** @description true when the reconciliation involves Wompi: the note is then required. */
+            noteRequired: boolean;
+            /** @description true when a Wompi checkout was ever opened: its attempt is shown read-only and preserved. */
+            providerAttemptPreserved: boolean;
+            statuses: ("pending" | "unpaid" | "failed" | "paid")[];
         };
         AdminOrderShippingAppliedDto: {
             /** @description Cost of this group; null while pending a manual quote. */
@@ -3216,6 +3310,24 @@ export interface components {
             /** @enum {string} */
             statusBefore: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
         };
+        EditOrderReconciliationInputDto: {
+            /** @description Explicit confirmation. POST /edit rejects a reconciliation without confirmed: true (order_reconciliation_invalid confirmation_required); the preview ignores it. */
+            confirmed?: boolean;
+            /** @description Identifier of the payment in the external channel (marketplace order, bank transfer or receipt number). Required for paid. */
+            externalPaymentId?: string | null;
+            /**
+             * @description Method the payment was finally made with. Keeping wompi with paid records a manual confirmation, never presented as a Wompi confirmation.
+             * @enum {string}
+             */
+            finalMethod: "wompi" | "addi" | "bank_transfer" | "cash";
+            /** @description Team note, at most 1000 characters after trimming. Required whenever Wompi is involved: original or final method, or a checkout ever opened. */
+            note?: string | null;
+            /**
+             * @description pending: being handled, the payment does not change. unpaid: payment declined. failed: payment error. paid: approved; the order moves to paid with the existing state machine and the usual payment confirmation email is written. Only paid writes a customer email.
+             * @enum {string}
+             */
+            status: "pending" | "unpaid" | "failed" | "paid";
+        };
         EditOrderRequestDto: {
             /** @description Version the caller last read. */
             expectedVersion: number;
@@ -3228,6 +3340,8 @@ export interface components {
              * @enum {string}
              */
             paymentMethod?: "wompi" | "addi" | "bank_transfer" | "cash";
+            /** @description Manual reconciliation of the payment (ADR 0029), alone in its edit (order_request_invalid otherwise). The provider attempt —method, transaction, Wompi status, reference, webhooks and history— is never modified: the reconciliation is recorded apart, with a new payment history entry (source admin_manual, reasonCode manual_reconciliation) tied to the preserved attempt. Nothing is sent to Wompi or any other provider; nothing is charged, cancelled or refunded. Blocked with 409 order_edit_blocked when Wompi really confirmed the payment (payment_confirmed_by_provider: that requires the refund or review flow), when it was already confirmed manually (reconciliation_payment_settled) or when the order is cancelled or no longer waiting for payment (reconciliation_order_closed). 400 order_reconciliation_invalid with its reason when the note or the external payment id is missing or malformed, or confirmed is not true on POST /edit. Idempotent: repeating the request that produced the current version returns the stored result with replayed: true and writes nothing. A later Wompi approval is never ignored or applied silently over it: it is recorded on its attempt and the order is marked review_required. Requires payments.manage_manual (super_admin and master_admin). */
+            paymentReconciliation?: components["schemas"]["EditOrderReconciliationInputDto"];
             /**
              * @description Manual payment outcome, applied with the existing payment state machine and recorded in the payment history with source admin_manual: processing (in verification), approved (confirmed), declined (rejected) or voided (cancelled), only when the machine allows it from the current status. Only for manual methods: a Wompi payment is always automatic (order_edit_blocked payment_status_automatic). approved moves the order to paid and writes the usual payment_approved emails; processing, declined and voided write no email, because their templates offer an online retry a manual method does not have. Cannot be combined with status or items in the same edit. Requires payments.manage_manual.
              * @enum {string}
@@ -3243,14 +3357,16 @@ export interface components {
         };
         EditOrderResultDto: {
             /** @description Fields that actually change. Asking for the current value of a field does not count. */
-            changedFields: ("status" | "internalNotes" | "items" | "paymentMethod" | "paymentStatus")[];
+            changedFields: ("status" | "internalNotes" | "items" | "paymentMethod" | "paymentStatus" | "paymentReconciliation")[];
             /** @description Customer emails this edit writes —or would write, in a preview—, by event. At most one event per edit. */
             customerNotifications: ("order_received" | "payment_reminder" | "payment_processing" | "payment_approved" | "payment_declined" | "payment_voided" | "payment_expired" | "payment_error" | "order_preparing" | "order_ready_to_ship" | "order_shipped" | "order_delivered" | "order_cancelled" | "order_status_reminder")[];
             /** @description The order after the edit, or as it would be after it in a preview. */
             order: components["schemas"]["AdminOrderDto"];
             payment: components["schemas"]["EditOrderPaymentChangeDto"];
+            /** @description true when the request repeated the reconciliation that produced the current version: nothing was written and the stored result is returned. */
+            replayed: boolean;
             /** @description Consequences worth confirming. Blocks are not warnings: they answer 409. payment_reminder_scheduled: going back to wompi schedules a new payment reminder one hour later; nothing is sent when saving. It appears only when that reminder is (or, in a preview, would be) actually scheduled, and carries no recipient, message id or content. */
-            warnings: ("online_checkout_disabled" | "payment_reminder_superseded" | "manual_payment_confirmation" | "customer_email" | "payment_reminder_scheduled")[];
+            warnings: ("online_checkout_disabled" | "payment_reminder_superseded" | "manual_payment_confirmation" | "customer_email" | "payment_reminder_scheduled" | "provider_record_preserved" | "provider_attempt_open" | "possible_duplicate_payment")[];
         };
         ErrorIssueDto: {
             /** @example Invalid email address */
@@ -3442,7 +3558,7 @@ export interface components {
              * @description Only with code order_edit_blocked: why the edit cannot be applied.
              * @enum {string}
              */
-            reason?: "items_locked_status" | "payment_in_flight" | "checkout_opened" | "paid_total_changed" | "shipping_not_recalculable" | "payment_not_pending" | "payment_status_automatic" | "payment_status_transition_invalid";
+            reason?: "items_locked_status" | "payment_in_flight" | "checkout_opened" | "paid_total_changed" | "shipping_not_recalculable" | "payment_not_pending" | "payment_status_automatic" | "payment_status_transition_invalid" | "payment_confirmed_by_provider" | "reconciliation_payment_settled" | "reconciliation_order_closed";
         };
         OrderLineDto: {
             attributes: components["schemas"]["ProductVariantAttributeDto"][];
@@ -3633,6 +3749,18 @@ export interface components {
             statusLabel: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        OrderReconciliationErrorDto: {
+            /** @example invalid_request */
+            code: string;
+            issues?: components["schemas"]["ErrorIssueDto"][];
+            /** @example The request is invalid */
+            message: string;
+            /**
+             * @description Only with code order_reconciliation_invalid: which field to fix.
+             * @enum {string}
+             */
+            reason?: "status_invalid" | "method_invalid" | "note_invalid" | "note_too_long" | "note_required" | "external_payment_id_invalid" | "external_payment_id_too_long" | "external_payment_id_required" | "confirmation_required";
         };
         OrderShipmentDto: {
             /** @example Servientrega */
@@ -6574,13 +6702,13 @@ export interface operations {
                     "application/json": components["schemas"]["EditOrderResultDto"];
                 };
             };
-            /** @description order_request_invalid (unknown field, empty edit, nothing changes, notes too long, duplicate line, unknown paymentMethod or paymentStatus, paymentStatus combined with status or items), order_shipment_invalid, order_product_unavailable, order_variant_required, order_variant_unavailable or order_out_of_stock */
+            /** @description order_request_invalid (unknown field, empty edit, nothing changes, notes too long, duplicate line, unknown paymentMethod or paymentStatus, paymentStatus combined with status or items, paymentReconciliation combined with any other field), order_reconciliation_invalid with its reason (see OrderReconciliationErrorDto), order_shipment_invalid, order_product_unavailable, order_variant_required, order_variant_unavailable or order_out_of_stock */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponseDto"];
+                    "application/json": components["schemas"]["OrderReconciliationErrorDto"];
                 };
             };
             /** @description admin_session_required */
@@ -6660,7 +6788,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponseDto"];
+                    "application/json": components["schemas"]["OrderReconciliationErrorDto"];
                 };
             };
             /** @description admin_session_required */

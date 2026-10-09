@@ -35,6 +35,7 @@ function summary(overrides: Partial<AdminOrderListItem> = {}): AdminOrderListIte
     createdAt: '2026-09-05T15:24:00.000Z',
     updatedAt: '2026-09-05T19:30:00.000Z',
     paymentSummary: null,
+    paymentReconciliation: null,
     ...overrides,
   } as AdminOrderListItem;
 }

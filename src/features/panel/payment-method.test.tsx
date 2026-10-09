@@ -398,6 +398,14 @@ describe('pago manual', () => {
     methodLocked: 'payment_not_pending',
     statusLocked: 'payment_settled',
     manualEvents: [],
+    reconciliation: {
+      locked: 'reconciliation_payment_settled',
+      statuses: [],
+      methods: [],
+      noteRequired: false,
+      externalPaymentIdRequiredFor: ['paid'],
+      providerAttemptPreserved: false,
+    },
   } as AdminOrder['paymentEditing'];
 
   it('confirmado a mano: dice que está pagado y con qué medio, nunca «Pago no iniciado»', () => {

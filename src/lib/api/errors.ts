@@ -41,6 +41,11 @@ export const BACKEND_FAILURE_CODES = [
    */
   'backend_order_edit_blocked',
   'backend_order_line_rejected',
+  /**
+   * 400 `order_reconciliation_invalid` (ADR 0029 del backend): la conciliación está incompleta o mal
+   * escrita. Su motivo, de una lista cerrada, viaja en `reference`.
+   */
+  'backend_order_reconciliation_invalid',
   'backend_order_transition_invalid',
   /**
    * 409 `order_status_reminder_not_allowed`: el pedido está cancelado y no admite un recordatorio
@@ -569,6 +574,14 @@ export function orderEditFailure(status: number, error: unknown): BackendFailure
         : null;
 
     return new BackendFailure('backend_order_edit_blocked', reason);
+  }
+  if (code === 'order_reconciliation_invalid') {
+    const reason =
+      typeof error === 'object' && error !== null && 'reason' in error
+        ? safeErrorReference((error as { reason: unknown }).reason)
+        : null;
+
+    return new BackendFailure('backend_order_reconciliation_invalid', reason);
   }
   if (code === 'order_transition_invalid') {
     return new BackendFailure('backend_order_transition_invalid');

@@ -508,6 +508,24 @@
   color: var(--color-panel-muted);
 }
 
+/* Pago final según la conciliación manual (ADR 0014), debajo del medio de pago. */
+.reconciliationLine,
+.reconciliationReview {
+  display: block;
+  margin-top: 0.125rem;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+}
+
+.reconciliationLine {
+  color: var(--color-panel-muted);
+}
+
+.reconciliationReview {
+  color: var(--color-state-danger-fg);
+  font-weight: 600;
+}
+
 .orderCardPayment {
   display: flex;
   flex-wrap: wrap;
@@ -1201,4 +1219,26 @@
   align-items: flex-start;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+/* Intento original y pago final en la tarjeta de pago (ADR 0014). */
+.reconciledPayment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: var(--space-sm) 0;
+  padding: var(--space-sm) 0;
+  border-top: 1px solid var(--color-panel-border);
+  border-bottom: 1px solid var(--color-panel-border);
+}
+
+.reconciledReview {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-state-danger-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-state-danger-bg);
+  color: var(--color-state-danger-fg);
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }

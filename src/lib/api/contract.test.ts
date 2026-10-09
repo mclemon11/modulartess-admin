@@ -981,12 +981,33 @@ describe('contrato del backend con la edición controlada de pedidos', () => {
    * la galería retirar una foto. Si alguien la cambia a mano o la actualiza sin regenerar, esto
    * falla aquí.
    */
-  it('la copia comiteada es exactamente la del backend con la edición de pedidos', () => {
+  it('la copia comiteada es exactamente la del backend con la conciliación manual de pagos', () => {
     const digest = createHash('sha256')
       .update(readFileSync('openapi/backend-v1.json'))
       .digest('hex');
 
-    expect(digest).toBe('efaba299de722fcb0bbfaf0910485d992eabd10ff011e92f6375363e64f949b6');
+    expect(digest).toBe('4de84c8610f8f91b535176dab15faac6fce655808dafb86cb9aaa01cf7d60285');
+  });
+
+  /*
+   * Conciliación manual (ADR 0029 del backend): el panel envía la conciliación sola en
+   * `paymentReconciliation`, lee la vigente en la ficha y un resumen por fila en el listado.
+   */
+  it('publica la conciliación manual que usa el panel', () => {
+    const schemas = contract.components.schemas;
+
+    expect(Object.keys(schemas.EditOrderReconciliationInputDto!.properties ?? {}).sort()).toEqual([
+      'confirmed',
+      'externalPaymentId',
+      'finalMethod',
+      'note',
+      'status',
+    ]);
+    expect(schemas.EditOrderRequestDto!.properties).toHaveProperty('paymentReconciliation');
+    expect(schemas.AdminOrderDto!.properties).toHaveProperty('paymentReconciliation');
+    expect(schemas.AdminOrderListItemDto!.properties).toHaveProperty('paymentReconciliation');
+    expect(schemas.AdminOrderPaymentEditingDto!.properties).toHaveProperty('reconciliation');
+    expect(schemas.EditOrderResultDto!.properties).toHaveProperty('replayed');
   });
 
   it('retirar una imagen exige products.update, sin ampliar el archivado de productos', () => {

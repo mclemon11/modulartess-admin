@@ -56,7 +56,16 @@ const ORDER = {
     methodLocked: 'payment_not_pending',
     statusLocked: 'payment_status_automatic',
     manualEvents: [],
+    reconciliation: {
+      locked: 'payment_confirmed_by_provider',
+      statuses: [],
+      methods: [],
+      noteRequired: true,
+      externalPaymentIdRequiredFor: ['paid'],
+      providerAttemptPreserved: false,
+    },
   },
+  paymentReconciliation: null,
   internalNotes: null,
   subtotalCop: 2_900_000,
   shippingCop: 0,
@@ -439,7 +448,9 @@ describe('pago', () => {
 
     expect(methodLockReason(opened)).toMatch(/Wompi/);
     expect(manualEventsOffered(opened, 'cash')).toEqual([]);
-    expect(statusLockReason(opened, 'cash')).toMatch(/no se puede registrar un pago manual/);
+    // Con un checkout abierto, el pago se registra en «Conciliación manual» (ADR 0014).
+    expect(statusLockReason(opened, 'cash')).toMatch(/Conciliación manual/);
+    expect(methodLockReason(opened)).toMatch(/Conciliación manual/);
   });
 
   it('un desenlace de pago va en su propia edición', () => {
@@ -581,7 +592,9 @@ describe('pago', () => {
     const source = readFileSync('src/features/panel/order-edit-dialog.tsx', 'utf8');
 
     expect(source).toContain("canManagePayments={can(role, 'payments.manage_manual')}");
-    expect(source).toContain("if (step.request.paymentStatus === 'approved') {");
+    expect(source).toContain(
+      "if (step.reconciliation || step.request.paymentStatus === 'approved') {",
+    );
     expect(source).toContain("setStep({ ...step, kind: 'confirm' });");
     expect(source).toContain('Sí, confirmar pago');
     expect(source).toContain('Tu rol no permite cambiar el medio ni el estado del pago.');

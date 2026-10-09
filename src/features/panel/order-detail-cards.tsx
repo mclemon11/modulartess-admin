@@ -22,6 +22,8 @@ import {
   presentManualPayment,
 } from './payment-attempts';
 import { attemptPaymentFacts, paymentCardSummary, paymentMethodFacts } from './payment-method';
+import { finalPaymentLine, originalAttemptLine } from './payment-reconciliation';
+import { describeRole } from '@/features/session/role-labels';
 import { PaymentStatusBadge } from './payment-status-badge';
 import styles from './orders.module.css';
 import { SectionHeading } from './section-icon';
@@ -418,6 +420,9 @@ export function OrderPaymentCard({
         {checkout.text === null ? null : <p className={styles.checkoutText}>{checkout.text}</p>}
       </div>
 
+      {/* Ausente con un backend anterior a ADR 0029: la tarjeta queda como siempre. */}
+      {order.paymentReconciliation == null ? null : <ReconciledPayment now={now} order={order} />}
+
       <dl className={styles.facts}>
         {/* Un pago manual no tiene medio informado por un proveedor: es el del pedido. Con Wompi,
             el medio lo cuentan las filas del proveedor. */}
@@ -470,6 +475,47 @@ export function OrderPaymentCard({
         <p className={styles.sandboxNote}>Entorno de pruebas. No se realizó un cobro real.</p>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * Intento original y pago final, **separados** (ADR 0014). El intento es lo que reportó Wompi y
+ * sigue en su estado; el pago final es lo que registró el equipo. «Revisión requerida» se anuncia
+ * como alerta: Wompi reportó un pago que contradice la conciliación.
+ */
+function ReconciledPayment({
+  order,
+  now,
+}: {
+  readonly order: AdminOrder;
+  readonly now: number | null;
+}) {
+  const reconciliation = order.paymentReconciliation;
+
+  if (reconciliation == null) return null;
+  const attempt = originalAttemptLine(order.paymentAttempts, now);
+  const final = finalPaymentLine(reconciliation);
+
+  return (
+    <div className={styles.reconciledPayment}>
+      {reconciliation.reviewRequired ? (
+        <p className={styles.reconciledReview} role="alert">
+          Revisión requerida:{' '}
+          {reconciliation.conflicts.map((conflict) => conflict.kindLabel).join(' · ')}.
+        </p>
+      ) : null}
+      <dl className={styles.facts}>
+        {attempt === null ? null : <Fact label="Intento original" value={attempt.title} />}
+        <Fact label={final.title} value={final.text} />
+        {reconciliation.current.externalPaymentId === null ? null : (
+          <Fact label="Referencia" value={reconciliation.current.externalPaymentId} />
+        )}
+        <Fact
+          label="Conciliado el"
+          value={`${formatDateTime(reconciliation.current.recordedAt)} · ${describeRole(reconciliation.current.actorRole)}`}
+        />
+      </dl>
+    </div>
   );
 }
 

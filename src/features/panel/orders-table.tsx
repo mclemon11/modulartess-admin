@@ -3,7 +3,7 @@ import Link from 'next/link';
 import catalog from './catalog.module.css';
 import { formatDateTime } from './format';
 import { formatCop } from './money';
-import { OrderPaymentSummary } from './order-payment-summary';
+import { OrderPaymentSummary, OrderReconciliationLine } from './order-payment-summary';
 import { OrderPreviewThumb } from './order-preview-thumb';
 import { extraLabel, unitLabel } from './order-preview';
 import { OrderStatusBadge } from './order-status-badge';
@@ -100,6 +100,7 @@ function OrderRow({ order }: { readonly order: AdminOrderListItem }) {
       </td>
       <td className={styles.paymentSummaryCell}>
         <OrderPaymentSummary summary={order.paymentSummary} />
+        <OrderReconciliationLine summary={order.paymentReconciliation} />
       </td>
       <td>
         <OrderStatusBadge label={order.statusLabel} status={order.status} />

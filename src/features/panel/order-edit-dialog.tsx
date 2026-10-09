@@ -39,14 +39,35 @@ import {
   type OrderPickerProduct,
 } from './order-edit';
 import { describePaymentStatus } from './payment-status';
+import {
+  confirmedReconciliation,
+  externalIdRequired,
+  finalPaymentLine,
+  noteRequired,
+  originalAttemptLine,
+  PROVIDER_RECORD_NOTICE,
+  RECONCILIATION_EXTERNAL_ID_MAX,
+  RECONCILIATION_METHOD_LABELS,
+  RECONCILIATION_NOTE_MAX,
+  RECONCILIATION_STATUS_LABELS,
+  reconciliationDraftOf,
+  reconciliationLockReason,
+  reconciliationProblem,
+  reconciliationRequestOf,
+  reconciliationSummary,
+  type ReconciliationDraft,
+  type ReconciliationMethod,
+  type ReconciliationStatus,
+} from './payment-reconciliation';
 import styles from './order-edit.module.css';
 import { previewOrderEdit, saveOrderEdit, searchOrderProducts } from './orders-client';
 
 /**
- * «Editar pedido»: estado, notas internas, productos y pago (ADR 0013 del panel).
+ * «Editar pedido»: estado, notas internas, productos, pago y conciliación (ADR 0013 y 0014 del panel).
  *
- * Pasos dentro de un `<dialog>` modal: **editar**, **revisar** y, solo al confirmar un pago manual,
- * **confirmar**. Revisar llama a la vista previa del backend, que aplica todas las reglas y calcula
+ * Pasos dentro de un `<dialog>` modal: **editar**, **revisar** y, al confirmar un pago manual o
+ * registrar una conciliación, **confirmar**. La conciliación se guarda sola y nunca toca el intento
+ * de Wompi, que se enseña aparte y solo para leer. Revisar llama a la vista previa del backend, que aplica todas las reglas y calcula
  * precios, envío y total; el resumen enseña esos importes, el pago antes y después y los correos que
  * recibirá el cliente, tal como los devuelve el backend. Guardar envía exactamente lo revisado, con
  * la versión que se leyó, y la ficha se sustituye con lo que devuelve el backend.
@@ -117,6 +138,8 @@ export function OrderEditControl({
 
 type Review = {
   readonly request: EditOrderRequest;
+  /** La revisión es de una conciliación (ADR 0014): otra confirmación, otro texto. */
+  readonly reconciliation: boolean;
   readonly rows: readonly ChangeRow[];
   readonly total: number;
   /** Lo que se dice de los correos: el resumen o, si se programa, el aviso del recordatorio. */
@@ -172,7 +195,15 @@ function OrderEditDialog({
     order.paymentEditing.method,
   );
   const [paymentStatus, setPaymentStatus] = useState<ManualPaymentEvent | null>(null);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconciliation, setReconciliation] = useState<ReconciliationDraft>(() =>
+    reconciliationDraftOf(order),
+  );
+  // El reloj con el que se presenta el intento original: el de la apertura del diálogo.
+  const [openedAt] = useState(() => Date.now());
   const itemsEditable = canEditItems && itemsEditableFromDetail(order);
+  // Mientras se concilia, el resto del formulario queda quieto: la conciliación se guarda sola.
+  const othersDisabled = busy !== null || reconciling;
 
   function close() {
     dialog.current?.close();
@@ -200,7 +231,56 @@ function OrderEditDialog({
     );
   }
 
+  /** Revisión de una conciliación: sola, con su propia comprobación previa y su propio resumen. */
+  async function reviewReconciliation() {
+    if (draftRequest() !== null) {
+      setFailure({
+        message:
+          'La conciliación se guarda sola. Deshaz los demás cambios del formulario o guárdalos en otra edición.',
+        conflict: false,
+      });
+      return;
+    }
+    const problem = reconciliationProblem(order.paymentEditing.reconciliation, reconciliation);
+
+    if (problem !== null) {
+      setFailure({ message: problem, conflict: false });
+      return;
+    }
+    const request = reconciliationRequestOf(order, reconciliation);
+
+    if (!acquire(lock.current)) return;
+    setBusy('preview');
+    setFailure(null);
+
+    const result = await previewOrderEdit(order.id, request);
+
+    release(lock.current);
+    setBusy(null);
+
+    if (!result.ok) {
+      setFailure({
+        message: describeEditFailure(result.code, result.reference),
+        conflict: result.code === 'version_conflict',
+      });
+      return;
+    }
+    setStep({
+      kind: 'review',
+      reconciliation: true,
+      request,
+      rows: reconciliationSummary(order, result.data),
+      total: result.data.order.totalCop,
+      emails: emailNotice(result.data),
+      warnings: describeWarnings(result.data.warnings),
+    });
+  }
+
   async function review() {
+    if (reconciling) {
+      await reviewReconciliation();
+      return;
+    }
     const request = draftRequest();
 
     if (request === null) {
@@ -231,6 +311,7 @@ function OrderEditDialog({
     }
     setStep({
       kind: 'review',
+      reconciliation: false,
       request,
       rows: changeSummary(order, result.data),
       total: result.data.order.totalCop,
@@ -244,7 +325,8 @@ function OrderEditDialog({
     setBusy('save');
     setFailure(null);
 
-    const result = await saveOrderEdit(order.id, request);
+    // La conciliación se envía con la confirmación explícita que exige guardar.
+    const result = await saveOrderEdit(order.id, confirmedReconciliation(request));
 
     release(lock.current);
     setBusy(null);
@@ -296,15 +378,23 @@ function OrderEditDialog({
             {step.kind === 'edit'
               ? `Editar pedido ${order.publicId}`
               : step.kind === 'review'
-                ? 'Revisa los cambios'
-                : 'Confirmar pago manual'}
+                ? step.reconciliation
+                  ? 'Revisa la conciliación'
+                  : 'Revisa los cambios'
+                : step.reconciliation
+                  ? 'Confirmar conciliación'
+                  : 'Confirmar pago manual'}
           </h2>
           <p className={catalog.hint} id={leadId}>
             {step.kind === 'edit'
               ? 'Se pueden cambiar el estado, las notas internas, los productos y el pago. Cliente y dirección no se editan aquí.'
               : step.kind === 'review'
-                ? 'Los importes y el pago los calculó el servidor con las reglas vigentes.'
-                : 'Confirma solo si verificaste que el dinero llegó. Queda registrado con tu nombre y la fecha.'}
+                ? step.reconciliation
+                  ? `El resultado lo calculó el servidor con las reglas vigentes. ${PROVIDER_RECORD_NOTICE}`
+                  : 'Los importes y el pago los calculó el servidor con las reglas vigentes.'
+                : step.reconciliation
+                  ? 'Confirma solo si verificaste el pago por el canal indicado. Queda registrado con tu nombre y la fecha.'
+                  : 'Confirma solo si verificaste que el dinero llegó. Queda registrado con tu nombre y la fecha.'}
           </p>
         </header>
 
@@ -324,7 +414,7 @@ function OrderEditDialog({
                 </label>
                 <select
                   className={catalog.input}
-                  disabled={busy !== null}
+                  disabled={othersDisabled}
                   id={`${id}-status`}
                   onChange={(event) => setStatus(event.target.value)}
                   value={status}
@@ -380,7 +470,7 @@ function OrderEditDialog({
                 <textarea
                   aria-describedby={`${id}-notes-hint`}
                   className={catalog.textarea}
-                  disabled={busy !== null}
+                  disabled={othersDisabled}
                   id={`${id}-notes`}
                   maxLength={ORDER_NOTES_MAX}
                   onChange={(event) => setNotes(event.target.value)}
@@ -397,7 +487,12 @@ function OrderEditDialog({
             <fieldset className={styles.fieldset}>
               <legend className={catalog.label}>Productos</legend>
               {itemsEditable ? (
-                <LinesEditor busy={busy !== null} idPrefix={id} lines={lines} onChange={setLines} />
+                <LinesEditor
+                  busy={othersDisabled}
+                  idPrefix={id}
+                  lines={lines}
+                  onChange={setLines}
+                />
               ) : (
                 <>
                   <ul className={styles.readonlyLines}>
@@ -422,7 +517,7 @@ function OrderEditDialog({
             </fieldset>
 
             <PaymentFieldset
-              busy={busy !== null}
+              busy={othersDisabled}
               canManage={canManagePayments}
               idPrefix={id}
               method={paymentMethod}
@@ -434,6 +529,22 @@ function OrderEditDialog({
               onStatusChange={setPaymentStatus}
               order={order}
               status={paymentStatus}
+            />
+
+            <OriginalAttemptFieldset now={openedAt} order={order} />
+
+            <ReconciliationFieldset
+              active={reconciling}
+              busy={busy !== null}
+              canManage={canManagePayments}
+              draft={reconciliation}
+              idPrefix={id}
+              onActiveChange={(active) => {
+                setFailure(null);
+                setReconciling(active);
+              }}
+              onDraftChange={setReconciliation}
+              order={order}
             />
 
             <FailureMessage failure={failure} onReload={() => router.refresh()} />
@@ -448,10 +559,46 @@ function OrderEditDialog({
                 Cancelar
               </button>
               <button className={catalog.buttonPrimary} disabled={busy !== null} type="submit">
-                {busy === 'preview' ? 'Calculando…' : 'Revisar cambios'}
+                {busy === 'preview'
+                  ? 'Calculando…'
+                  : reconciling
+                    ? 'Revisar conciliación'
+                    : 'Revisar cambios'}
               </button>
             </div>
           </form>
+        ) : step.kind === 'confirm' && step.reconciliation ? (
+          <div className={styles.form}>
+            <ReconciliationConfirmBox
+              order={order}
+              request={step.request}
+              emails={step.emails.text}
+            />
+
+            <FailureMessage failure={failure} onReload={() => router.refresh()} />
+
+            <div className={styles.footer}>
+              <button
+                className={catalog.buttonSecondary}
+                disabled={busy !== null}
+                onClick={() => {
+                  setFailure(null);
+                  setStep({ ...step, kind: 'review' });
+                }}
+                type="button"
+              >
+                Volver
+              </button>
+              <button
+                className={catalog.buttonPrimary}
+                disabled={busy !== null}
+                onClick={() => void save(step.request)}
+                type="button"
+              >
+                {busy === 'save' ? 'Guardando…' : 'Sí, registrar conciliación'}
+              </button>
+            </div>
+          </div>
         ) : step.kind === 'confirm' ? (
           <div className={styles.form}>
             <div className={styles.confirmBox}>
@@ -502,7 +649,11 @@ function OrderEditDialog({
                 aria-describedby={step.emails.reminder ? `${id}-reminder` : undefined}
                 className={styles.summary}
               >
-                <caption className={styles.caption}>Cambios que se guardarán</caption>
+                <caption className={styles.caption}>
+                  {step.reconciliation
+                    ? 'Conciliación que se registrará'
+                    : 'Cambios que se guardarán'}
+                </caption>
                 <thead>
                   <tr>
                     <th scope="col">Campo</th>
@@ -565,8 +716,8 @@ function OrderEditDialog({
                 className={catalog.buttonPrimary}
                 disabled={busy !== null}
                 onClick={() => {
-                  // Confirmar un pago manual pasa siempre por una confirmación explícita.
-                  if (step.request.paymentStatus === 'approved') {
+                  // Confirmar un pago manual o conciliar pasa siempre por una confirmación explícita.
+                  if (step.reconciliation || step.request.paymentStatus === 'approved') {
                     setFailure(null);
                     setStep({ ...step, kind: 'confirm' });
                     return;
@@ -577,7 +728,7 @@ function OrderEditDialog({
               >
                 {busy === 'save'
                   ? 'Guardando…'
-                  : step.request.paymentStatus === 'approved'
+                  : step.reconciliation || step.request.paymentStatus === 'approved'
                     ? 'Continuar'
                     : 'Guardar cambios'}
               </button>
@@ -586,6 +737,278 @@ function OrderEditDialog({
         )}
       </div>
     </dialog>
+  );
+}
+
+/**
+ * «Intento de pago original»: lo que reportó Wompi, **solo para leer**. Nunca un control: la
+ * conciliación no lo modifica y el panel no lo presenta como editable. Sin referencia ni
+ * transacción: no se publican.
+ */
+function OriginalAttemptFieldset({
+  order,
+  now,
+}: {
+  readonly order: AdminOrder;
+  readonly now: number;
+}) {
+  const attempt = originalAttemptLine(order.paymentAttempts, now);
+
+  if (attempt === null) return null;
+  const latest = order.paymentAttempts[0];
+
+  return (
+    <fieldset className={styles.fieldset}>
+      <legend className={catalog.label}>Intento de pago original</legend>
+      <div className={styles.readonlyBox}>
+        <p className={styles.readonlyTitle}>{attempt.title}</p>
+        {attempt.text === null ? null : <p className={catalog.hint}>{attempt.text}</p>}
+        <dl className={styles.paymentNow}>
+          <div>
+            <dt>Intentos</dt>
+            <dd>{order.paymentAttempts.length}</dd>
+          </div>
+          <div>
+            <dt>Transacción</dt>
+            <dd>{latest?.hasTransactionId === true ? 'Registrada' : 'Sin transacción'}</dd>
+          </div>
+        </dl>
+        <p className={catalog.hint}>Solo lectura: es el registro de Wompi y no se modifica.</p>
+      </div>
+    </fieldset>
+  );
+}
+
+/**
+ * «Conciliación manual»: lo que el equipo constató por otro canal. Editable solo con
+ * `payments.manage_manual` y cuando el backend no la bloquea. Se guarda sola.
+ */
+function ReconciliationFieldset({
+  order,
+  canManage,
+  active,
+  draft,
+  onActiveChange,
+  onDraftChange,
+  busy,
+  idPrefix,
+}: {
+  readonly order: AdminOrder;
+  readonly canManage: boolean;
+  readonly active: boolean;
+  readonly draft: ReconciliationDraft;
+  readonly onActiveChange: (active: boolean) => void;
+  readonly onDraftChange: (draft: ReconciliationDraft) => void;
+  readonly busy: boolean;
+  readonly idPrefix: string;
+}) {
+  // Ausentes con un backend anterior a ADR 0029 (por ejemplo, tras un rollback): no hay sección.
+  const editing = order.paymentEditing.reconciliation as
+    AdminOrder['paymentEditing']['reconciliation'] | undefined;
+  const current = order.paymentReconciliation ?? null;
+
+  if (editing === undefined) return null;
+  const locked = reconciliationLockReason(editing);
+  const statusId = `${idPrefix}-rec-status`;
+  const methodId = `${idPrefix}-rec-method`;
+  const externalId = `${idPrefix}-rec-external`;
+  const noteId = `${idPrefix}-rec-note`;
+  const needsExternalId = externalIdRequired(editing, draft.status);
+  const needsNote = noteRequired(editing, draft);
+
+  return (
+    <fieldset className={styles.fieldset}>
+      <legend className={catalog.label}>Conciliación manual</legend>
+
+      {current === null ? null : (
+        <div className={styles.readonlyBox}>
+          <p className={styles.readonlyTitle}>{finalPaymentLine(current).title}</p>
+          <p>{finalPaymentLine(current).text}</p>
+          {current.current.externalPaymentId === null ? null : (
+            <p className={catalog.hint}>Referencia: {current.current.externalPaymentId}</p>
+          )}
+        </div>
+      )}
+
+      {current?.reviewRequired === true ? (
+        <div className={styles.reviewAlert} role="alert">
+          <strong>Revisión requerida.</strong> Wompi reportó un pago después de la conciliación.
+          <ul>
+            {current.conflicts.map((conflict) => (
+              <li key={`${conflict.kind}-${conflict.detectedAt}`}>{conflict.kindLabel}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {!canManage ? (
+        <p className={catalog.hint}>Tu rol no permite conciliar pagos.</p>
+      ) : locked !== null ? (
+        <p className={catalog.hint}>{locked}</p>
+      ) : (
+        <>
+          <label className={styles.toggle}>
+            <input
+              checked={active}
+              disabled={busy}
+              onChange={(event) => onActiveChange(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Registrar una conciliación manual</span>
+          </label>
+          {active ? (
+            <>
+              {editing.providerAttemptPreserved ? (
+                <p className={styles.info} role="note">
+                  {PROVIDER_RECORD_NOTICE} El intento original se conserva tal como lo reportó
+                  Wompi.
+                </p>
+              ) : null}
+              <p className={catalog.hint}>
+                La conciliación se guarda sola, sin otros cambios del pedido. No se envía nada a
+                Wompi ni a Addi, y no se cobra ni se devuelve nada.
+              </p>
+              <div className={styles.reconciliationGrid}>
+                <div className={catalog.field}>
+                  <label className={catalog.label} htmlFor={statusId}>
+                    Estado final
+                  </label>
+                  <select
+                    className={catalog.input}
+                    disabled={busy}
+                    id={statusId}
+                    onChange={(event) =>
+                      onDraftChange({
+                        ...draft,
+                        status: event.target.value as ReconciliationStatus,
+                      })
+                    }
+                    value={draft.status}
+                  >
+                    {editing.statuses.map((value) => (
+                      <option key={value} value={value}>
+                        {RECONCILIATION_STATUS_LABELS[value]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className={catalog.field}>
+                  <label className={catalog.label} htmlFor={methodId}>
+                    Medio final
+                  </label>
+                  <select
+                    className={catalog.input}
+                    disabled={busy}
+                    id={methodId}
+                    onChange={(event) =>
+                      onDraftChange({
+                        ...draft,
+                        finalMethod: event.target.value as ReconciliationMethod,
+                      })
+                    }
+                    value={draft.finalMethod}
+                  >
+                    {editing.methods.map((value) => (
+                      <option key={value} value={value}>
+                        {RECONCILIATION_METHOD_LABELS[value]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className={catalog.field}>
+                <label className={catalog.label} htmlFor={externalId}>
+                  Referencia externa{' '}
+                  {needsExternalId ? (
+                    <span className={styles.required}>(obligatoria)</span>
+                  ) : (
+                    <span className={catalog.hint}>(opcional)</span>
+                  )}
+                </label>
+                <input
+                  aria-describedby={`${externalId}-hint`}
+                  className={catalog.input}
+                  disabled={busy}
+                  id={externalId}
+                  maxLength={RECONCILIATION_EXTERNAL_ID_MAX}
+                  onChange={(event) =>
+                    onDraftChange({ ...draft, externalPaymentId: event.target.value })
+                  }
+                  required={needsExternalId}
+                  type="text"
+                  value={draft.externalPaymentId}
+                />
+                <p className={catalog.hint} id={`${externalId}-hint`}>
+                  El identificador del pago en Addi Marketplace, del banco o el número del recibo.
+                </p>
+              </div>
+              <div className={catalog.field}>
+                <label className={catalog.label} htmlFor={noteId}>
+                  Nota{' '}
+                  {needsNote ? (
+                    <span className={styles.required}>(obligatoria)</span>
+                  ) : (
+                    <span className={catalog.hint}>(opcional)</span>
+                  )}
+                </label>
+                <textarea
+                  aria-describedby={`${noteId}-hint`}
+                  className={catalog.textarea}
+                  disabled={busy}
+                  id={noteId}
+                  maxLength={RECONCILIATION_NOTE_MAX}
+                  onChange={(event) => onDraftChange({ ...draft, note: event.target.value })}
+                  required={needsNote}
+                  rows={3}
+                  value={draft.note}
+                />
+                <p className={catalog.hint} id={`${noteId}-hint`}>
+                  Explica qué pasó y cómo se verificó. Solo la ve el equipo. {draft.note.length} de{' '}
+                  {RECONCILIATION_NOTE_MAX}.
+                </p>
+              </div>
+            </>
+          ) : null}
+        </>
+      )}
+    </fieldset>
+  );
+}
+
+/** Lo que se va a registrar, en una frase destacada, antes del «Sí» definitivo. */
+function ReconciliationConfirmBox({
+  order,
+  request,
+  emails,
+}: {
+  readonly order: AdminOrder;
+  readonly request: EditOrderRequest;
+  readonly emails: string;
+}) {
+  const reconciliation = request.paymentReconciliation;
+
+  if (reconciliation === undefined) return null;
+
+  return (
+    <div className={styles.confirmBox}>
+      <p>
+        Vas a registrar el pedido {order.publicId} como{' '}
+        <strong>{RECONCILIATION_STATUS_LABELS[reconciliation.status]}</strong> por{' '}
+        <strong>{RECONCILIATION_METHOD_LABELS[reconciliation.finalMethod]}</strong>
+        {reconciliation.externalPaymentId == null ? (
+          ''
+        ) : (
+          <>
+            {' '}
+            con la referencia <strong>{reconciliation.externalPaymentId}</strong>
+          </>
+        )}
+        .
+      </p>
+      <p className={catalog.hint}>
+        {PROVIDER_RECORD_NOTICE} {emails} No se crea ningún cobro, devolución ni transacción.
+      </p>
+    </div>
   );
 }
 

@@ -50,6 +50,7 @@ export const SESSION_ERROR_CODES = [
   'shipment_invalid',
   'order_edit_blocked',
   'order_line_rejected',
+  'order_reconciliation_invalid',
   'order_transition_invalid',
   'status_reminder_not_allowed',
   'notifications_unavailable',
@@ -139,6 +140,8 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
     'Revisa el envío: hacen falta la transportadora, el número de guía y un enlace https de seguimiento.',
   order_edit_blocked: 'El estado del pedido o de su pago no permite este cambio.',
   order_line_rejected: 'Uno de los productos no se puede agregar tal como está.',
+  order_reconciliation_invalid:
+    'Revisa la conciliación: falta un dato o alguno no tiene un formato válido.',
   order_transition_invalid: 'Ese cambio de estado no está disponible desde el estado actual.',
   status_reminder_not_allowed: 'Este pedido está cancelado: no admite un recordatorio de estado.',
   notifications_unavailable:
@@ -220,6 +223,7 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   shipment_invalid: 400,
   order_edit_blocked: 409,
   order_line_rejected: 400,
+  order_reconciliation_invalid: 400,
   order_transition_invalid: 409,
   status_reminder_not_allowed: 409,
   notifications_unavailable: 503,
@@ -342,6 +346,8 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'order_edit_blocked';
     case 'backend_order_line_rejected':
       return 'order_line_rejected';
+    case 'backend_order_reconciliation_invalid':
+      return 'order_reconciliation_invalid';
     case 'backend_order_transition_invalid':
       return 'order_transition_invalid';
     case 'backend_status_reminder_not_allowed':

@@ -15,6 +15,11 @@ import type {
 } from '@/lib/api/orders';
 
 import { describeNotificationEvent } from './notification-labels';
+import {
+  parseReconciliation,
+  PROVIDER_RECORD_NOTICE,
+  RECONCILIATION_INVALID_MESSAGES,
+} from './payment-reconciliation';
 import { parseShipmentInput } from './order-input';
 import { describePaymentStatus } from './payment-status';
 
@@ -132,7 +137,7 @@ export function methodLockReason(editing: PaymentEditing): string | null {
     case 'payment_not_pending':
       return 'El medio de pago solo se puede cambiar mientras el pago está pendiente.';
     case 'checkout_opened':
-      return 'Ya se abrió un pago de Wompi para este pedido: el medio de pago no se puede cambiar.';
+      return 'Ya se abrió un pago de Wompi para este pedido: el medio de pago no se puede cambiar aquí. Si se pagó por otro medio, regístralo en «Conciliación manual».';
     default:
       return null;
   }
@@ -146,7 +151,7 @@ export function statusLockReason(
   if (!isManualMethod(draftMethod)) return WOMPI_AUTOMATIC;
   if (manualEventsOffered(editing, draftMethod).length > 0) return null;
   if (editing.statusLocked === 'checkout_opened' || editing.methodLocked === 'checkout_opened') {
-    return 'Ya se abrió un pago de Wompi para este pedido: no se puede registrar un pago manual.';
+    return 'Ya se abrió un pago de Wompi para este pedido: el estado se registra en «Conciliación manual».';
   }
   return 'El pago ya tiene un desenlace definitivo y no admite otro cambio manual.';
 }
@@ -162,6 +167,7 @@ const ALLOWED_KEYS = new Set([
   'items',
   'paymentMethod',
   'paymentStatus',
+  'paymentReconciliation',
 ]);
 
 /**
@@ -264,6 +270,14 @@ export function parseOrderEdit(raw: unknown): EditOrderRequest | null {
       return null;
     }
     result.paymentStatus = body.paymentStatus as ManualPaymentEvent;
+  }
+
+  // La conciliación (ADR 0029 del backend) va sola en su edición, como exige el backend.
+  if (body.paymentReconciliation !== undefined) {
+    const reconciliation = parseReconciliation(body.paymentReconciliation);
+
+    if (reconciliation === undefined || Object.keys(result).length > 1) return null;
+    result.paymentReconciliation = reconciliation;
   }
 
   return Object.keys(result).length > 1 ? result : null;
@@ -540,6 +554,11 @@ const WARNINGS: Readonly<Record<EditOrderResult['warnings'][number], string>> = 
     'Confirmas que el dinero se recibió por este medio. Queda registrado con tu nombre.',
   customer_email: 'El cliente recibirá un correo con esta novedad.',
   payment_reminder_scheduled: PAYMENT_REMINDER_SCHEDULED_TEXT,
+  provider_record_preserved: `${PROVIDER_RECORD_NOTICE} El intento se conserva tal como lo reportó Wompi.`,
+  provider_attempt_open:
+    'El intento de Wompi todavía podría aprobarse. Si lo hace, quedará registrado y el pedido pasará a «Revisión requerida» como posible pago duplicado.',
+  possible_duplicate_payment:
+    'Este pedido ya tiene un posible pago duplicado en revisión. Revisa la bandeja de incidencias antes de seguir.',
 };
 
 /** Las que ya cuenta `emailNotice` y no se repiten en la lista. */
@@ -564,7 +583,7 @@ const BLOCK_MESSAGES: Readonly<Record<string, string>> = {
   payment_in_flight:
     'Hay un pago en curso en Wompi para este pedido. Espera a que termine antes de cambiar los productos.',
   checkout_opened:
-    'Ya se abrió un pago de Wompi para este pedido. Mientras tanto no se pueden cambiar los productos ni el medio de pago, ni registrar un pago manual; si hace falta otro pedido, cancélalo y que la persona compre de nuevo.',
+    'Ya se abrió un pago de Wompi para este pedido. No se pueden cambiar los productos ni el medio de pago desde aquí; si se pagó por otro medio, regístralo en «Conciliación manual».',
   paid_total_changed:
     'Este pedido ya está pagado y el cambio dejaría un total distinto del pagado. No se crean reembolsos ni saldos: elige un cambio que conserve el total.',
   shipping_not_recalculable:
@@ -573,6 +592,12 @@ const BLOCK_MESSAGES: Readonly<Record<string, string>> = {
   payment_status_automatic: `${WOMPI_AUTOMATIC}: no se registra a mano.`,
   payment_status_transition_invalid:
     'Ese estado de pago no está disponible desde el estado actual. Recarga el pedido para ver las opciones vigentes.',
+  payment_confirmed_by_provider:
+    'Wompi confirmó este pago. No se concilia a mano: deshacerlo exige el flujo de devolución o revisión.',
+  reconciliation_payment_settled:
+    'Este pago ya se confirmó manualmente. Corregirlo exige una revisión; no se revierte desde aquí.',
+  reconciliation_order_closed:
+    'Este pedido está cancelado o ya no espera el pago: no se puede conciliar a ese estado.',
 };
 
 const LINE_MESSAGES: Readonly<Record<string, string>> = {
@@ -598,6 +623,11 @@ export function describeEditFailure(code: string, reference: string | null): str
       return (
         (reference === null ? undefined : LINE_MESSAGES[reference]) ??
         'Uno de los productos no se puede agregar tal como está.'
+      );
+    case 'order_reconciliation_invalid':
+      return (
+        (reference === null ? undefined : RECONCILIATION_INVALID_MESSAGES[reference]) ??
+        'Revisa la conciliación: falta un dato o alguno no tiene un formato válido.'
       );
     case 'order_transition_invalid':
       return 'Ese cambio de estado no está disponible desde el estado actual.';

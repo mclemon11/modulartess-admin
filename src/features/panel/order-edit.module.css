@@ -349,9 +349,77 @@
   margin: 0;
 }
 
+/*
+ * Conciliación manual (ADR 0014). El intento original se lee en una caja neutra, sin controles: es
+ * el registro de Wompi y no se toca. La conciliación es el único bloque editable del pago.
+ */
+.readonlyBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px dashed var(--color-panel-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-panel-subtle);
+  overflow-wrap: anywhere;
+}
+
+.readonlyBox p {
+  margin: 0;
+}
+
+.readonlyTitle {
+  font-weight: 600;
+  color: var(--color-panel-text);
+}
+
+/* «Revisión requerida»: un conflicto con Wompi que alguien tiene que mirar. */
+.reviewAlert {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-state-danger-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-state-danger-bg);
+  color: var(--color-state-danger-fg);
+  overflow-wrap: anywhere;
+}
+
+.reviewAlert ul {
+  margin: var(--space-xs) 0 0;
+  padding-left: 1.1rem;
+}
+
+.toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  color: var(--color-panel-text);
+  font-weight: 600;
+}
+
+.toggle input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 0.15rem;
+  flex: none;
+}
+
+.reconciliationGrid {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.required {
+  color: var(--color-state-danger-fg);
+}
+
 @media (min-width: 48rem) {
   .shipment {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .reconciliationGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .lineRow {

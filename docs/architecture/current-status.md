@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-10-07 (edición controlada de pedidos, ADR 0013).
+Última actualización: 2026-10-09 (conciliación manual del pago, ADR 0014).
 
 ## Fase
 
@@ -108,49 +108,50 @@ Esto es lo que ya existe fuera de este repositorio, y no debe describirse como p
 
 Implementado en el repositorio y comprobado con dobles locales.
 
-| Área                      | Estado    | Detalle                                                                        |
-| ------------------------- | --------- | ------------------------------------------------------------------------------ |
-| Copia OpenAPI             | Listo     | `openapi/backend-v1.json`, comiteada; build y runtime solo de ahí.             |
-| Tipos generados           | Listo     | `src/lib/api/generated/schema.d.ts`; `pnpm api:check` los valida.              |
-| Cliente del backend       | Listo     | `openapi-fetch` tipado, `server-only`, `no-store` y temporizador.              |
-| Identity token IAM        | Listo     | `google-auth-library`, caché por audiencia con retirada en fallo.              |
-| `POST` del BFF            | Listo     | Origin exacto, `application/json`, cuerpo en bytes UTF-8, `201`.               |
-| `GET` del BFF             | Listo     | Verifica contra el backend. **Solo lectura**: nunca emite cookie.              |
-| `DELETE` del BFF          | Listo     | Origin exacto, borra la cookie, `204`. Independiente del backend.              |
-| Limpieza de sesión        | Listo     | Frontera cliente: `DELETE` y navegación solo tras el `204`.                    |
-| Validación de orígenes    | Listo     | HTTPS salvo loopback; audiencia igual a la URL en `google-oidc`.               |
-| `expiresAt`               | Listo     | RFC 3339 estricto con zona explícita; sin `Date.parse` permisivo.              |
-| Cookie de sesión          | Listo     | `__Host-`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`.                  |
-| Integración con el login  | Listo     | ID token reciente, canje y cierre de Firebase tras el canje.                   |
-| Cierre de la sesión SDK   | Listo     | Si `signOut` falla, `location.replace` destruye el documento.                  |
-| Ruta protegida `/panel`   | Listo     | Server Component; verifica en cada visita; solo muestra el rol.                |
-| Shell del panel           | Listo     | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión.           |
-| Catálogo de productos     | Listo     | Listado, alta, detalle, edición, publicar, archivar e inventario en dos modos. |
-| Pago del pedido           | Listo     | Estado, entorno, checkout efectivo, intentos, historial y pago manual.         |
-| Editar pedido             | Listo     | Estado, notas, productos y pago con revisión del backend (ADR 0013).           |
-| Simulador de pago         | Listo     | Staging, `payments.simulate`, botones del backend, `eventId` en RAM.           |
-| Notificaciones            | Listo     | Tarjeta de solo lectura; sin preview ni reenvío, que no existen.               |
-| Preparación para publicar | Listo     | `publicationReadiness` del backend, traducida y enlazada por sección.          |
-| Precio en pesos           | Listo     | Se escribe y se lee `$ 1.450.000`; viaja el entero `1450000`.                  |
-| Navegación                | Listo     | Cinco secciones, marca real y bloque de sesión en el shell.                    |
-| Dashboard comercial       | Listo     | `GET /v1/admin/dashboard/summary`; período en la URL; sin cifras propias.      |
-| Integraciones (Wompi)     | Listo     | Ambiente, cuatro llaves y guardar. Secretos write-only. Incidencias aparte.    |
-| Zonas de envío            | Listo     | ADR 0010: zonas, cobertura DIVIPOLA, tarifas, productos, vista previa.         |
-| Wallet                    | Anunciada | Pantalla «Próximamente»: su contrato no existe todavía.                        |
-| Catálogo enriquecido      | Listo     | Clasificación, contenido visible y detalles adicionales, separados.            |
-| Editor editorial          | Listo     | Topes de 180, 3000, 5 × 60; contadores, «Opcional» y orden real.               |
-| Variantes                 | Listo     | Ejes, combinaciones, precio, inventario por modo y archivado por variante.     |
-| Imágenes de producto      | Listo     | Subir, editar, ordenar, elegir portada y retirar con confirmación.             |
-| Alta completa             | Listo     | Un envío: crea el borrador, enriquece, sube y crea variantes.                  |
-| Reanudación tras fallo    | Listo     | No recrea nada guardado; reintenta solo lo que falta.                          |
-| Catálogo de categorías    | Listo     | Listar, buscar, filtrar, crear, renombrar, archivar y reactivar.               |
-| Selector de categoría     | Listo     | Solo activas; alta en línea; archivadas históricas visibles y conservadas.     |
-| Conflictos del catálogo   | Listo     | SKU, slug y versión por separado; desconocidos con referencia.                 |
-| Editor de producto        | Listo     | Nombre arriba, pestañas «Datos del producto», barra lateral fija con sitio.    |
-| Shell responsive          | Listo     | Sidebar fija en escritorio; cajón por debajo de 60rem.                         |
-| Mutaciones por BFF        | Listo     | Nueve Route Handlers; el navegador no llama al backend.                        |
-| Permisos por rol          | Listo     | Matriz explícita en `src/features/session/permissions.ts`.                     |
-| ADR local del BFF         | Listo     | `../decisions/0003-admin-session-bff.md`.                                      |
+| Área                      | Estado    | Detalle                                                                             |
+| ------------------------- | --------- | ----------------------------------------------------------------------------------- |
+| Copia OpenAPI             | Listo     | `openapi/backend-v1.json`, comiteada; build y runtime solo de ahí.                  |
+| Tipos generados           | Listo     | `src/lib/api/generated/schema.d.ts`; `pnpm api:check` los valida.                   |
+| Cliente del backend       | Listo     | `openapi-fetch` tipado, `server-only`, `no-store` y temporizador.                   |
+| Identity token IAM        | Listo     | `google-auth-library`, caché por audiencia con retirada en fallo.                   |
+| `POST` del BFF            | Listo     | Origin exacto, `application/json`, cuerpo en bytes UTF-8, `201`.                    |
+| `GET` del BFF             | Listo     | Verifica contra el backend. **Solo lectura**: nunca emite cookie.                   |
+| `DELETE` del BFF          | Listo     | Origin exacto, borra la cookie, `204`. Independiente del backend.                   |
+| Limpieza de sesión        | Listo     | Frontera cliente: `DELETE` y navegación solo tras el `204`.                         |
+| Validación de orígenes    | Listo     | HTTPS salvo loopback; audiencia igual a la URL en `google-oidc`.                    |
+| `expiresAt`               | Listo     | RFC 3339 estricto con zona explícita; sin `Date.parse` permisivo.                   |
+| Cookie de sesión          | Listo     | `__Host-`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`.                       |
+| Integración con el login  | Listo     | ID token reciente, canje y cierre de Firebase tras el canje.                        |
+| Cierre de la sesión SDK   | Listo     | Si `signOut` falla, `location.replace` destruye el documento.                       |
+| Ruta protegida `/panel`   | Listo     | Server Component; verifica en cada visita; solo muestra el rol.                     |
+| Shell del panel           | Listo     | `layout.tsx`, sidebar, cabecera, breadcrumb, rol y cierre de sesión.                |
+| Catálogo de productos     | Listo     | Listado, alta, detalle, edición, publicar, archivar e inventario en dos modos.      |
+| Pago del pedido           | Listo     | Estado, entorno, checkout efectivo, intentos, historial y pago manual.              |
+| Editar pedido             | Listo     | Estado, notas, productos y pago con revisión del backend (ADR 0013).                |
+| Conciliación manual       | Listo     | Intento de Wompi solo lectura y pago final conciliado, con confirmación (ADR 0014). |
+| Simulador de pago         | Listo     | Staging, `payments.simulate`, botones del backend, `eventId` en RAM.                |
+| Notificaciones            | Listo     | Tarjeta de solo lectura; sin preview ni reenvío, que no existen.                    |
+| Preparación para publicar | Listo     | `publicationReadiness` del backend, traducida y enlazada por sección.               |
+| Precio en pesos           | Listo     | Se escribe y se lee `$ 1.450.000`; viaja el entero `1450000`.                       |
+| Navegación                | Listo     | Cinco secciones, marca real y bloque de sesión en el shell.                         |
+| Dashboard comercial       | Listo     | `GET /v1/admin/dashboard/summary`; período en la URL; sin cifras propias.           |
+| Integraciones (Wompi)     | Listo     | Ambiente, cuatro llaves y guardar. Secretos write-only. Incidencias aparte.         |
+| Zonas de envío            | Listo     | ADR 0010: zonas, cobertura DIVIPOLA, tarifas, productos, vista previa.              |
+| Wallet                    | Anunciada | Pantalla «Próximamente»: su contrato no existe todavía.                             |
+| Catálogo enriquecido      | Listo     | Clasificación, contenido visible y detalles adicionales, separados.                 |
+| Editor editorial          | Listo     | Topes de 180, 3000, 5 × 60; contadores, «Opcional» y orden real.                    |
+| Variantes                 | Listo     | Ejes, combinaciones, precio, inventario por modo y archivado por variante.          |
+| Imágenes de producto      | Listo     | Subir, editar, ordenar, elegir portada y retirar con confirmación.                  |
+| Alta completa             | Listo     | Un envío: crea el borrador, enriquece, sube y crea variantes.                       |
+| Reanudación tras fallo    | Listo     | No recrea nada guardado; reintenta solo lo que falta.                               |
+| Catálogo de categorías    | Listo     | Listar, buscar, filtrar, crear, renombrar, archivar y reactivar.                    |
+| Selector de categoría     | Listo     | Solo activas; alta en línea; archivadas históricas visibles y conservadas.          |
+| Conflictos del catálogo   | Listo     | SKU, slug y versión por separado; desconocidos con referencia.                      |
+| Editor de producto        | Listo     | Nombre arriba, pestañas «Datos del producto», barra lateral fija con sitio.         |
+| Shell responsive          | Listo     | Sidebar fija en escritorio; cajón por debajo de 60rem.                              |
+| Mutaciones por BFF        | Listo     | Nueve Route Handlers; el navegador no llama al backend.                             |
+| Permisos por rol          | Listo     | Matriz explícita en `src/features/session/permissions.ts`.                          |
+| ADR local del BFF         | Listo     | `../decisions/0003-admin-session-bff.md`.                                           |
 
 ### Material de despliegue (fase 3)
 
@@ -328,6 +329,14 @@ Con un backend anterior al campo, la tarjeta no se pinta.
 
 Despliegue: después del backend (en fase `compatible`) y antes de la web. Rollback coordinado:
 web → admin → backend; la revisión anterior del panel simplemente no pinta la tarjeta ni el país.
+
+### Conciliación manual del pago: implementada, sin desplegar
+
+[`ADR 0014`](../decisions/0014-manual-payment-reconciliation.md), sobre ADR 0029 del backend.
+«Editar pedido» separa el «Intento de pago original» (solo lectura) de la «Conciliación manual»
+(con `payments.manage_manual`), con revisión del backend y confirmación explícita. La tarjeta de
+pago y el listado distinguen el intento de Wompi del pago final y avisan de «Revisión requerida».
+Despliegue: backend primero.
 
 ## Previsto, todavía no implementado
 

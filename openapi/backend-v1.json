@@ -317,6 +317,16 @@
             },
             "type": "array"
           },
+          "paymentReconciliation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminOrderPaymentReconciliationDto"
+              }
+            ],
+            "description": "Manual reconciliation of the payment (ADR 0029), separate from the provider attempt, which stays in paymentAttempts and paymentEvents exactly as Wompi reported it. null when the order was never reconciled.",
+            "nullable": true,
+            "type": "object"
+          },
           "paymentSimulationEnabled": {
             "description": "Whether the staging payment simulator is switched on in this deployment. When false the simulation route answers as if it did not exist.",
             "type": "boolean"
@@ -427,6 +437,7 @@
           "shipment",
           "internalNotes",
           "paymentEditing",
+          "paymentReconciliation",
           "electronicInvoice",
           "buyerIdentification",
           "items",
@@ -547,6 +558,16 @@
             "minimum": 1,
             "type": "number"
           },
+          "paymentReconciliation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminOrderPaymentReconciliationSummaryDto"
+              }
+            ],
+            "description": "Current manual reconciliation (ADR 0029), so a row can show the provider attempt and the final payment apart. null when the order was never reconciled.",
+            "nullable": true,
+            "type": "object"
+          },
           "paymentStatus": {
             "description": "Payment state, so the list can tell a pending order from a declined one without opening each. It is already in the order document: the row costs no extra read.",
             "enum": [
@@ -625,7 +646,8 @@
           "totalCop",
           "createdAt",
           "updatedAt",
-          "paymentSummary"
+          "paymentSummary",
+          "paymentReconciliation"
         ],
         "type": "object"
       },
@@ -690,6 +712,14 @@
             "nullable": true,
             "type": "string"
           },
+          "reconciliation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminOrderReconciliationEditingDto"
+              }
+            ],
+            "description": "Manual reconciliation (ADR 0029). Requires payments.manage_manual."
+          },
           "statusLocked": {
             "description": "Why the payment status cannot be set manually now, or null when it can.",
             "enum": [
@@ -707,7 +737,258 @@
           "manual",
           "methodLocked",
           "statusLocked",
-          "manualEvents"
+          "manualEvents",
+          "reconciliation"
+        ],
+        "type": "object"
+      },
+      "AdminOrderPaymentReconciliationConflictDto": {
+        "properties": {
+          "detectedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "kind": {
+            "description": "duplicate_approval: Wompi approved after the team recorded the payment through another method (possible duplicate charge). provider_approved_after_reconciliation: Wompi approved after the team recorded unpaid or failed.",
+            "enum": [
+              "duplicate_approval",
+              "provider_approved_after_reconciliation"
+            ],
+            "type": "string"
+          },
+          "kindLabel": {
+            "example": "Posible pago duplicado",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "kindLabel",
+          "detectedAt"
+        ],
+        "type": "object"
+      },
+      "AdminOrderPaymentReconciliationDto": {
+        "properties": {
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/AdminOrderPaymentReconciliationConflictDto"
+            },
+            "type": "array"
+          },
+          "current": {
+            "$ref": "#/components/schemas/AdminOrderPaymentReconciliationEntryDto"
+          },
+          "entries": {
+            "description": "Every reconciliation, newest first. Append-only.",
+            "items": {
+              "$ref": "#/components/schemas/AdminOrderPaymentReconciliationEntryDto"
+            },
+            "type": "array"
+          },
+          "reviewRequired": {
+            "type": "boolean"
+          },
+          "status": {
+            "description": "The current reconciliation status, or review_required while there is a conflict.",
+            "enum": [
+              "pending",
+              "unpaid",
+              "failed",
+              "paid",
+              "review_required"
+            ],
+            "type": "string"
+          },
+          "statusLabel": {
+            "example": "Revisión requerida",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "statusLabel",
+          "reviewRequired",
+          "current",
+          "entries",
+          "conflicts"
+        ],
+        "type": "object"
+      },
+      "AdminOrderPaymentReconciliationEntryDto": {
+        "properties": {
+          "actorRole": {
+            "example": "master_admin",
+            "type": "string"
+          },
+          "actorUid": {
+            "type": "string"
+          },
+          "externalPaymentId": {
+            "maxLength": 120,
+            "nullable": true,
+            "type": "string"
+          },
+          "finalMethod": {
+            "enum": [
+              "wompi",
+              "addi",
+              "bank_transfer",
+              "cash"
+            ],
+            "type": "string"
+          },
+          "finalMethodLabel": {
+            "example": "Transferencia bancaria",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "description": "external_channel: paid through another method. manual_confirmation: Wompi is kept and a person marked it paid — NOT a Wompi confirmation. administrative_outcome: pending, unpaid or failed.",
+            "enum": [
+              "external_channel",
+              "manual_confirmation",
+              "administrative_outcome"
+            ],
+            "type": "string"
+          },
+          "kindLabel": {
+            "example": "Pago por otro medio",
+            "type": "string"
+          },
+          "note": {
+            "description": "Team note. Admin-only: never sent to the storefront, an email or the audit log.",
+            "maxLength": 1000,
+            "nullable": true,
+            "type": "string"
+          },
+          "orderVersion": {
+            "description": "Order version this reconciliation produced.",
+            "type": "number"
+          },
+          "originalMethod": {
+            "enum": [
+              "wompi",
+              "addi",
+              "bank_transfer",
+              "cash"
+            ],
+            "type": "string"
+          },
+          "originalMethodLabel": {
+            "example": "Wompi",
+            "type": "string"
+          },
+          "paymentStatusAfter": {
+            "enum": [
+              "pending",
+              "processing",
+              "approved",
+              "declined",
+              "voided",
+              "expired",
+              "error"
+            ],
+            "type": "string"
+          },
+          "paymentStatusBefore": {
+            "enum": [
+              "pending",
+              "processing",
+              "approved",
+              "declined",
+              "voided",
+              "expired",
+              "error"
+            ],
+            "type": "string"
+          },
+          "preservedAttemptNumber": {
+            "description": "Local number of the provider attempt this reconciliation left untouched; null when no checkout was ever opened.",
+            "nullable": true,
+            "type": "number"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "unpaid",
+              "failed",
+              "paid"
+            ],
+            "type": "string"
+          },
+          "statusLabel": {
+            "example": "Pagado",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "statusLabel",
+          "kind",
+          "kindLabel",
+          "originalMethod",
+          "originalMethodLabel",
+          "finalMethod",
+          "finalMethodLabel",
+          "paymentStatusBefore",
+          "paymentStatusAfter",
+          "preservedAttemptNumber",
+          "externalPaymentId",
+          "note",
+          "actorUid",
+          "actorRole",
+          "recordedAt",
+          "orderVersion"
+        ],
+        "type": "object"
+      },
+      "AdminOrderPaymentReconciliationSummaryDto": {
+        "properties": {
+          "finalMethod": {
+            "enum": [
+              "wompi",
+              "addi",
+              "bank_transfer",
+              "cash"
+            ],
+            "type": "string"
+          },
+          "finalMethodLabel": {
+            "example": "Transferencia bancaria",
+            "type": "string"
+          },
+          "reviewRequired": {
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "unpaid",
+              "failed",
+              "paid",
+              "review_required"
+            ],
+            "type": "string"
+          },
+          "statusLabel": {
+            "example": "Pagado",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "statusLabel",
+          "reviewRequired",
+          "finalMethod",
+          "finalMethodLabel"
         ],
         "type": "object"
       },
@@ -739,6 +1020,73 @@
           "sku",
           "primaryImageUrl",
           "quantity"
+        ],
+        "type": "object"
+      },
+      "AdminOrderReconciliationEditingDto": {
+        "properties": {
+          "externalPaymentIdRequiredFor": {
+            "items": {
+              "enum": [
+                "pending",
+                "unpaid",
+                "failed",
+                "paid"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "locked": {
+            "description": "Why the payment cannot be reconciled now, or null when it can.",
+            "enum": [
+              "payment_confirmed_by_provider",
+              "reconciliation_payment_settled",
+              "reconciliation_order_closed"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "methods": {
+            "items": {
+              "enum": [
+                "wompi",
+                "addi",
+                "bank_transfer",
+                "cash"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "noteRequired": {
+            "description": "true when the reconciliation involves Wompi: the note is then required.",
+            "type": "boolean"
+          },
+          "providerAttemptPreserved": {
+            "description": "true when a Wompi checkout was ever opened: its attempt is shown read-only and preserved.",
+            "type": "boolean"
+          },
+          "statuses": {
+            "items": {
+              "enum": [
+                "pending",
+                "unpaid",
+                "failed",
+                "paid"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "locked",
+          "statuses",
+          "methods",
+          "noteRequired",
+          "externalPaymentIdRequiredFor",
+          "providerAttemptPreserved"
         ],
         "type": "object"
       },
@@ -3737,6 +4085,51 @@
         ],
         "type": "object"
       },
+      "EditOrderReconciliationInputDto": {
+        "properties": {
+          "confirmed": {
+            "description": "Explicit confirmation. POST /edit rejects a reconciliation without confirmed: true (order_reconciliation_invalid confirmation_required); the preview ignores it.",
+            "type": "boolean"
+          },
+          "externalPaymentId": {
+            "description": "Identifier of the payment in the external channel (marketplace order, bank transfer or receipt number). Required for paid.",
+            "maxLength": 120,
+            "nullable": true,
+            "type": "string"
+          },
+          "finalMethod": {
+            "description": "Method the payment was finally made with. Keeping wompi with paid records a manual confirmation, never presented as a Wompi confirmation.",
+            "enum": [
+              "wompi",
+              "addi",
+              "bank_transfer",
+              "cash"
+            ],
+            "type": "string"
+          },
+          "note": {
+            "description": "Team note, at most 1000 characters after trimming. Required whenever Wompi is involved: original or final method, or a checkout ever opened.",
+            "maxLength": 2000,
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "description": "pending: being handled, the payment does not change. unpaid: payment declined. failed: payment error. paid: approved; the order moves to paid with the existing state machine and the usual payment confirmation email is written. Only paid writes a customer email.",
+            "enum": [
+              "pending",
+              "unpaid",
+              "failed",
+              "paid"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "finalMethod"
+        ],
+        "type": "object"
+      },
       "EditOrderRequestDto": {
         "properties": {
           "expectedVersion": {
@@ -3768,6 +4161,14 @@
               "cash"
             ],
             "type": "string"
+          },
+          "paymentReconciliation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EditOrderReconciliationInputDto"
+              }
+            ],
+            "description": "Manual reconciliation of the payment (ADR 0029), alone in its edit (order_request_invalid otherwise). The provider attempt —method, transaction, Wompi status, reference, webhooks and history— is never modified: the reconciliation is recorded apart, with a new payment history entry (source admin_manual, reasonCode manual_reconciliation) tied to the preserved attempt. Nothing is sent to Wompi or any other provider; nothing is charged, cancelled or refunded. Blocked with 409 order_edit_blocked when Wompi really confirmed the payment (payment_confirmed_by_provider: that requires the refund or review flow), when it was already confirmed manually (reconciliation_payment_settled) or when the order is cancelled or no longer waiting for payment (reconciliation_order_closed). 400 order_reconciliation_invalid with its reason when the note or the external payment id is missing or malformed, or confirmed is not true on POST /edit. Idempotent: repeating the request that produced the current version returns the stored result with replayed: true and writes nothing. A later Wompi approval is never ignored or applied silently over it: it is recorded on its attempt and the order is marked review_required. Requires payments.manage_manual (super_admin and master_admin)."
           },
           "paymentStatus": {
             "description": "Manual payment outcome, applied with the existing payment state machine and recorded in the payment history with source admin_manual: processing (in verification), approved (confirmed), declined (rejected) or voided (cancelled), only when the machine allows it from the current status. Only for manual methods: a Wompi payment is always automatic (order_edit_blocked payment_status_automatic). approved moves the order to paid and writes the usual payment_approved emails; processing, declined and voided write no email, because their templates offer an online retry a manual method does not have. Cannot be combined with status or items in the same edit. Requires payments.manage_manual.",
@@ -3816,7 +4217,8 @@
                 "internalNotes",
                 "items",
                 "paymentMethod",
-                "paymentStatus"
+                "paymentStatus",
+                "paymentReconciliation"
               ],
               "type": "string"
             },
@@ -3856,6 +4258,10 @@
           "payment": {
             "$ref": "#/components/schemas/EditOrderPaymentChangeDto"
           },
+          "replayed": {
+            "description": "true when the request repeated the reconciliation that produced the current version: nothing was written and the stored result is returned.",
+            "type": "boolean"
+          },
           "warnings": {
             "description": "Consequences worth confirming. Blocks are not warnings: they answer 409. payment_reminder_scheduled: going back to wompi schedules a new payment reminder one hour later; nothing is sent when saving. It appears only when that reminder is (or, in a preview, would be) actually scheduled, and carries no recipient, message id or content.",
             "items": {
@@ -3864,7 +4270,10 @@
                 "payment_reminder_superseded",
                 "manual_payment_confirmation",
                 "customer_email",
-                "payment_reminder_scheduled"
+                "payment_reminder_scheduled",
+                "provider_record_preserved",
+                "provider_attempt_open",
+                "possible_duplicate_payment"
               ],
               "type": "string"
             },
@@ -3876,6 +4285,7 @@
           "customerNotifications",
           "warnings",
           "order",
+          "replayed",
           "changedFields"
         ],
         "type": "object"
@@ -4319,7 +4729,10 @@
               "shipping_not_recalculable",
               "payment_not_pending",
               "payment_status_automatic",
-              "payment_status_transition_invalid"
+              "payment_status_transition_invalid",
+              "payment_confirmed_by_provider",
+              "reconciliation_payment_settled",
+              "reconciliation_order_closed"
             ],
             "type": "string"
           }
@@ -4746,6 +5159,44 @@
           "approvedAt",
           "approvedAtSource",
           "statusLabel"
+        ],
+        "type": "object"
+      },
+      "OrderReconciliationErrorDto": {
+        "properties": {
+          "code": {
+            "example": "invalid_request",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorIssueDto"
+            },
+            "type": "array"
+          },
+          "message": {
+            "example": "The request is invalid",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Only with code order_reconciliation_invalid: which field to fix.",
+            "enum": [
+              "status_invalid",
+              "method_invalid",
+              "note_invalid",
+              "note_too_long",
+              "note_required",
+              "external_payment_id_invalid",
+              "external_payment_id_too_long",
+              "external_payment_id_required",
+              "confirmation_required"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
         ],
         "type": "object"
       },
@@ -11410,11 +11861,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
+                  "$ref": "#/components/schemas/OrderReconciliationErrorDto"
                 }
               }
             },
-            "description": "order_request_invalid (unknown field, empty edit, nothing changes, notes too long, duplicate line, unknown paymentMethod or paymentStatus, paymentStatus combined with status or items), order_shipment_invalid, order_product_unavailable, order_variant_required, order_variant_unavailable or order_out_of_stock"
+            "description": "order_request_invalid (unknown field, empty edit, nothing changes, notes too long, duplicate line, unknown paymentMethod or paymentStatus, paymentStatus combined with status or items, paymentReconciliation combined with any other field), order_reconciliation_invalid with its reason (see OrderReconciliationErrorDto), order_shipment_invalid, order_product_unavailable, order_variant_required, order_variant_unavailable or order_out_of_stock"
           },
           "401": {
             "content": {
@@ -11519,7 +11970,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
+                  "$ref": "#/components/schemas/OrderReconciliationErrorDto"
                 }
               }
             },
