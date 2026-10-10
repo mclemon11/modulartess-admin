@@ -132,6 +132,19 @@ export const BACKEND_FAILURE_CODES = [
   'backend_wompi_credential_prefix_invalid',
   /** 400 `wompi_credentials_incomplete`: falta alguna de las cuatro, o llegó en blanco. */
   'backend_wompi_credentials_incomplete',
+  /**
+   * Addi (ADR 0030 del backend; ADR 0015 del panel). Cuatro códigos propios porque llevan a
+   * acciones distintas:
+   *
+   * - 400 `addi_configuration_invalid`: algún campo no tiene forma válida; volver a copiarlo.
+   * - 409 `addi_configuration_incomplete`: faltan el slug o alguna credencial para activar.
+   * - 409 `addi_connection_test_required`: hay que superar la prueba de autenticación antes.
+   * - 409 `addi_live_payments_not_enabled`: lo bloquea el despliegue, no una casilla del panel.
+   */
+  'backend_addi_configuration_invalid',
+  'backend_addi_configuration_incomplete',
+  'backend_addi_connection_test_required',
+  'backend_addi_live_payments_not_enabled',
   /** 404 `payment_incident_not_found`: esa incidencia ya no existe. */
   'backend_payment_incident_not_found',
   /**

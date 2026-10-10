@@ -834,14 +834,18 @@ describe('integraciones', () => {
     expect(live).not.toContain("environment: 'sandbox'");
   });
 
-  /* Addi se anuncia y no ejecuta nada. */
-  it('Addi no llama a ningún endpoint', () => {
+  /*
+   * Addi ya tiene contrato (ADR 0015): su tarjeta es un Server Component que solo enlaza a su
+   * configuración. Ni llama a nada desde el navegador ni deja el aviso de «pendiente».
+   */
+  it('la tarjeta de Addi no llama a ningún endpoint y ya no se anuncia pendiente', () => {
     const cards = rendered(INTEGRATION_CARDS);
     const addi = cards.slice(cards.indexOf('AddiProviderCard'));
 
-    expect(addi).toContain('Pendiente de integración');
+    expect(addi).not.toContain('Pendiente de integración');
     expect(addi).not.toContain('fetch(');
     expect(addi).not.toContain('/api/admin');
+    expect(addi).toContain('/panel/configuracion/integraciones/addi');
   });
 
   /* Ninguna variable pública puede llevar credenciales, ni aquí ni en ninguna parte. */

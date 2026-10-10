@@ -267,6 +267,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/integrations/addi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the Addi integration status
+         * @description Production only. Never returns a secret: the Client ID and the notification user come back as their last four characters, the Client Secret and the notification secret only as configured or not. webhookUrl is derived from server configuration only. Requires integrations.read.
+         */
+        get: operations["AdminAddiIntegrationController_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Save the Addi ally slug and credentials
+         * @description Every credential is WRITE-ONLY: sending a value stores a NEW exact version in Secret Manager, omitting it keeps the current one, and no operation returns it. SAVING NEVER ENABLES PAYMENTS, and any change invalidates the last authentication test. Requires expectedVersion and integrations.manage.
+         */
+        patch: operations["AdminAddiIntegrationController_update"];
+        trace?: never;
+    };
+    "/v1/admin/integrations/addi/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable or disable new Addi payments
+         * @description A separate operation from saving credentials, with an explicit confirm=true. Enabling requires the deployment guard ADDI_LIVE_PAYMENTS_ENABLED (addi_live_payments_not_enabled), the ally slug and the four credentials (addi_configuration_incomplete) and a successful authentication test after the last change (addi_connection_test_required). Disabling is ALWAYS allowed, stops new applications and deletes nothing: open attempts keep receiving their callback. Requires integrations.manage.
+         */
+        post: operations["AdminAddiIntegrationController_activation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/integrations/addi/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Addi authentication
+         * @description Requests ONE JWT from Addi with the stored Client ID and Client Secret, and nothing else: no application, no money. The token is discarded and never returned or logged. Requires integrations.manage.
+         */
+        post: operations["AdminAddiIntegrationController_test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/integrations/wompi": {
         parameters: {
             query?: never;
@@ -1626,6 +1690,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orders/payments/addi/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether Addi can be offered for an amount
+         * @description Server-to-server query to Addi's public ally configuration, with a short cache. The limits and the visibility come from Addi every time and are never hard-coded. The amount is informative here (product price or cart total); the order total is checked again, from the STORED order, when the application is opened. Never fails because of Addi: when Addi does not answer or the integration is off, it answers available=false with a closed reason, so the storefront can show Addi disabled with an explanation.
+         */
+        get: operations["PublicAddiController_availability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/payments/addi/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open an Addi application for an order
+         * @description Only for an order created choosing Addi in the storefront (paymentMethod addi). An order marked as Addi Marketplace from the panel stays manual and is refused with payment_checkout_not_allowed payment_method_offline. Everything comes from the STORED order: total, shipping, lines, buyer and address. The buyer must have a Colombian citizenship ID (CC), first and last names and a 10-digit mobile number. Every attempt has its own opaque reference, used as Addi's orderId, even for the same cart. A fresh JWT is requested for each attempt. Addi's 301 is NOT followed: its Location is captured and returned only when its origin is exactly one of the configured Addi origins. A 301 without Location, or with one whose origin is not authorized yet, does NOT close the attempt: it answers 503 payment_provider_unavailable, keeps the same attempt and reference, never stores or returns that URL, and the next call asks Addi again with the SAME orderId. Only definitive answers (documented 4xx, client already with credit) close the attempt. Reloading returns the SAME application while it is open (two hours). Two simultaneous requests never create two applications: the second is refused with payment_in_progress until the first finishes. THE BROWSER COMING BACK FROM ADDI DOES NOT CONFIRM ANYTHING: only Addi's authenticated callback moves the order.
+         */
+        post: operations["PublicAddiController_checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/payments/addi/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * State of an Addi attempt, by its opaque reference
+         * @description What the result page polls while it waits for Addi's callback. It never asks Addi and never changes anything: it reads what the callback already applied. It carries no publicId, no personal data and no internal identifier. An unknown reference and one of another provider answer the same 404.
+         */
+        post: operations["PublicAddiController_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/orders/payments/wompi/checkout": {
         parameters: {
             query?: never;
@@ -1766,6 +1890,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/webhooks/addi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive Addi's application callback
+         * @description Authenticated with HTTP Basic using the notification credentials, compared in constant time. A missing or wrong Authorization answers 401 and Addi retries. The body must be application/json and at most 16 KiB. A valid callback answers 200 with EXACTLY THE SAME BYTES it received, which is what Addi requires to stop retrying. APPROVED only approves when orderId, attempt and amount match exactly: approvedAmount must equal the amount requested. Any other status must carry approvedAmount 0. An unknown status, an unknown orderId or any mismatch changes nothing, raises an audited incident and still answers 200 with the echo: retrying would never fix it. The same callback received again changes nothing: no second history entry, no second email and no change to the approval date.
+         */
+        post: operations["AddiWebhookController_receive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/webhooks/resend": {
         parameters: {
             query?: never;
@@ -1810,6 +1954,144 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AddiAvailabilityDto: {
+            /** @description Whether Addi can be offered for this amount right now. When false the storefront shows Addi DISABLED with the reason, never hidden. */
+            available: boolean;
+            /** @description Discount percentage Addi advertises. INFORMATIVE ONLY: it never changes the order total nor the amount requested from Addi. */
+            discountPercent: number | null;
+            /** @description Maximum amount in whole COP, as Addi publishes it now. Never hard-coded. */
+            maxAmountCop: number | null;
+            /** @description Minimum amount in whole COP, as Addi publishes it now. Never hard-coded. */
+            minAmountCop: number | null;
+            /**
+             * @description Closed reason when not available. disabled: the integration is off in this deployment. unavailable: Addi did not answer in time or answered something unusable. ally_inactive and not_visible: Addi itself does not offer the merchant now. below_minimum and above_maximum: the amount is outside the limits Addi publishes.
+             * @enum {string|null}
+             */
+            reason: "disabled" | "unavailable" | "ally_inactive" | "not_visible" | "below_minimum" | "above_maximum" | null;
+        };
+        AddiCheckoutDto: {
+            /**
+             * Format: uri
+             * @description Addi URL to send the shopper to. Captured from Addi's 301 Location WITHOUT following it, and returned only when its origin is EXACTLY one of the configured Addi origins. Navigating to it does not confirm anything: only Addi's authenticated callback moves the order.
+             */
+            checkoutUrl: string;
+            /**
+             * Format: date-time
+             * @description Addi gives two hours to complete an application; the attempt expires with it.
+             */
+            expiresAt: string;
+            /** @enum {string} */
+            provider: "addi";
+            /** @description Opaque reference of this attempt. It is the last segment of the Addi result page and the only key the status endpoint accepts. A new one is created for every attempt, even for the same cart. */
+            reference: string;
+        };
+        AddiCheckoutErrorDto: {
+            /** @enum {string} */
+            code: "addi_application_rejected" | "addi_buyer_data_invalid" | "addi_live_payments_not_enabled" | "payment_checkout_not_allowed" | "payment_integration_disabled";
+            /** @description For addi_buyer_data_invalid: one entry per problem, path being one of identification_missing, identification_not_cc, identification_number_invalid, first_name_invalid, last_name_invalid, cellphone_invalid or address_invalid. Never the value. */
+            issues?: components["schemas"]["ErrorIssueDto"][];
+            message: string;
+            /**
+             * @description Closed reason. For addi_application_rejected: application_rejected (Addi refused the data), client_has_credit (the shopper already has an Addi credit), amount_out_of_range and addi_not_offered. For payment_checkout_not_allowed, the same reasons as Wompi.
+             * @enum {string}
+             */
+            reason?: "application_rejected" | "client_has_credit" | "amount_out_of_range" | "addi_not_offered" | "order_cancelled" | "order_not_pending_payment" | "payment_already_approved" | "payment_in_progress" | "attempt_not_reconstructable" | "payment_method_offline";
+        };
+        AddiCheckoutRequestDto: {
+            /** @example ana@example.com */
+            email: string;
+            /** @example MZ-7KQ2R9DA */
+            publicId: string;
+        };
+        AddiConnectionTestDto: {
+            /** @description Addi issued a JWT for the stored Client ID and Client Secret. It is the ONLY thing the test does: no application is created and no money moves. The token is discarded. */
+            authenticated: boolean;
+            /**
+             * @description Closed code from our own vocabulary. The remote body is never included.
+             * @example addi_auth_rejected
+             */
+            errorCode: string | null;
+            /** Format: date-time */
+            testedAt: string;
+        };
+        AddiIntegrationDto: {
+            /** @description What actually happens: enabled, fully configured and with the deployment guard on. Only then does the storefront offer Addi. */
+            acceptingNewPayments: boolean;
+            /** @example industrialmodulartess-ecommerce */
+            allySlug: string | null;
+            /** @description Whether a version of the notification secret (the Basic Auth secret Addi uses to call the webhook) is stored. No fragment is ever returned. */
+            callbackSecretConfigured: boolean;
+            callbackUsernameConfigured: boolean;
+            /** @example …ally */
+            callbackUsernameHint: string | null;
+            /** @description Exact origins accepted in Addi's redirection. */
+            checkoutOrigins: string[];
+            clientIdConfigured: boolean;
+            /**
+             * @description Last four characters of the Client ID. The full value is never returned.
+             * @example …7Kq2
+             */
+            clientIdHint: string | null;
+            /** @description Whether a Client Secret version is stored. No fragment is ever returned. */
+            clientSecretConfigured: boolean;
+            configured: boolean;
+            /** @description What the panel saved. */
+            enabledForNewPayments: boolean;
+            /** @enum {string} */
+            environment: "production";
+            /** Format: date-time */
+            lastAttemptAt: string | null;
+            /** Format: date-time */
+            lastErrorAt: string | null;
+            /** @description Closed code from our own vocabulary. Never a remote body. */
+            lastErrorCode: string | null;
+            /** Format: date-time */
+            lastTestedAt: string | null;
+            /** @enum {string|null} */
+            lastTestStatus: "passed" | "failed" | null;
+            /** Format: date-time */
+            lastVerifiedWebhookAt: string | null;
+            /** Format: date-time */
+            lastWebhookAttemptAt: string | null;
+            /** @description Deployment guard ADDI_LIVE_PAYMENTS_ENABLED. Without it Addi cannot be enabled. */
+            livePaymentsEnabled: boolean;
+            /** @description Field names still missing (allySlug and the four credentials). Never a value. */
+            missing: string[];
+            /** @description Open Addi incidents among the 50 most recent open production incidents. */
+            openIncidents: number;
+            /** @enum {string} */
+            provider: "addi";
+            /** Format: uri */
+            resultBaseUrl: string;
+            /** @description Send it back as expectedVersion to change anything. */
+            version: number;
+            /**
+             * Format: uri
+             * @description Callback URL, derived ONLY from the deployment's PUBLIC_WEBHOOK_BASE_URL. It is sent in every application; it is never built from a request header.
+             */
+            webhookUrl: string;
+        };
+        AddiPaymentStatusDto: {
+            /**
+             * @description State of THIS attempt. created: Addi has not answered yet. processing: Addi is validating (PENDING). approved, declined (Addi rejected the credit), voided (the shopper declined), expired (abandoned or past its two hours) and error (Addi failed).
+             * @enum {string}
+             */
+            attemptStatus: "created" | "processing" | "approved" | "declined" | "voided" | "error" | "expired";
+            /** @description The attempt will not change on its own any more: stop polling. */
+            final: boolean;
+            /** @enum {string} */
+            orderStatus: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
+            /** @enum {string} */
+            paymentStatus: "pending" | "processing" | "approved" | "declined" | "voided" | "expired" | "error";
+            /** @enum {string} */
+            provider: "addi";
+            reference: string;
+            /** @description The shopper may go back to the cart and start a new payment. Never true for an approved attempt or while a payment is in progress. */
+            retryAllowed: boolean;
+        };
+        AddiStatusRequestDto: {
+            reference: string;
+        };
         AdminCardDetailsDto: {
             /**
              * @description Card network code as reported by the provider, validated. null when not reported.
@@ -2043,6 +2325,11 @@ export interface components {
             nextPageToken: string | null;
         };
         AdminOrderPaymentEditingDto: {
+            /**
+             * @description Online method the shopper chose in the storefront when it was not Wompi (ADR 0030 of the backend): addi for 'Addi (checkout web)'. null for every other order, including an addi order registered by hand from the panel ('Addi Marketplace'), which stays manual and never opens an online application.
+             * @enum {string|null}
+             */
+            checkoutPaymentMethod: "addi" | null;
             /** @description false for wompi, whose status is automatic; true for every other method. */
             manual: boolean;
             /** @description Manual outcomes available from the current status. Empty for Wompi. */
@@ -2308,7 +2595,7 @@ export interface components {
              * @example wompi
              * @enum {string}
              */
-            code: "wompi" | "simulator" | "manual";
+            code: "wompi" | "simulator" | "manual" | "addi";
             /** @example Wompi */
             label: string;
         };
@@ -2901,8 +3188,18 @@ export interface components {
              * @example ana@example.com
              */
             email: string;
+            /**
+             * @description First name(s). Sent together with lastName or not at all, and fullName must be exactly 'firstName lastName' (whitespace collapsed). Required with paymentMethod addi.
+             * @example Ana María
+             */
+            firstName?: string;
             /** @example Ana Pérez */
             fullName: string;
+            /**
+             * @description Last name(s). See firstName.
+             * @example Pérez Gómez
+             */
+            lastName?: string;
             /** @example +57 300 000 0000 */
             phone: string;
         };
@@ -2951,6 +3248,11 @@ export interface components {
             electronicInvoice?: components["schemas"]["CreateOrderElectronicInvoiceDto"];
             /** @description At least one line. Prices, names, SKUs and images come from the published catalogue; any amount sent here is rejected as an unknown field. */
             items: components["schemas"]["CreateOrderItemDto"][];
+            /**
+             * @description Online payment method chosen BEFORE creating the order. Absent is wompi, exactly as before. With addi the order is created only when Addi is enabled, and the buyer must have a Colombian citizenship ID (buyerIdentification 13), firstName, lastName and a 10-digit mobile number; otherwise 400 addi_buyer_data_invalid with issues[].path naming each problem, or 503 order_unavailable when Addi is off. An addi order never opens a Wompi checkout and a wompi order never opens an Addi application.
+             * @enum {string}
+             */
+            paymentMethod?: "wompi" | "addi";
             shippingAddress: components["schemas"]["CreateOrderShippingAddressDto"];
             /** @description Shipping quote returned by POST /v1/shipping/quotes. Send it exactly when GET /v1/shipping/capabilities says applyQuotes. Ignored while the mode is disabled or shadow. With compatible and enforced a quote that is sent is always verified again — expiry, cart, destination, prices and rules — and re-read inside the order transaction; one that no longer holds answers 409 order_shipping_quote_invalid and never falls back to an order without shipping. Without a quote, compatible accepts the order exactly as before (an older storefront tab) and enforced answers 400 order_shipping_quote_required. A retry of an existing order with the same Idempotency-Key and body returns the original in every mode. */
             shippingQuoteId?: string;
@@ -3504,6 +3806,11 @@ export interface components {
             id: string;
             items: components["schemas"]["OrderLineDto"][];
             /**
+             * @description Online payment method this order was created with. Decides which checkout opens.
+             * @enum {string}
+             */
+            onlinePaymentProvider: "wompi" | "addi";
+            /**
              * @description Human-readable identifier. This is what the shopper is told.
              * @example MZ-7KQ2R9DA
              */
@@ -3601,6 +3908,11 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             items: components["schemas"]["OrderLookupLineDto"][];
+            /**
+             * @description Which online checkout the storefront may offer to pay this order: wompi, addi (created choosing Addi in the storefront), or null when the team registers the payment by hand (transfer, cash or Addi Marketplace). Whether a payment can start NOW is still decided by the checkout endpoint.
+             * @enum {string|null}
+             */
+            onlinePaymentProvider: "wompi" | "addi" | null;
             /** @description Payment state and when it last changed. Nothing else about the payment travels. */
             payment: components["schemas"]["OrderLookupPaymentDto"];
             /** @description Payment news, oldest first, kept separate from the order timeline so the frontend can merge them by timestamp without duplicating anything. When a payment entry and an order entry share the same `at`, the payment one comes first: approving the payment is what causes the order to advance, so 'Pago confirmado' precedes 'Pedido confirmado'. They are written in the same transaction and may carry the same timestamp, so sorting by `at` alone does not decide between them. */
@@ -4422,6 +4734,15 @@ export interface components {
              */
             resolutionCode: "provider_confirmed_discrepancy" | "not_our_transaction" | "configuration_corrected" | "resolved_by_reconciliation" | "no_action_needed";
         };
+        SetAddiActivationRequestDto: {
+            /**
+             * @description Explicit confirmation. Any other value is rejected.
+             * @enum {boolean}
+             */
+            confirm: true;
+            enabledForNewPayments: boolean;
+            expectedVersion: number;
+        };
         SetInventoryControlDto: {
             /**
              * @description Only with mode=tracked; defaults to 0, which means 'do not warn'. REJECTED with mode=availability.
@@ -4975,6 +5296,19 @@ export interface components {
              * @enum {string}
              */
             status: "queued" | "already_queued";
+        };
+        UpdateAddiIntegrationRequestDto: {
+            /** @example industrialmodulartess-ecommerce */
+            allySlug?: string;
+            /** @description Write-only. */
+            callbackSecret?: string;
+            /** @description Write-only. */
+            callbackUsername?: string;
+            /** @description Write-only. */
+            clientId?: string;
+            /** @description Write-only. */
+            clientSecret?: string;
+            expectedVersion: number;
         };
         UpdateOrderStatusRequestDto: {
             /** @description Version the caller last read. */
@@ -6311,6 +6645,207 @@ export interface operations {
             };
             /** @description dashboard_unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminAddiIntegrationController_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddiIntegrationDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminAddiIntegrationController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAddiIntegrationRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddiIntegrationDto"];
+                };
+            };
+            /** @description addi_configuration_invalid (issues[].path names the fields) or payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_integration_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_provider_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminAddiIntegrationController_activation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetAddiActivationRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddiIntegrationDto"];
+                };
+            };
+            /** @description payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description addi_live_payments_not_enabled, addi_configuration_incomplete, addi_connection_test_required or payment_integration_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminAddiIntegrationController_test: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddiConnectionTestDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11579,6 +12114,137 @@ export interface operations {
             };
         };
     };
+    PublicAddiController_availability: {
+        parameters: {
+            query: {
+                /** @description Whole COP, > 0. */
+                amountCop: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddiAvailabilityDto"];
+                };
+            };
+            /** @description payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PublicAddiController_checkout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddiCheckoutRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddiCheckoutDto"];
+                };
+            };
+            /** @description addi_buyer_data_invalid or payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddiCheckoutErrorDto"];
+                };
+            };
+            /** @description order_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description addi_application_rejected, payment_checkout_not_allowed, payment_integration_disabled or addi_live_payments_not_enabled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddiCheckoutErrorDto"];
+                };
+            };
+            /** @description payment_provider_unavailable: Addi did not answer, or its redirection could not be verified; the same reference is retried */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PublicAddiController_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddiStatusRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddiPaymentStatusDto"];
+                };
+            };
+            /** @description payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_context_not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
     PublicPaymentsController_createCheckout: {
         parameters: {
             query?: never;
@@ -11936,6 +12602,52 @@ export interface operations {
                 };
             };
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AddiWebhookController_receive: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Basic, with the notification user and secret */
+                Authorization: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Addi callback, echoed back verbatim. */
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description The same JSON object received. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description webhook_payload_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description webhook_rejected */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

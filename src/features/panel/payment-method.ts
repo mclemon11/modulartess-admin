@@ -56,7 +56,8 @@ export function paymentMethodFacts(
   method: AdminPaymentMethod | null,
 ): readonly PaymentFact[] {
   if (method === null) {
-    return provider.code === 'manual'
+    // Ni un pago manual ni Addi informan un instrumento: Addi es el medio, no un proveedor de tarjeta.
+    return provider.code === 'manual' || provider.code === 'addi'
       ? []
       : [{ label: 'Medio de pago', value: notReportedBy(provider) }];
   }
@@ -136,7 +137,11 @@ export function compactPaymentSummary(summary: AdminPaymentSummary): {
   const provider = summary.provider.label;
   const method = summary.paymentMethod;
 
-  if (summary.provider.code === 'simulator' || summary.provider.code === 'manual') {
+  if (
+    summary.provider.code === 'simulator' ||
+    summary.provider.code === 'manual' ||
+    summary.provider.code === 'addi'
+  ) {
     return { visible: provider, spoken: `Pago con ${provider}` };
   }
 

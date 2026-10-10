@@ -14,7 +14,13 @@ import {
 } from './integration-labels';
 import { Icon, SectionHeading } from './section-icon';
 
-import type { WompiEnvironmentConfig, WompiIntegration } from '@/lib/api/integrations';
+import { addiHealth, describeAddiError, describeAddiIncidents } from './addi-integration';
+
+import type {
+  AddiIntegration,
+  WompiEnvironmentConfig,
+  WompiIntegration,
+} from '@/lib/api/integrations';
 
 /**
  * Los cobros reales en dos palabras.
@@ -151,30 +157,88 @@ function readClock(
 }
 
 /**
- * Addi: anunciada y **sin una sola llamada**.
+ * Tarjeta de Addi (ADR 0015): Producción, con su estado real.
  *
- * No hay botón que invoque nada, no hay campo que guardar y no hay cifra que enseñar. El contrato
- * no publica ni un endpoint suyo, así que la tarjeta dice en qué punto está y se detiene ahí. Un
- * botón «Configurar» que llevara a un formulario vacío prometería una integración que no existe.
+ * `integration` es `null` cuando la lectura falló: la tarjeta lo dice y no inventa un estado. Todo
+ * sale del contrato; ningún valor de credencial llega aquí.
  */
-export function AddiProviderCard() {
+export function AddiProviderCard({
+  integration,
+  canManage,
+}: {
+  readonly integration: AddiIntegration | null;
+  readonly canManage: boolean;
+}) {
+  if (integration === null) {
+    return (
+      <section className={styles.provider}>
+        <div className={styles.providerHead}>
+          <span aria-hidden="true" className={styles.providerIcon}>
+            <Icon name="integraciones" />
+          </span>
+          <h3 className={styles.providerName}>Addi</h3>
+          <span className={styles.healthIncomplete}>Estado no disponible</span>
+        </div>
+        <p className={styles.providerText}>
+          No pudimos leer la configuración de Addi. Recarga la página en unos momentos.
+        </p>
+      </section>
+    );
+  }
+
+  const { health, label } = addiHealth(integration);
+  const error = describeAddiError(integration.lastErrorCode);
+
   return (
-    <section className={styles.providerPending}>
+    <section className={styles.provider}>
       <div className={styles.providerHead}>
         <span aria-hidden="true" className={styles.providerIcon}>
           <Icon name="integraciones" />
         </span>
         <h3 className={styles.providerName}>Addi</h3>
-        <span className={styles.healthBlocked}>Pendiente de integración</span>
+        <HealthBadge health={health} label={label} />
       </div>
 
       <p className={styles.providerText}>
-        El backend ya está preparado para más de un proveedor, pero Addi todavía no tiene contrato:
-        no hay credenciales que guardar, ni ambiente que encender, ni datos que mostrar. Aparecerá
-        aquí con su propia configuración cuando el backend publique su superficie.
+        Compra ahora y paga después, en Producción. Quien compra elige Addi en el checkout, termina
+        la solicitud en Addi y el pedido solo cambia cuando llega el callback autenticado.
       </p>
+
+      <dl className={styles.facts}>
+        <Fact label="Ambiente" value="Producción" />
+        <Fact
+          hint={
+            integration.livePaymentsEnabled
+              ? 'El despliegue los permite. Se activan o desactivan en Configurar Addi, con confirmación.'
+              : 'Los bloquea el despliegue del backend, no una casilla de configuración.'
+          }
+          label="Pagos nuevos"
+          value={label}
+        />
+        <Fact label="Último intento" value={dateOrNever(integration.lastAttemptAt)} />
+        <Fact
+          label="Último callback válido"
+          value={dateOrNever(integration.lastVerifiedWebhookAt)}
+        />
+        <Fact
+          label="Incidencias abiertas"
+          value={describeAddiIncidents(integration.openIncidents)}
+        />
+      </dl>
+
+      {error === null ? null : <p className={catalog.hint}>Último error: {error}</p>}
+
+      <div className={styles.providerActions}>
+        <Link className={catalog.buttonPrimary} href="/panel/configuracion/integraciones/addi">
+          {canManage ? 'Configurar' : 'Ver configuración'}
+        </Link>
+      </div>
     </section>
   );
+}
+
+function dateOrNever(value: string | null): string {
+  return value === null ? 'Nunca' : formatDateTime(value);
 }
 
 /** Par etiqueta/valor, con el matiz debajo cuando hace falta distinguir dos cosas parecidas. */

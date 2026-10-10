@@ -981,12 +981,12 @@ describe('contrato del backend con la edición controlada de pedidos', () => {
    * la galería retirar una foto. Si alguien la cambia a mano o la actualiza sin regenerar, esto
    * falla aquí.
    */
-  it('la copia comiteada es exactamente la del backend con la conciliación manual de pagos', () => {
+  it('la copia comiteada es exactamente la del backend con Addi en línea (ADR 0030)', () => {
     const digest = createHash('sha256')
       .update(readFileSync('openapi/backend-v1.json'))
       .digest('hex');
 
-    expect(digest).toBe('4de84c8610f8f91b535176dab15faac6fce655808dafb86cb9aaa01cf7d60285');
+    expect(digest).toBe('70364971c27c983d6ffef352f68105b366cbb7b513b11ab84f3c122fb755835f');
   });
 
   /*

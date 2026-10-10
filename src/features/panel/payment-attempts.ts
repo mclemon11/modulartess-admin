@@ -69,6 +69,8 @@ export function presentAttempt(
   attempt: AdminPaymentAttempt,
   now: number | null,
 ): AttemptPresentation {
+  if (attempt.provider.code === 'addi') return presentAddiAttempt(attempt, now);
+
   switch (attempt.status) {
     case 'declined':
       return { kind: 'declined', title: 'Pago rechazado', text: null, tone: 'danger' };
@@ -127,6 +129,80 @@ export function presentAttempt(
           };
     }
   }
+}
+
+/**
+ * Un intento de **Addi en línea** (ADR 0015). Otro vocabulario que Wompi: no hay transacción, hay
+ * una solicitud de crédito, y `voided` es que quien compra declinó la oferta, no una anulación.
+ */
+function presentAddiAttempt(attempt: AdminPaymentAttempt, now: number | null): AttemptPresentation {
+  switch (attempt.status) {
+    case 'approved':
+      return { kind: 'approved', title: 'Crédito aprobado por Addi', text: null, tone: 'success' };
+    case 'declined':
+      return { kind: 'declined', title: 'Addi rechazó el crédito', text: null, tone: 'danger' };
+    case 'voided':
+      return {
+        kind: 'voided',
+        title: 'Quien compra declinó la oferta de Addi',
+        text: null,
+        tone: 'neutral',
+      };
+    case 'error':
+      return {
+        kind: 'error',
+        title: 'Solicitud de Addi fallida',
+        text: 'Addi no abrió la solicitud o informó un error. El cliente puede pagar con otro medio.',
+        tone: 'danger',
+      };
+    case 'processing':
+      return {
+        kind: 'transaction_pending',
+        title: 'Addi está validando la solicitud',
+        text: 'El pedido cambiará cuando llegue el callback autenticado de Addi.',
+        tone: 'info',
+      };
+    case 'expired':
+      return {
+        kind: 'checkout_expired',
+        title: 'Solicitud de Addi vencida',
+        text: 'Quien compra abandonó la solicitud o pasaron sus dos horas.',
+        tone: 'warning',
+      };
+    case 'created': {
+      const expired = hasExpired(attempt.expiresAt, now);
+
+      return expired === true
+        ? {
+            kind: 'checkout_expired',
+            title: 'Solicitud de Addi vencida',
+            text: 'Pasaron las dos horas sin respuesta de Addi.',
+            tone: 'warning',
+          }
+        : {
+            kind: 'checkout_open',
+            title: 'Solicitud de Addi abierta',
+            text: 'Quien compra está en Addi. Volver a la tienda no confirma el pago: solo el callback.',
+            tone: 'info',
+          };
+    }
+  }
+}
+
+/**
+ * ¿La tarjeta de pago cuenta los intentos o el medio manual?
+ *
+ * Wompi siempre por intentos. Addi web (`checkoutPaymentMethod: 'addi'`) también, en cuanto abrió
+ * un intento: su estado lo decide el callback. Addi Marketplace y los demás medios manuales, por el
+ * medio. `?? null` tolera un backend anterior que no publique el campo.
+ */
+export function usesOnlineCheckout(
+  editing: { readonly manual: boolean; readonly checkoutPaymentMethod?: string | null },
+  attempts: readonly AdminPaymentAttempt[],
+): boolean {
+  if (!editing.manual) return true;
+
+  return (editing.checkoutPaymentMethod ?? null) === 'addi' && attempts.length > 0;
 }
 
 function transactionPending(): AttemptPresentation {

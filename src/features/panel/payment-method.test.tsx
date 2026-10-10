@@ -394,6 +394,7 @@ describe('pago manual', () => {
   const CASH = {
     method: 'cash',
     methodLabel: 'Efectivo',
+    checkoutPaymentMethod: null,
     manual: true,
     methodLocked: 'payment_not_pending',
     statusLocked: 'payment_settled',

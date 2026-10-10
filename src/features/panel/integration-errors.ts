@@ -30,6 +30,14 @@ const MESSAGES: Readonly<Partial<Record<BackendFailureCode, string>>> = {
     'La configuración cambió mientras la mirabas. Recarga para ver la versión actual.',
   backend_live_payments_not_enabled:
     'Los pagos reales están bloqueados en este despliegue. No es una casilla de configuración: se levanta desde el backend.',
+  backend_addi_configuration_invalid:
+    'Algún dato de Addi no tiene un formato válido. Revisa los campos marcados y cópialos de nuevo.',
+  backend_addi_configuration_incomplete:
+    'Para activar Addi hacen falta el identificador del comercio y las cuatro credenciales.',
+  backend_addi_connection_test_required:
+    'Antes de activar Addi, ejecuta la prueba de autenticación con la configuración actual.',
+  backend_addi_live_payments_not_enabled:
+    'Los pagos con Addi están bloqueados en este despliegue. No es una casilla de configuración: se levanta desde el backend.',
   backend_payment_incident_not_found: 'Esa incidencia ya no existe.',
   backend_payment_provider_unavailable:
     'La pasarela no respondió, o no se pudo escribir el almacén de secretos.',

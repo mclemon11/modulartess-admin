@@ -17,7 +17,12 @@
  * claro.
  */
 
-import type { UpdateWompiIntegrationRequest, WompiEnvironment } from '@/lib/api/integrations';
+import type {
+  SetAddiActivationRequest,
+  UpdateAddiIntegrationRequest,
+  UpdateWompiIntegrationRequest,
+  WompiEnvironment,
+} from '@/lib/api/integrations';
 import type {
   PaymentResolutionCode,
   ResolvePaymentIncidentRequest,
@@ -141,4 +146,69 @@ export function parseIncidentResolution(raw: unknown): ResolvePaymentIncidentReq
   if (version === null || resolutionCode === null) return null;
 
   return { expectedVersion: version, resolutionCode };
+}
+
+/** Los cuatro campos secretos de Addi, con el nombre que publica el contrato. */
+export const ADDI_SECRET_FIELDS = [
+  'clientId',
+  'clientSecret',
+  'callbackUsername',
+  'callbackSecret',
+] as const;
+export type AddiSecretField = (typeof ADDI_SECRET_FIELDS)[number];
+
+/** `allySlug`: minúsculas, dígitos y guiones. El backend vuelve a validarlo. */
+function allySlug(raw: unknown): string | undefined | null {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== 'string') return null;
+
+  const value = raw.trim();
+
+  if (value.length === 0) return undefined;
+
+  return /^[a-z0-9-]{3,80}$/.test(value) ? value : null;
+}
+
+/**
+ * Cuerpo del `PATCH` de Addi, campo a campo.
+ *
+ * Igual que Wompi: un campo vacío **conserva** el valor guardado y no viaja, y ninguna propiedad
+ * fuera del contrato pasa. Un cuerpo sin ningún cambio no llama al backend.
+ */
+export function parseAddiUpdate(raw: unknown): UpdateAddiIntegrationRequest | null {
+  const body = record(raw);
+  if (body === null) return null;
+
+  const version = expectedVersion(body.expectedVersion);
+  if (version === null) return null;
+
+  const slug = allySlug(body.allySlug);
+  if (slug === null) return null;
+
+  const parsed: UpdateAddiIntegrationRequest = { expectedVersion: version };
+
+  if (slug !== undefined) parsed.allySlug = slug;
+
+  for (const field of ADDI_SECRET_FIELDS) {
+    const value = credential(body[field]);
+    if (value !== undefined) parsed[field] = value;
+  }
+
+  return Object.keys(parsed).length > 1 ? parsed : null;
+}
+
+/**
+ * Activar o desactivar Addi. Exige `confirm: true` **literal**: sin él no se llama al backend, que
+ * de todos modos lo rechazaría.
+ */
+export function parseAddiActivation(raw: unknown): SetAddiActivationRequest | null {
+  const body = record(raw);
+  if (body === null) return null;
+
+  const version = expectedVersion(body.expectedVersion);
+  const enabled = boolean(body.enabledForNewPayments);
+
+  if (version === null || enabled === undefined || body.confirm !== true) return null;
+
+  return { expectedVersion: version, enabledForNewPayments: enabled, confirm: true };
 }

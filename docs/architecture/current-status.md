@@ -338,30 +338,40 @@ web → admin → backend; la revisión anterior del panel simplemente no pinta 
 pago y el listado distinguen el intento de Wompi del pago final y avisan de «Revisión requerida».
 Despliegue: backend primero.
 
+### Addi en línea: implementada, sin desplegar
+
+[`ADR 0015`](../decisions/0015-addi-integration.md), sobre ADR 0030 del backend. La tarjeta de
+Addi en Integraciones es real (Producción, estado, último intento, último callback válido, último
+error e incidencias) y lleva a «Configurar Addi»: slug del comercio, cuatro credenciales
+enmascaradas con «Conservar / Reemplazar», prueba de autenticación (solo un JWT) y activación
+separada con la frase «ACTIVAR ADDI». Los intentos de Addi aparecen con proveedor «Addi» en la
+ficha; un pedido «Addi (checkout web)» se cuenta por sus intentos y uno «Addi Marketplace» sigue
+siendo manual y conciliable como siempre. Despliegue: backend primero.
+
 ## Previsto, todavía no implementado
 
 Elementos que forman parte del diseño acordado, pero que aún no existen en el repositorio.
 
-| Área                            | Estado        | Detalle                                                               |
-| ------------------------------- | ------------- | --------------------------------------------------------------------- |
-| Metas y presupuesto de venta    | Pendiente     | El contrato publica lo vendido, no contra qué compararlo.             |
-| Clientes                        | Pendiente     | El shell ya está preparado para añadirlos sin rehacerlo.              |
-| Pasarela real de pago           | Pendiente     | El contrato solo publica el simulador de staging (`sandbox`).         |
-| Reembolsos                      | Pendiente     | Sin operación de reembolso en el contrato.                            |
-| Vista previa y reenvío de aviso | Pendiente     | No hay endpoint: la tarjeta de avisos es de solo lectura.             |
-| Addi y Odoo                     | Pendiente     | Integraciones fuera del contrato actual.                              |
-| Búsqueda del catálogo           | Pendiente     | Solo hay `view`, `pageToken` y `pageSize`; no hay texto que buscar.   |
-| Listado de la outbox            | Pendiente     | `failedNotifications` se cuenta; no hay pantalla que lo liste.        |
-| Addi                            | Pendiente     | Sin contrato: se anuncia como pendiente y no ejecuta ninguna llamada. |
-| Cobros reales de Wompi          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR PRODUCCIÓN».     |
-| Colecciones, SEO, descuentos    | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.                |
-| Lectura aparte de variantes     | Pendiente     | Viajan dentro del producto; un `GET` propio no tendría uso.           |
-| Paginación numérica             | Descartada    | El cursor es opaco: permite avanzar, no saltar de página.             |
-| Reordenar imágenes arrastrando  | Pendiente     | Hoy se reordena con botones accesibles sobre el mismo PATCH.          |
-| Biblioteca de medios            | Pendiente     | Sin endpoint que liste objetos del bucket.                            |
-| Revocación al cerrar sesión     | Pendiente     | El contrato no publica un `DELETE`; el panel no lo inventa.           |
-| IAM y autorización del backend  | Fuera de aquí | El panel no la ejerce; es autoridad del backend.                      |
-| CI                              | Pendiente     | Hay pruebas unitarias, pero no pipeline.                              |
+| Área                            | Estado        | Detalle                                                             |
+| ------------------------------- | ------------- | ------------------------------------------------------------------- |
+| Metas y presupuesto de venta    | Pendiente     | El contrato publica lo vendido, no contra qué compararlo.           |
+| Clientes                        | Pendiente     | El shell ya está preparado para añadirlos sin rehacerlo.            |
+| Pasarela real de pago           | Pendiente     | El contrato solo publica el simulador de staging (`sandbox`).       |
+| Reembolsos                      | Pendiente     | Sin operación de reembolso en el contrato.                          |
+| Vista previa y reenvío de aviso | Pendiente     | No hay endpoint: la tarjeta de avisos es de solo lectura.           |
+| Odoo                            | Pendiente     | Integración fuera del contrato actual.                              |
+| Búsqueda del catálogo           | Pendiente     | Solo hay `view`, `pageToken` y `pageSize`; no hay texto que buscar. |
+| Listado de la outbox            | Pendiente     | `failedNotifications` se cuenta; no hay pantalla que lo liste.      |
+| Cobros reales con Addi          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR ADDI».         |
+| Cobros reales de Wompi          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR PRODUCCIÓN».   |
+| Colecciones, SEO, descuentos    | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.              |
+| Lectura aparte de variantes     | Pendiente     | Viajan dentro del producto; un `GET` propio no tendría uso.         |
+| Paginación numérica             | Descartada    | El cursor es opaco: permite avanzar, no saltar de página.           |
+| Reordenar imágenes arrastrando  | Pendiente     | Hoy se reordena con botones accesibles sobre el mismo PATCH.        |
+| Biblioteca de medios            | Pendiente     | Sin endpoint que liste objetos del bucket.                          |
+| Revocación al cerrar sesión     | Pendiente     | El contrato no publica un `DELETE`; el panel no lo inventa.         |
+| IAM y autorización del backend  | Fuera de aquí | El panel no la ejerce; es autoridad del backend.                    |
+| CI                              | Pendiente     | Hay pruebas unitarias, pero no pipeline.                            |
 
 Sobre el mecanismo de identidad: el flujo es navegador → Firebase Auth para la identidad, navegador
 → servidor Next.js, servidor Next.js (BFF) → backend de Cloud Run con su identidad de ejecución, y

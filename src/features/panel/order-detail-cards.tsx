@@ -20,6 +20,7 @@ import {
   presentAttempt,
   presentCheckoutState,
   presentManualPayment,
+  usesOnlineCheckout,
 } from './payment-attempts';
 import { attemptPaymentFacts, paymentCardSummary, paymentMethodFacts } from './payment-method';
 import { finalPaymentLine, originalAttemptLine } from './payment-reconciliation';
@@ -396,9 +397,10 @@ export function OrderPaymentCard({
   const { payment, paymentAttempts } = order;
   const latest = paymentAttempts[0];
   // Un medio manual no tiene checkout: su estado se cuenta con el medio, no con los intentos.
-  const checkout = order.paymentEditing.manual
-    ? presentManualPayment(order.paymentEditing.methodLabel, payment.status)
-    : presentCheckoutState(paymentAttempts, payment.status, now);
+  const online = usesOnlineCheckout(order.paymentEditing, paymentAttempts);
+  const checkout = online
+    ? presentCheckoutState(paymentAttempts, payment.status, now)
+    : presentManualPayment(order.paymentEditing.methodLabel, payment.status);
   const charged = paymentCardSummary(order.paymentSummary, paymentAttempts);
 
   return (

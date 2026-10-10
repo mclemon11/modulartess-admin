@@ -70,6 +70,20 @@ export function finalMethodName(code: string, label: string): string {
   return code === 'addi' ? 'Addi Marketplace' : label;
 }
 
+/**
+ * El medio **actual** del pedido. Un pedido Addi creado en la tienda es «Addi (checkout web)», no
+ * Addi Marketplace (ADR 0015): solo lo que registra el equipo como pago externo es Marketplace.
+ */
+export function currentMethodName(editing: {
+  readonly method: string;
+  readonly methodLabel: string;
+  readonly checkoutPaymentMethod?: string | null;
+}): string {
+  return (editing.checkoutPaymentMethod ?? null) === 'addi'
+    ? editing.methodLabel
+    : finalMethodName(editing.method, editing.methodLabel);
+}
+
 /** Por qué no se puede conciliar ahora, en una frase, o `null` si se puede. */
 export function reconciliationLockReason(editing: ReconciliationEditing): string | null {
   switch (editing.locked) {
@@ -250,14 +264,14 @@ export function reconciliationSummary(
       label: 'Medio final',
       before:
         before.paymentReconciliation === null
-          ? finalMethodName(before.paymentEditing.method, before.paymentEditing.methodLabel)
+          ? currentMethodName(before.paymentEditing)
           : finalMethodName(
               before.paymentReconciliation.current.finalMethod,
               before.paymentReconciliation.current.finalMethodLabel,
             ),
       after:
         entry === undefined
-          ? finalMethodName(after.paymentEditing.method, after.paymentEditing.methodLabel)
+          ? currentMethodName(after.paymentEditing)
           : finalMethodName(entry.finalMethod, entry.finalMethodLabel),
     },
     {

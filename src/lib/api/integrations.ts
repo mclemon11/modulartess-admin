@@ -192,3 +192,118 @@ export async function testWompiConnection(sessionMaterial: string): Promise<Womp
 
   return response.data;
 }
+
+/* ───────────────────────────── Addi (ADR 0015) ───────────────────────────── */
+
+export type AddiIntegration = components['schemas']['AddiIntegrationDto'];
+export type UpdateAddiIntegrationRequest = components['schemas']['UpdateAddiIntegrationRequestDto'];
+export type SetAddiActivationRequest = components['schemas']['SetAddiActivationRequestDto'];
+export type AddiConnectionTest = components['schemas']['AddiConnectionTestDto'];
+
+/**
+ * Códigos de Addi. Cada uno lleva a una acción distinta —volver a copiar un campo, completar la
+ * configuración, ejecutar la prueba o pedir que se levante la guardia del despliegue—, y por eso no
+ * se aplanan en «configuración inválida».
+ */
+const ADDI_FAILURES: Readonly<Record<string, BackendFailureCode>> = {
+  addi_configuration_invalid: 'backend_addi_configuration_invalid',
+  addi_configuration_incomplete: 'backend_addi_configuration_incomplete',
+  addi_connection_test_required: 'backend_addi_connection_test_required',
+  addi_live_payments_not_enabled: 'backend_addi_live_payments_not_enabled',
+};
+
+function addiFailure(status: number, code: string | null): BackendFailure {
+  if ((status === 400 || status === 409) && code !== null && Object.hasOwn(ADDI_FAILURES, code)) {
+    return new BackendFailure(ADDI_FAILURES[code] as BackendFailureCode);
+  }
+
+  return integrationFailure(status, code);
+}
+
+/** Estado de Addi Producción. Exige `integrations.read`. Ni un valor de credencial. */
+export async function getAddiIntegration(sessionMaterial: string): Promise<AddiIntegration> {
+  let response;
+
+  try {
+    response = await backendClient().GET('/v1/admin/integrations/addi', {
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw addiFailure(response.response.status, backendErrorCode(response.error));
+  }
+
+  return response.data;
+}
+
+/**
+ * Guarda el slug y las credenciales de Addi. Exige `integrations.manage`.
+ *
+ * Los campos ausentes **conservan** el valor guardado. Guardar nunca activa pagos.
+ */
+export async function updateAddiIntegration(
+  sessionMaterial: string,
+  body: UpdateAddiIntegrationRequest,
+): Promise<AddiIntegration> {
+  let response;
+
+  try {
+    response = await backendClient().PATCH('/v1/admin/integrations/addi', {
+      body,
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw addiFailure(response.response.status, backendErrorCode(response.error));
+  }
+
+  return response.data;
+}
+
+/** Activa o desactiva pagos nuevos con Addi, con confirmación explícita. */
+export async function setAddiActivation(
+  sessionMaterial: string,
+  body: SetAddiActivationRequest,
+): Promise<AddiIntegration> {
+  let response;
+
+  try {
+    response = await backendClient().POST('/v1/admin/integrations/addi/activation', {
+      body,
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw addiFailure(response.response.status, backendErrorCode(response.error));
+  }
+
+  return response.data;
+}
+
+/** Prueba de autenticación: el backend pide **un JWT** a Addi y lo descarta. Nada más. */
+export async function testAddiConnection(sessionMaterial: string): Promise<AddiConnectionTest> {
+  let response;
+
+  try {
+    response = await backendClient().POST('/v1/admin/integrations/addi/test', {
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw addiFailure(response.response.status, backendErrorCode(response.error));
+  }
+
+  return response.data;
+}

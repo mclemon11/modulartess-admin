@@ -13,7 +13,14 @@
  * abierta y desaparecen con ella.
  */
 
-import type { UpdateWompiIntegrationRequest, WompiConnectionTest } from '@/lib/api/integrations';
+import type {
+  AddiConnectionTest,
+  AddiIntegration,
+  SetAddiActivationRequest,
+  UpdateAddiIntegrationRequest,
+  UpdateWompiIntegrationRequest,
+  WompiConnectionTest,
+} from '@/lib/api/integrations';
 import type { PaymentIncident, ResolvePaymentIncidentRequest } from '@/lib/api/payment-incidents';
 
 export type IntegrationResult<T> =
@@ -96,4 +103,22 @@ export function resolvePaymentIncident(
     'PATCH',
     body,
   );
+}
+
+/* Addi (ADR 0015). Rutas propias del BFF; el navegador nunca habla con Addi ni con el backend. */
+
+export function updateAddiIntegration(
+  body: UpdateAddiIntegrationRequest,
+): Promise<IntegrationResult<AddiIntegration>> {
+  return send('/api/admin/integrations/addi', 'PATCH', body);
+}
+
+export function setAddiActivation(
+  body: SetAddiActivationRequest,
+): Promise<IntegrationResult<AddiIntegration>> {
+  return send('/api/admin/integrations/addi/activation', 'POST', body);
+}
+
+export function testAddiConnection(): Promise<IntegrationResult<AddiConnectionTest>> {
+  return send('/api/admin/integrations/addi/test', 'POST', {});
 }

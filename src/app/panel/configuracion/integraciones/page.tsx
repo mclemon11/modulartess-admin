@@ -16,7 +16,11 @@ import { RefreshButton } from '@/features/panel/refresh-button';
 import { resolvePanelSession } from '@/features/panel/session-context';
 import { can } from '@/features/session/permissions';
 import { isBackendFailure } from '@/lib/api/errors';
-import { getWompiIntegration } from '@/lib/api/integrations';
+import {
+  getAddiIntegration,
+  getWompiIntegration,
+  type AddiIntegration,
+} from '@/lib/api/integrations';
 import { listPaymentIncidents } from '@/lib/api/payment-incidents';
 
 export const dynamic = 'force-dynamic';
@@ -34,8 +38,7 @@ const OPEN_INCIDENTS_PAGE_SIZE = 50;
 /**
  * Integraciones.
  *
- * Una tarjeta por proveedor. Wompi con su estado real y Addi como lo que es: una capacidad que el
- * backend ya contempla y que todavía no tiene contrato.
+ * Una tarjeta por proveedor, las dos con su estado real: Wompi y Addi (ADR 0015).
  *
  * Es un Server Component: las dos lecturas salen del servidor de Next con la sesión de la persona,
  * así que el navegador no conoce la URL del backend ni la cookie. **El navegador tampoco habla con
@@ -125,6 +128,15 @@ export default async function IntegracionesPage() {
     openIncidents = OPEN_INCIDENTS_UNAVAILABLE;
   }
 
+  // Addi es otra tarjeta: si su lectura falla, Wompi sigue visible y la tarjeta de Addi lo dice.
+  let addi: AddiIntegration | null = null;
+
+  try {
+    addi = await getAddiIntegration(material);
+  } catch {
+    addi = null;
+  }
+
   return (
     <>
       <PanelHeader trail={trail} />
@@ -141,7 +153,7 @@ export default async function IntegracionesPage() {
             integration={integration}
             openIncidents={openIncidents}
           />
-          <AddiProviderCard />
+          <AddiProviderCard canManage={can(role, 'integrations.manage')} integration={addi} />
         </div>
       </div>
     </>

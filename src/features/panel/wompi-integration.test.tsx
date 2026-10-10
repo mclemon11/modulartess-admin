@@ -9,7 +9,7 @@ vi.mock('next/navigation', () => ({
 
 const { WompiCredentialsForm } = await import('./wompi-credentials-form');
 const { SandboxPaymentsToggle } = await import('./wompi-operations');
-const { AddiProviderCard, WompiProviderCard } = await import('./integration-cards');
+const { WompiProviderCard } = await import('./integration-cards');
 const { describeOpenIncidentCount, OPEN_INCIDENTS_UNAVAILABLE, readOpenIncidentCount } =
   await import('./integration-labels');
 const { CopyableValue } = await import('./copyable-value');
@@ -567,26 +567,7 @@ describe('URL de eventos', () => {
   });
 });
 
-describe('Addi', () => {
-  const html = renderToStaticMarkup(<AddiProviderCard />);
-
-  it('se anuncia como pendiente', () => {
-    expect(html).toContain('Pendiente de integración');
-  });
-
-  /* Sin botones: no hay endpoint que llamar, y un botón muerto prometería una integración. */
-  it('no monta ningún control ni enlace', () => {
-    expect(html).not.toContain('<button');
-    expect(html).not.toContain('<a ');
-    expect(html).not.toContain('<form');
-  });
-
-  it('no inventa credenciales, ambientes ni cifras', () => {
-    for (const needle of ['addi_', 'Sandbox activo', 'Configurado', 'Ventas']) {
-      expect(html, needle).not.toContain(needle);
-    }
-  });
-});
+/* Addi tiene su propia tarjeta real y sus pruebas en `addi-integration.test.tsx` (ADR 0015). */
 
 /** El código sin comentarios: aquí se explica por qué no se usa `localStorage`, y nombrarlo no es usarlo. */
 function executable(source: string): string {
