@@ -22,6 +22,7 @@ import {
   presentManualPayment,
   usesOnlineCheckout,
 } from './payment-attempts';
+import { attemptProviderFacts } from './attempt-provider-facts';
 import { attemptPaymentFacts, paymentCardSummary, paymentMethodFacts } from './payment-method';
 import { finalPaymentLine, originalAttemptLine } from './payment-reconciliation';
 import { describeRole } from '@/features/session/role-labels';
@@ -587,6 +588,9 @@ export function OrderPaymentAttemptsCard({
                     label="Transacción registrada"
                     value={attempt.hasTransactionId ? 'Sí' : 'No'}
                   />
+                  {attemptProviderFacts(attempt).map((fact) => (
+                    <Fact key={fact.label} label={fact.label} value={fact.value} />
+                  ))}
                 </dl>
               </li>
             );

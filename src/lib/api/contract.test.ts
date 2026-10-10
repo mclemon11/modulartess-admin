@@ -986,7 +986,7 @@ describe('contrato del backend con la edición controlada de pedidos', () => {
       .update(readFileSync('openapi/backend-v1.json'))
       .digest('hex');
 
-    expect(digest).toBe('70364971c27c983d6ffef352f68105b366cbb7b513b11ab84f3c122fb755835f');
+    expect(digest).toBe('9ca5073d48420421ea599960fb867679b581456de8277010333800d8b782352c');
   });
 
   /*

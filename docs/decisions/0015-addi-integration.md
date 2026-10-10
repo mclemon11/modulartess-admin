@@ -55,3 +55,14 @@ autorizado: lo conserva con la misma referencia. El panel muestra esos dos casos
 excluía cualquier carpeta llamada `test`, también `src/app/api/admin/integrations/{wompi,addi}/test`,
 así que «Probar autenticación» respondía 404 en el propio panel sin llegar al backend. La regla queda
 anclada a la raíz (`/test`) y `deploy/deploy.test.ts` ya no admite ninguna excepción.
+
+## Ficha del intento
+
+La tarjeta «Intentos de pago» muestra lo que publica el backend sobre cada intento:
+
+- el estado original del proveedor;
+- la solicitud en Addi (`applicationId`, solo de Addi);
+- las fechas de cierre y de última verificación;
+- el último fallo saneado. De una redirección sin verificar solo se ve su **origen**.
+
+Con un backend anterior a esos campos, la tarjeta no muestra nada nuevo.

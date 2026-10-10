@@ -63,6 +63,11 @@ function summary(
 
 function attempt(overrides: Partial<AdminPaymentAttempt> = {}): AdminPaymentAttempt {
   return {
+    providerStatus: null,
+    externalId: null,
+    completedAt: null,
+    lastVerifiedAt: null,
+    lastError: null,
     attemptNumber: 1,
     createdAt: '2026-09-26T10:30:00.000Z',
     environment: 'production',

@@ -1730,6 +1730,12 @@
             "description": "Which attempt this is for the order, starting at 1.",
             "type": "number"
           },
+          "completedAt": {
+            "description": "When the attempt reached a final state.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
           "createdAt": {
             "description": "When the attempt was opened.",
             "type": "string"
@@ -1746,9 +1752,30 @@
             "description": "When the checkout stops being reusable.",
             "type": "string"
           },
+          "externalId": {
+            "description": "Addi only: the applicationId Addi assigned, to look the application up with Addi. Always null for Wompi, whose transaction identifier is still not published.",
+            "nullable": true,
+            "type": "string"
+          },
           "hasTransactionId": {
             "description": "Whether the provider has bound a transaction to this attempt. The identifier itself is never published.",
             "type": "boolean"
+          },
+          "lastError": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminPaymentAttemptErrorDto"
+              }
+            ],
+            "description": "Addi only: the last non-final failure while requesting the application, sanitized. The attempt and its reference are kept; null once the application was obtained.",
+            "nullable": true,
+            "type": "object"
+          },
+          "lastVerifiedAt": {
+            "description": "Last time an authentic provider result was applied to this attempt.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
           },
           "paymentMethod": {
             "allOf": [
@@ -1767,6 +1794,12 @@
               }
             ],
             "description": "The attempt's real provider. Attempts are only opened with a gateway; simulated outcomes have no attempt."
+          },
+          "providerStatus": {
+            "description": "Status exactly as the provider reported it (Addi: APPROVED, PENDING, REJECTED, DECLINED, ABANDONED, INTERNAL_ERROR; or our own closing code when Addi refused the application). For auditing; status is the normalized one. null until the provider answers.",
+            "example": "APPROVED",
+            "nullable": true,
+            "type": "string"
           },
           "status": {
             "enum": [
@@ -1789,7 +1822,37 @@
           "expiresAt",
           "hasTransactionId",
           "provider",
-          "paymentMethod"
+          "paymentMethod",
+          "providerStatus",
+          "externalId",
+          "completedAt",
+          "lastVerifiedAt",
+          "lastError"
+        ],
+        "type": "object"
+      },
+      "AdminPaymentAttemptErrorDto": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "code": {
+            "description": "Closed code from our own vocabulary: addi_redirect_missing, addi_redirect_unverified or an unavailability code such as addi_application_unavailable_timeout. Never a remote body.",
+            "example": "addi_redirect_unverified",
+            "type": "string"
+          },
+          "origin": {
+            "description": "For an unverified redirection, ONLY its origin (scheme and host). Never the path, the query or the full URL. null otherwise.",
+            "example": "https://originations.addi.com",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "at",
+          "origin"
         ],
         "type": "object"
       },

@@ -2527,6 +2527,11 @@ export interface components {
         AdminPaymentAttemptDto: {
             /** @description Which attempt this is for the order, starting at 1. */
             attemptNumber: number;
+            /**
+             * Format: date-time
+             * @description When the attempt reached a final state.
+             */
+            completedAt: string | null;
             /** @description When the attempt was opened. */
             createdAt: string;
             /**
@@ -2536,14 +2541,42 @@ export interface components {
             environment: "sandbox" | "production";
             /** @description When the checkout stops being reusable. */
             expiresAt: string;
+            /** @description Addi only: the applicationId Addi assigned, to look the application up with Addi. Always null for Wompi, whose transaction identifier is still not published. */
+            externalId: string | null;
             /** @description Whether the provider has bound a transaction to this attempt. The identifier itself is never published. */
             hasTransactionId: boolean;
+            /** @description Addi only: the last non-final failure while requesting the application, sanitized. The attempt and its reference are kept; null once the application was obtained. */
+            lastError: components["schemas"]["AdminPaymentAttemptErrorDto"] | null;
+            /**
+             * Format: date-time
+             * @description Last time an authentic provider result was applied to this attempt.
+             */
+            lastVerifiedAt: string | null;
             /** @description Safe method summary captured from the provider for THIS attempt's transaction, or null when the provider has not reported it. Older attempts read as null. */
             paymentMethod: components["schemas"]["AdminPaymentMethodDto"] | null;
             /** @description The attempt's real provider. Attempts are only opened with a gateway; simulated outcomes have no attempt. */
             provider: components["schemas"]["AdminPaymentProviderDto"];
+            /**
+             * @description Status exactly as the provider reported it (Addi: APPROVED, PENDING, REJECTED, DECLINED, ABANDONED, INTERNAL_ERROR; or our own closing code when Addi refused the application). For auditing; status is the normalized one. null until the provider answers.
+             * @example APPROVED
+             */
+            providerStatus: string | null;
             /** @enum {string} */
             status: "created" | "processing" | "approved" | "declined" | "voided" | "error" | "expired";
+        };
+        AdminPaymentAttemptErrorDto: {
+            /** Format: date-time */
+            at: string;
+            /**
+             * @description Closed code from our own vocabulary: addi_redirect_missing, addi_redirect_unverified or an unavailability code such as addi_application_unavailable_timeout. Never a remote body.
+             * @example addi_redirect_unverified
+             */
+            code: string;
+            /**
+             * @description For an unverified redirection, ONLY its origin (scheme and host). Never the path, the query or the full URL. null otherwise.
+             * @example https://originations.addi.com
+             */
+            origin: string | null;
         };
         AdminPaymentEventDto: {
             attemptNumber: number;
