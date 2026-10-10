@@ -26,7 +26,8 @@ next-env.d.ts
 # Pruebas y cobertura. Anclado a la raíz, igual que en .gcloudignore.
 /coverage
 .nyc_output
-test
+# Anclado a la raíz, igual que en .gcloudignore: las rutas `…/test` del BFF entran en la imagen.
+/test
 **/*.test.ts
 **/*.test.tsx
 vitest.config.mts

@@ -48,3 +48,10 @@ El backend ya no cierra un intento cuando Addi responde sin `Location` o desde u
 autorizado: lo conserva con la misma referencia. El panel muestra esos dos casos como último error
 (`addi_redirect_missing` y `addi_redirect_unverified`) e indica que el intento se conserva. El origen
 `https://originations.addi.com` es provisional: Addi se mantiene desactivado hasta confirmarlo.
+
+## Corrección: las pruebas de conexión no llegaban a la imagen
+
+`.gcloudignore` y `.dockerignore` tenían la regla `test` sin anclar. Con la sintaxis de `.gitignore`
+excluía cualquier carpeta llamada `test`, también `src/app/api/admin/integrations/{wompi,addi}/test`,
+así que «Probar autenticación» respondía 404 en el propio panel sin llegar al backend. La regla queda
+anclada a la raíz (`/test`) y `deploy/deploy.test.ts` ya no admite ninguna excepción.

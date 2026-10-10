@@ -36,7 +36,8 @@ next-env.d.ts
 # `src/app/api/admin/shipping/zones/[zoneId]/coverage/` y el panel no podía editar coberturas.
 /coverage/
 .nyc_output
-test
+# Anclado a la raíz: sin la barra excluía las rutas `integrations/{wompi,addi}/test` del BFF.
+/test
 **/*.test.ts
 **/*.test.tsx
 vitest.config.mts

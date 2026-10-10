@@ -114,15 +114,11 @@ describe('.gcloudignore', () => {
   /*
    * `.gcloudignore` sigue la sintaxis de `.gitignore`: un patrón sin barra excluye **cualquier**
    * directorio con ese nombre, también dentro de `src/`. Así se perdió la ruta del BFF
-   * `zones/[zoneId]/coverage` en la imagen. Ningún patrón sin anclar puede coincidir con un
-   * directorio de `src/app`.
-   *
-   * `test` es un caso conocido y anterior: excluye `src/app/api/admin/integrations/wompi/test`
-   * de la imagen. Se deja registrado aquí, sin corregirlo, porque afecta a la integración de pagos
-   * y queda fuera de este cambio.
+   * `zones/[zoneId]/coverage` en la imagen, y con `test` las pruebas de conexión de Wompi y Addi
+   * (`integrations/{wompi,addi}/test`), que respondían 404 en producción. Ningún patrón sin anclar
+   * puede coincidir con un directorio de `src/app`, sin excepciones.
    */
   it('ningún patrón sin anclar excluye una ruta de src/app', () => {
-    const KNOWN = new Set(['test']);
     const names = new Set<string>();
     const walk = (dir: string): void => {
       for (const entry of readdirSync(dir)) {
@@ -138,8 +134,20 @@ describe('.gcloudignore', () => {
       (line) =>
         line !== '' && !line.startsWith('#') && !line.startsWith('/') && !/[*/!]/.test(line),
     );
-    expect(unanchored.filter((pattern) => names.has(pattern) && !KNOWN.has(pattern))).toEqual([]);
+    expect(unanchored.filter((pattern) => names.has(pattern))).toEqual([]);
     expect(names.has('coverage')).toBe(true);
+    expect(names.has('test')).toBe(true);
+  });
+
+  it('las pruebas de conexión de Wompi y Addi llegan a la imagen', () => {
+    expect(GCLOUDIGNORE).toContain('/test');
+    expect(GCLOUDIGNORE).not.toContain('test');
+    for (const route of [
+      'src/app/api/admin/integrations/wompi/test/route.ts',
+      'src/app/api/admin/integrations/addi/test/route.ts',
+    ]) {
+      expect(existsSync(route), route).toBe(true);
+    }
   });
 
   it('excluye claves, logs y temporales', () => {
