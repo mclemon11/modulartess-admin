@@ -3,7 +3,7 @@ import Link from 'next/link';
 import catalog from './catalog.module.css';
 import { formatDateTime } from './format';
 import { formatCop } from './money';
-import { OrderPaymentSummary, OrderReconciliationLine } from './order-payment-summary';
+import { OrderPaymentChannel, OrderReconciliationLine } from './order-payment-summary';
 import { OrderPreviewThumb } from './order-preview-thumb';
 import { extraLabel, unitLabel } from './order-preview';
 import { OrderStatusBadge } from './order-status-badge';
@@ -39,11 +39,11 @@ export function OrderMobileCard({ order }: { readonly order: AdminOrderListItem 
           <PaymentStatusBadge status={order.paymentStatus} />
           <OrderStatusBadge label={order.statusLabel} status={order.status} />
         </p>
-        {order.paymentSummary === null ? null : (
-          <p className={styles.orderCardPayment}>
+        {order.paymentSummary === null && order.paymentChannel === undefined ? null : (
+          <div className={styles.orderCardPayment}>
             <span className={styles.orderCardPaymentLabel}>Medio de pago</span>
-            <OrderPaymentSummary summary={order.paymentSummary} />
-          </p>
+            <OrderPaymentChannel order={order} />
+          </div>
         )}
         {order.paymentReconciliation == null ? null : (
           <p className={styles.orderCardPayment}>

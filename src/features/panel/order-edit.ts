@@ -14,6 +14,11 @@ import type {
   OrderShipmentInput,
 } from '@/lib/api/orders';
 
+import {
+  ADDI_CANCELLATION_BLOCK_MESSAGES,
+  ADDI_CANCELLATION_INVALID_MESSAGES,
+  parseAddiCancellation,
+} from './addi-payment';
 import { describeNotificationEvent } from './notification-labels';
 import {
   parseReconciliation,
@@ -168,6 +173,7 @@ const ALLOWED_KEYS = new Set([
   'paymentMethod',
   'paymentStatus',
   'paymentReconciliation',
+  'addiCancellation',
 ]);
 
 /**
@@ -278,6 +284,14 @@ export function parseOrderEdit(raw: unknown): EditOrderRequest | null {
 
     if (reconciliation === undefined || Object.keys(result).length > 1) return null;
     result.paymentReconciliation = reconciliation;
+  }
+
+  // La cancelación de un crédito de Addi aprobado también va sola en su edición.
+  if (body.addiCancellation !== undefined) {
+    const cancellation = parseAddiCancellation(body.addiCancellation);
+
+    if (cancellation === undefined || Object.keys(result).length > 1) return null;
+    result.addiCancellation = cancellation;
   }
 
   return Object.keys(result).length > 1 ? result : null;
@@ -598,6 +612,7 @@ const BLOCK_MESSAGES: Readonly<Record<string, string>> = {
     'Este pago ya se confirmó manualmente. Corregirlo exige una revisión; no se revierte desde aquí.',
   reconciliation_order_closed:
     'Este pedido está cancelado o ya no espera el pago: no se puede conciliar a ese estado.',
+  ...ADDI_CANCELLATION_BLOCK_MESSAGES,
 };
 
 const LINE_MESSAGES: Readonly<Record<string, string>> = {
@@ -626,7 +641,10 @@ export function describeEditFailure(code: string, reference: string | null): str
       );
     case 'order_reconciliation_invalid':
       return (
-        (reference === null ? undefined : RECONCILIATION_INVALID_MESSAGES[reference]) ??
+        (reference === null
+          ? undefined
+          : (RECONCILIATION_INVALID_MESSAGES[reference] ??
+            ADDI_CANCELLATION_INVALID_MESSAGES[reference])) ??
         'Revisa la conciliación: falta un dato o alguno no tiene un formato válido.'
       );
     case 'order_transition_invalid':

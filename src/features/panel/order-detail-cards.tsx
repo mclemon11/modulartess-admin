@@ -429,7 +429,11 @@ export function OrderPaymentCard({
       <dl className={styles.facts}>
         {/* Un pago manual no tiene medio informado por un proveedor: es el del pedido. Con Wompi,
             el medio lo cuentan las filas del proveedor. */}
-        {order.paymentEditing.manual ? (
+        {/* El canal lo publica el backend para todo pedido: Addi Online, Addi Marketplace
+            (manual), Wompi… Con un backend anterior al canal, el medio manual como siempre. */}
+        {order.paymentChannel !== undefined ? (
+          <Fact label="Medio de pago" value={order.paymentChannel.label} />
+        ) : order.paymentEditing.manual ? (
           <Fact label="Medio de pago" value={order.paymentEditing.methodLabel} />
         ) : null}
         <Fact label="Entorno" value={describePaymentEnvironment(payment.environment)} />

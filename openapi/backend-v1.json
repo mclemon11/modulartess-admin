@@ -82,6 +82,7 @@
             "enum": [
               "addi_application_rejected",
               "addi_buyer_data_invalid",
+              "addi_checkout_verifying",
               "addi_live_payments_not_enabled",
               "payment_checkout_not_allowed",
               "payment_integration_disabled"
@@ -403,6 +404,459 @@
         ],
         "type": "object"
       },
+      "AdminAddiAttemptDto": {
+        "properties": {
+          "amountCop": {
+            "format": "int32",
+            "type": "number"
+          },
+          "approved": {
+            "description": "This attempt is the one Addi approved (callback validated).",
+            "type": "boolean"
+          },
+          "attemptNumber": {
+            "minimum": 1,
+            "type": "number"
+          },
+          "cancellation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminAddiCancellationDto"
+              }
+            ],
+            "nullable": true,
+            "type": "object"
+          },
+          "completedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "currency": {
+            "enum": [
+              "COP"
+            ],
+            "type": "string"
+          },
+          "events": {
+            "description": "Oldest first.",
+            "items": {
+              "$ref": "#/components/schemas/AdminAddiAttemptEventDto"
+            },
+            "type": "array"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "externalIdMasked": {
+            "description": "Addi applicationId, masked. null until Addi reports one.",
+            "example": "1a2b…f0e7",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastError": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminAddiCheckoutErrorDto"
+              }
+            ],
+            "nullable": true,
+            "type": "object"
+          },
+          "linkDelivered": {
+            "description": "Whether Addi's link was accepted and handed to the buyer. The URL itself is never published.",
+            "type": "boolean"
+          },
+          "localStatus": {
+            "description": "Local attempt status (the normalized one).",
+            "enum": [
+              "created",
+              "processing",
+              "approved",
+              "declined",
+              "voided",
+              "error",
+              "expired"
+            ],
+            "type": "string"
+          },
+          "providerStatus": {
+            "description": "Status exactly as Addi reported it, or our own closing code. null with no answer.",
+            "example": "ABANDONED",
+            "nullable": true,
+            "type": "string"
+          },
+          "reference": {
+            "description": "Internal reference sent to Addi as orderId; unique per attempt.",
+            "type": "string"
+          },
+          "result": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminAddiOutcomeDto"
+              }
+            ],
+            "description": "This attempt's result."
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attemptNumber",
+          "reference",
+          "externalIdMasked",
+          "result",
+          "providerStatus",
+          "localStatus",
+          "amountCop",
+          "currency",
+          "createdAt",
+          "updatedAt",
+          "expiresAt",
+          "completedAt",
+          "linkDelivered",
+          "lastError",
+          "approved",
+          "cancellation",
+          "events"
+        ],
+        "type": "object"
+      },
+      "AdminAddiAttemptEventDto": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "detail": {
+            "description": "Sanitized detail: the status as Addi named it (provider_status), the origin of an unauthorized link (scheme and host only), or the confirmation day of a recorded cancellation. Never a URL path, a query or a payload.",
+            "nullable": true,
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "opened",
+              "link_not_delivered",
+              "link_delivered",
+              "provider_status",
+              "expired_unconfirmed",
+              "cancellation_recorded"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "example": "Addi informó: Abandonado por el cliente",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "at",
+          "label",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "AdminAddiCancellationDto": {
+        "properties": {
+          "actorRole": {
+            "description": "Role of the administrator who recorded it.",
+            "type": "string"
+          },
+          "amountCop": {
+            "format": "int32",
+            "type": "number"
+          },
+          "attemptNumber": {
+            "minimum": 1,
+            "type": "number"
+          },
+          "confirmedOn": {
+            "description": "Day Addi confirmed the cancellation, as recorded by the team (Colombia).",
+            "format": "date",
+            "type": "string"
+          },
+          "currency": {
+            "enum": [
+              "COP"
+            ],
+            "type": "string"
+          },
+          "externalIdMasked": {
+            "description": "Addi applicationId, masked.",
+            "nullable": true,
+            "type": "string"
+          },
+          "externalReference": {
+            "maxLength": 120,
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "note": {
+            "description": "Team note. Panel only.",
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reference": {
+            "description": "Internal reference sent to Addi as orderId.",
+            "type": "string"
+          },
+          "source": {
+            "description": "addi_portal_manual: the team confirmed it in Addi's Allies Portal and recorded it here. Addi does not report cancellations by callback.",
+            "enum": [
+              "addi_portal_manual"
+            ],
+            "type": "string"
+          },
+          "sourceLabel": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "statusLabel": {
+            "example": "Cancelado en Addi",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "statusLabel",
+          "source",
+          "sourceLabel",
+          "attemptNumber",
+          "reference",
+          "externalIdMasked",
+          "amountCop",
+          "currency",
+          "confirmedOn",
+          "externalReference",
+          "note",
+          "actorRole",
+          "recordedAt"
+        ],
+        "type": "object"
+      },
+      "AdminAddiCancellationEditingDto": {
+        "properties": {
+          "allowed": {
+            "description": "Whether a cancellation can be recorded now (state only; recording also requires payments.manage_manual).",
+            "type": "boolean"
+          },
+          "attemptNumber": {
+            "description": "The approved attempt, if any.",
+            "nullable": true,
+            "type": "number"
+          },
+          "lock": {
+            "enum": [
+              "addi_payment_not_approved",
+              "addi_cancellation_recorded"
+            ],
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "allowed",
+          "lock",
+          "attemptNumber"
+        ],
+        "type": "object"
+      },
+      "AdminAddiCheckoutErrorDto": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "code": {
+            "example": "addi_redirect_unverified",
+            "type": "string"
+          },
+          "label": {
+            "example": "Origen del enlace todavía no autorizado",
+            "type": "string"
+          },
+          "origin": {
+            "description": "Origin only (scheme and host). Never the path, the query or the full URL.",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "at",
+          "origin"
+        ],
+        "type": "object"
+      },
+      "AdminAddiListSummaryDto": {
+        "properties": {
+          "attemptCount": {
+            "description": "Addi attempts on this order.",
+            "minimum": 1,
+            "type": "number"
+          },
+          "label": {
+            "example": "Abandonado por el cliente",
+            "type": "string"
+          },
+          "outcome": {
+            "description": "awaiting_provider: application opened, no callback yet. link_not_delivered: Addi opened it but its link could not be handed out. pending/approved/abandoned/declined/rejected/provider_error: what Addi's authenticated callback reported (PENDING, APPROVED, ABANDONED, DECLINED, REJECTED, INTERNAL_ERROR). not_opened/client_has_credit: Addi refused to open it. expired_unconfirmed: two hours passed with NO callback; never presented as an abandonment. cancelled: approved and later cancelled, ONLY when the cancellation was recorded and audited from the panel.",
+            "enum": [
+              "awaiting_provider",
+              "link_not_delivered",
+              "pending",
+              "approved",
+              "abandoned",
+              "declined",
+              "rejected",
+              "provider_error",
+              "not_opened",
+              "client_has_credit",
+              "expired_unconfirmed",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "tone": {
+            "description": "Badge tone. The label always goes with it: colour is never the only signal.",
+            "enum": [
+              "success",
+              "info",
+              "warning",
+              "danger",
+              "neutral"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "label",
+          "tone",
+          "attemptCount"
+        ],
+        "type": "object"
+      },
+      "AdminAddiOutcomeDto": {
+        "properties": {
+          "label": {
+            "example": "Abandonado por el cliente",
+            "type": "string"
+          },
+          "outcome": {
+            "description": "awaiting_provider: application opened, no callback yet. link_not_delivered: Addi opened it but its link could not be handed out. pending/approved/abandoned/declined/rejected/provider_error: what Addi's authenticated callback reported (PENDING, APPROVED, ABANDONED, DECLINED, REJECTED, INTERNAL_ERROR). not_opened/client_has_credit: Addi refused to open it. expired_unconfirmed: two hours passed with NO callback; never presented as an abandonment. cancelled: approved and later cancelled, ONLY when the cancellation was recorded and audited from the panel.",
+            "enum": [
+              "awaiting_provider",
+              "link_not_delivered",
+              "pending",
+              "approved",
+              "abandoned",
+              "declined",
+              "rejected",
+              "provider_error",
+              "not_opened",
+              "client_has_credit",
+              "expired_unconfirmed",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "tone": {
+            "description": "Badge tone. The label always goes with it: colour is never the only signal.",
+            "enum": [
+              "success",
+              "info",
+              "warning",
+              "danger",
+              "neutral"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "label",
+          "tone"
+        ],
+        "type": "object"
+      },
+      "AdminAddiPaymentDto": {
+        "properties": {
+          "approvedAttemptNumber": {
+            "description": "The attempt Addi approved, if any.",
+            "nullable": true,
+            "type": "number"
+          },
+          "attempts": {
+            "description": "Every Addi attempt, NEWEST FIRST. None is hidden or replaced.",
+            "items": {
+              "$ref": "#/components/schemas/AdminAddiAttemptDto"
+            },
+            "type": "array"
+          },
+          "cancellationEditing": {
+            "$ref": "#/components/schemas/AdminAddiCancellationEditingDto"
+          },
+          "cancellationNotice": {
+            "description": "Why cancellations have to be recorded by hand.",
+            "type": "string"
+          },
+          "cancellations": {
+            "description": "Recorded cancellations.",
+            "items": {
+              "$ref": "#/components/schemas/AdminAddiCancellationDto"
+            },
+            "type": "array"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/AdminPaymentChannelDto"
+          },
+          "current": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminAddiOutcomeDto"
+              }
+            ],
+            "description": "Current Addi result: the latest attempt's, or cancelled when the approved attempt has a recorded cancellation. Independent of the order status and of the local payment status, which keep their own fields."
+          },
+          "currentAttemptNumber": {
+            "nullable": true,
+            "type": "number"
+          }
+        },
+        "required": [
+          "channel",
+          "current",
+          "currentAttemptNumber",
+          "approvedAttemptNumber",
+          "attempts",
+          "cancellations",
+          "cancellationNotice",
+          "cancellationEditing"
+        ],
+        "type": "object"
+      },
       "AdminCardDetailsDto": {
         "properties": {
           "brand": {
@@ -635,6 +1089,16 @@
       },
       "AdminOrderDto": {
         "properties": {
+          "addiPayment": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminAddiPaymentDto"
+              }
+            ],
+            "description": "Addi Online orders only (null otherwise): current Addi result, every attempt with its timeline, recorded cancellations and whether one can be recorded.",
+            "nullable": true,
+            "type": "object"
+          },
           "availableSimulationEvents": {
             "description": "Outcomes that can be applied from the current payment state. The panel renders these instead of reimplementing the state machine.",
             "example": [
@@ -708,6 +1172,9 @@
               "$ref": "#/components/schemas/AdminPaymentAttemptDto"
             },
             "type": "array"
+          },
+          "paymentChannel": {
+            "$ref": "#/components/schemas/AdminPaymentChannelDto"
           },
           "paymentEditing": {
             "$ref": "#/components/schemas/AdminOrderPaymentEditingDto"
@@ -857,7 +1324,9 @@
           "availableSimulationEvents",
           "notifications",
           "paymentAttempts",
-          "paymentSummary"
+          "paymentSummary",
+          "paymentChannel",
+          "addiPayment"
         ],
         "type": "object"
       },
@@ -944,6 +1413,16 @@
       },
       "AdminOrderListItemDto": {
         "properties": {
+          "addiPayment": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminAddiListSummaryDto"
+              }
+            ],
+            "description": "Addi Online orders only: the latest Addi result (or cancelled when recorded). null for any other order and for an Addi Online order with no attempt yet.",
+            "nullable": true,
+            "type": "object"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -959,6 +1438,14 @@
             "description": "Total number of lines in the order. The panel subtracts one from it to say \"and N more products\"; the backend does not compose that text.",
             "minimum": 1,
             "type": "number"
+          },
+          "paymentChannel": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminPaymentChannelDto"
+              }
+            ],
+            "description": "How this order is paid, for every order and every payment status (see AdminPaymentChannelDto)."
           },
           "paymentReconciliation": {
             "allOf": [
@@ -1049,7 +1536,9 @@
           "createdAt",
           "updatedAt",
           "paymentSummary",
-          "paymentReconciliation"
+          "paymentReconciliation",
+          "paymentChannel",
+          "addiPayment"
         ],
         "type": "object"
       },
@@ -1753,7 +2242,7 @@
             "type": "string"
           },
           "externalId": {
-            "description": "Addi only: the applicationId Addi assigned, to look the application up with Addi. Always null for Wompi, whose transaction identifier is still not published.",
+            "description": "Addi only: the applicationId Addi assigned, MASKED (first and last four characters). Always null for Wompi, whose transaction identifier is still not published.",
             "nullable": true,
             "type": "string"
           },
@@ -1853,6 +2342,30 @@
           "code",
           "at",
           "origin"
+        ],
+        "type": "object"
+      },
+      "AdminPaymentChannelDto": {
+        "properties": {
+          "code": {
+            "description": "addi_online: the order was created choosing Addi in the storefront and is paid through the Addi integration. addi_marketplace: Addi set by hand from the panel; manual, with no integration. wompi, bank_transfer and cash as before.",
+            "enum": [
+              "addi_online",
+              "addi_marketplace",
+              "wompi",
+              "bank_transfer",
+              "cash"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "example": "Addi Online",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label"
         ],
         "type": "object"
       },
@@ -4527,6 +5040,36 @@
         ],
         "type": "object"
       },
+      "EditOrderAddiCancellationInputDto": {
+        "properties": {
+          "confirmed": {
+            "description": "Explicit confirmation. POST /edit rejects it without confirmed: true (order_reconciliation_invalid confirmation_required); the preview ignores it.",
+            "type": "boolean"
+          },
+          "confirmedOn": {
+            "description": "Day Addi confirmed the cancellation (Colombia). Not in the future and not before the approval.",
+            "example": "2026-10-12",
+            "format": "date",
+            "type": "string"
+          },
+          "externalReference": {
+            "description": "Cancellation reference in Addi's portal, if any.",
+            "maxLength": 120,
+            "nullable": true,
+            "type": "string"
+          },
+          "note": {
+            "description": "Required. At most 1000 characters after trimming.",
+            "maxLength": 2000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmedOn",
+          "note"
+        ],
+        "type": "object"
+      },
       "EditOrderPaymentChangeDto": {
         "properties": {
           "methodAfter": {
@@ -4627,6 +5170,14 @@
       },
       "EditOrderRequestDto": {
         "properties": {
+          "addiCancellation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EditOrderAddiCancellationInputDto"
+              }
+            ],
+            "description": "Records that an Addi credit Addi APPROVED was later cancelled in Addi's Allies Portal, alone in its edit (order_request_invalid otherwise). Addi does not report cancellations by callback, so this is the only way to show «Cancelado en Addi». The APPROVED result, its date, the attempt, the payment history, the payment status and the order status are NEVER modified, and nothing is sent to Addi. Blocked with 409 order_edit_blocked addi_payment_not_approved when no attempt was approved by Addi's callback, or addi_cancellation_recorded when it is already recorded. 400 order_reconciliation_invalid with confirmed_on_required, confirmed_on_invalid, note_required, note_invalid, note_too_long, cancellation_reference_invalid, cancellation_reference_too_long or confirmation_required. Idempotent like the reconciliation. Audited as order.addi_cancellation_recorded without the note. Requires payments.manage_manual (super_admin and master_admin)."
+          },
           "expectedVersion": {
             "description": "Version the caller last read.",
             "minimum": 1,
@@ -4713,7 +5264,8 @@
                 "items",
                 "paymentMethod",
                 "paymentStatus",
-                "paymentReconciliation"
+                "paymentReconciliation",
+                "addiCancellation"
               ],
               "type": "string"
             },
@@ -5236,7 +5788,9 @@
               "payment_status_transition_invalid",
               "payment_confirmed_by_provider",
               "reconciliation_payment_settled",
-              "reconciliation_order_closed"
+              "reconciliation_order_closed",
+              "addi_payment_not_approved",
+              "addi_cancellation_recorded"
             ],
             "type": "string"
           }
@@ -5703,7 +6257,11 @@
               "external_payment_id_invalid",
               "external_payment_id_too_long",
               "external_payment_id_required",
-              "confirmation_required"
+              "confirmation_required",
+              "confirmed_on_required",
+              "confirmed_on_invalid",
+              "cancellation_reference_invalid",
+              "cancellation_reference_too_long"
             ],
             "type": "string"
           }
@@ -12379,7 +12937,7 @@
     },
     "/v1/admin/orders": {
       "get": {
-        "description": "Ordered by createdAt descending. Rows carry no address, email or phone: those are on the detail. Paid rows carry paymentSummary (provider and safe method summary); reading it costs one extra query per 30 paid rows, never one per row. Requires orders.read.",
+        "description": "Ordered by createdAt descending. Rows carry no address, email or phone: those are on the detail. Paid rows carry paymentSummary (provider and safe method summary) and rows paid through the online credit integration carry their latest result (see the row schema); reading them costs one extra query per 30 such rows, never one per row. Every row carries paymentChannel. There is no server-side filter: the latest attempt status is not stored on the order, so filtering by it would need a denormalized field and a composite index. Requires orders.read.",
         "operationId": "AdminOrdersController_list",
         "parameters": [
           {
@@ -12697,7 +13255,7 @@
                 }
               }
             },
-            "description": "order_request_invalid (unknown field, empty edit, nothing changes, notes too long, duplicate line, unknown paymentMethod or paymentStatus, paymentStatus combined with status or items, paymentReconciliation combined with any other field), order_reconciliation_invalid with its reason (see OrderReconciliationErrorDto), order_shipment_invalid, order_product_unavailable, order_variant_required, order_variant_unavailable or order_out_of_stock"
+            "description": "order_request_invalid (unknown field, empty edit, nothing changes, notes too long, duplicate line, unknown paymentMethod or paymentStatus, paymentStatus combined with status or items, paymentReconciliation or the credit cancellation combined with any other field), order_reconciliation_invalid with its reason (see OrderReconciliationErrorDto), order_shipment_invalid, order_product_unavailable, order_variant_required, order_variant_unavailable or order_out_of_stock"
           },
           "401": {
             "content": {
@@ -19855,7 +20413,7 @@
     },
     "/v1/orders/payments/addi/checkout": {
       "post": {
-        "description": "Only for an order created choosing Addi in the storefront (paymentMethod addi). An order marked as Addi Marketplace from the panel stays manual and is refused with payment_checkout_not_allowed payment_method_offline. Everything comes from the STORED order: total, shipping, lines, buyer and address. The buyer must have a Colombian citizenship ID (CC), first and last names and a 10-digit mobile number. Every attempt has its own opaque reference, used as Addi's orderId, even for the same cart. A fresh JWT is requested for each attempt. Addi's 301 is NOT followed: its Location is captured and returned only when its origin is exactly one of the configured Addi origins. A 301 without Location, or with one whose origin is not authorized yet, does NOT close the attempt: it answers 503 payment_provider_unavailable, keeps the same attempt and reference, never stores or returns that URL, and the next call asks Addi again with the SAME orderId. Only definitive answers (documented 4xx, client already with credit) close the attempt. Reloading returns the SAME application while it is open (two hours). Two simultaneous requests never create two applications: the second is refused with payment_in_progress until the first finishes. THE BROWSER COMING BACK FROM ADDI DOES NOT CONFIRM ANYTHING: only Addi's authenticated callback moves the order.",
+        "description": "Only for an order created choosing Addi in the storefront (paymentMethod addi). An order marked as Addi Marketplace from the panel stays manual and is refused with payment_checkout_not_allowed payment_method_offline. Everything comes from the STORED order: total, shipping, lines, buyer and address. The buyer must have a Colombian citizenship ID (CC), first and last names and a 10-digit mobile number. Every attempt has its own opaque reference, used as Addi's orderId, even for the same cart. A fresh JWT is requested for each attempt. Addi's 301 is NOT followed: its Location is captured and returned only when its origin is exactly one of the configured Addi origins. A 301 whose Location is a well-formed HTTPS URL from an origin not authorized yet means Addi ALREADY opened the application: the URL is kept server-side only, never returned or logged, the attempt stays open and the answer is 409 addi_checkout_verifying. Calling again never asks Addi again; it returns that same URL only once its origin is authorized. A 301 without a usable Location does NOT close the attempt: it answers 503 payment_provider_unavailable, keeps the same attempt and reference, and the next call asks Addi again with the SAME orderId (Addi documents its API as idempotent). Only definitive answers (documented 4xx, client already with credit) close the attempt. Reloading returns the SAME application while it is open (two hours). Two simultaneous requests never create two applications: the second is refused with payment_in_progress until the first finishes. THE BROWSER COMING BACK FROM ADDI DOES NOT CONFIRM ANYTHING: only Addi's authenticated callback moves the order.",
         "operationId": "PublicAddiController_checkout",
         "parameters": [],
         "requestBody": {
@@ -19907,7 +20465,7 @@
                 }
               }
             },
-            "description": "addi_application_rejected, payment_checkout_not_allowed, payment_integration_disabled or addi_live_payments_not_enabled"
+            "description": "addi_application_rejected, addi_checkout_verifying (Addi opened the application but its address is not authorized yet; do not retry), payment_checkout_not_allowed, payment_integration_disabled or addi_live_payments_not_enabled"
           },
           "503": {
             "content": {
@@ -19917,7 +20475,7 @@
                 }
               }
             },
-            "description": "payment_provider_unavailable: Addi did not answer, or its redirection could not be verified; the same reference is retried"
+            "description": "payment_provider_unavailable: Addi did not answer, or answered a 301 without a usable Location; the same reference is retried"
           }
         },
         "security": [

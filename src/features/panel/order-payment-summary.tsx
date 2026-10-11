@@ -1,3 +1,4 @@
+import { AddiOutcomeBadge } from './addi-outcome-badge';
 import { compactPaymentSummary } from './payment-method';
 import { reconciliationRowText } from './payment-reconciliation';
 import styles from './orders.module.css';
@@ -49,4 +50,39 @@ export function OrderReconciliationLine({
       {text.visible}
     </span>
   );
+}
+
+/**
+ * La celda «Medio de pago» de una fila: por dónde se paga el pedido, con o sin pago aprobado.
+ *
+ * - **Addi Online**: el canal y, debajo, la pastilla del último resultado de Addi —«Abandonado por
+ *   el cliente», «Aprobado por Addi»…—, que es una lectura aparte del estado del pago y del pedido.
+ * - **Addi Marketplace (manual)**: el canal, dicho así, para que nunca se confunda con el anterior.
+ * - El resto: el resumen del cobro aprobado —«Wompi · Visa •••• 1234»— o, sin pago aprobado, el
+ *   canal. Con un backend anterior al canal (tras un rollback) queda el resumen de siempre.
+ */
+export function OrderPaymentChannel({ order }: { readonly order: AdminOrderListItem }) {
+  const channel = order.paymentChannel;
+
+  if (channel?.code === 'addi_online') {
+    return (
+      <span className={styles.addiCell}>
+        <span className={styles.addiChannel}>{channel.label}</span>
+        {order.addiPayment == null ? (
+          <span className={styles.paymentSummaryEmpty}>Sin intento todavía</span>
+        ) : (
+          <AddiOutcomeBadge outcome={order.addiPayment} />
+        )}
+      </span>
+    );
+  }
+
+  if (
+    channel === undefined ||
+    (channel.code !== 'addi_marketplace' && order.paymentSummary !== null)
+  ) {
+    return <OrderPaymentSummary summary={order.paymentSummary} />;
+  }
+
+  return <span className={styles.paymentSummary}>{channel.label}</span>;
 }

@@ -384,7 +384,7 @@ export interface paths {
         };
         /**
          * List orders for the panel
-         * @description Ordered by createdAt descending. Rows carry no address, email or phone: those are on the detail. Paid rows carry paymentSummary (provider and safe method summary); reading it costs one extra query per 30 paid rows, never one per row. Requires orders.read.
+         * @description Ordered by createdAt descending. Rows carry no address, email or phone: those are on the detail. Paid rows carry paymentSummary (provider and safe method summary) and rows paid through the online credit integration carry their latest result (see the row schema); reading them costs one extra query per 30 such rows, never one per row. Every row carries paymentChannel. There is no server-side filter: the latest attempt status is not stored on the order, so filtering by it would need a denormalized field and a composite index. Requires orders.read.
          */
         get: operations["AdminOrdersController_list"];
         put?: never;
@@ -1721,7 +1721,7 @@ export interface paths {
         put?: never;
         /**
          * Open an Addi application for an order
-         * @description Only for an order created choosing Addi in the storefront (paymentMethod addi). An order marked as Addi Marketplace from the panel stays manual and is refused with payment_checkout_not_allowed payment_method_offline. Everything comes from the STORED order: total, shipping, lines, buyer and address. The buyer must have a Colombian citizenship ID (CC), first and last names and a 10-digit mobile number. Every attempt has its own opaque reference, used as Addi's orderId, even for the same cart. A fresh JWT is requested for each attempt. Addi's 301 is NOT followed: its Location is captured and returned only when its origin is exactly one of the configured Addi origins. A 301 without Location, or with one whose origin is not authorized yet, does NOT close the attempt: it answers 503 payment_provider_unavailable, keeps the same attempt and reference, never stores or returns that URL, and the next call asks Addi again with the SAME orderId. Only definitive answers (documented 4xx, client already with credit) close the attempt. Reloading returns the SAME application while it is open (two hours). Two simultaneous requests never create two applications: the second is refused with payment_in_progress until the first finishes. THE BROWSER COMING BACK FROM ADDI DOES NOT CONFIRM ANYTHING: only Addi's authenticated callback moves the order.
+         * @description Only for an order created choosing Addi in the storefront (paymentMethod addi). An order marked as Addi Marketplace from the panel stays manual and is refused with payment_checkout_not_allowed payment_method_offline. Everything comes from the STORED order: total, shipping, lines, buyer and address. The buyer must have a Colombian citizenship ID (CC), first and last names and a 10-digit mobile number. Every attempt has its own opaque reference, used as Addi's orderId, even for the same cart. A fresh JWT is requested for each attempt. Addi's 301 is NOT followed: its Location is captured and returned only when its origin is exactly one of the configured Addi origins. A 301 whose Location is a well-formed HTTPS URL from an origin not authorized yet means Addi ALREADY opened the application: the URL is kept server-side only, never returned or logged, the attempt stays open and the answer is 409 addi_checkout_verifying. Calling again never asks Addi again; it returns that same URL only once its origin is authorized. A 301 without a usable Location does NOT close the attempt: it answers 503 payment_provider_unavailable, keeps the same attempt and reference, and the next call asks Addi again with the SAME orderId (Addi documents its API as idempotent). Only definitive answers (documented 4xx, client already with credit) close the attempt. Reloading returns the SAME application while it is open (two hours). Two simultaneous requests never create two applications: the second is refused with payment_in_progress until the first finishes. THE BROWSER COMING BACK FROM ADDI DOES NOT CONFIRM ANYTHING: only Addi's authenticated callback moves the order.
          */
         post: operations["PublicAddiController_checkout"];
         delete?: never;
@@ -1987,7 +1987,7 @@ export interface components {
         };
         AddiCheckoutErrorDto: {
             /** @enum {string} */
-            code: "addi_application_rejected" | "addi_buyer_data_invalid" | "addi_live_payments_not_enabled" | "payment_checkout_not_allowed" | "payment_integration_disabled";
+            code: "addi_application_rejected" | "addi_buyer_data_invalid" | "addi_checkout_verifying" | "addi_live_payments_not_enabled" | "payment_checkout_not_allowed" | "payment_integration_disabled";
             /** @description For addi_buyer_data_invalid: one entry per problem, path being one of identification_missing, identification_not_cc, identification_number_invalid, first_name_invalid, last_name_invalid, cellphone_invalid or address_invalid. Never the value. */
             issues?: components["schemas"]["ErrorIssueDto"][];
             message: string;
@@ -2092,6 +2092,155 @@ export interface components {
         AddiStatusRequestDto: {
             reference: string;
         };
+        AdminAddiAttemptDto: {
+            /** Format: int32 */
+            amountCop: number;
+            /** @description This attempt is the one Addi approved (callback validated). */
+            approved: boolean;
+            attemptNumber: number;
+            cancellation: components["schemas"]["AdminAddiCancellationDto"] | null;
+            /** Format: date-time */
+            completedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** @enum {string} */
+            currency: "COP";
+            /** @description Oldest first. */
+            events: components["schemas"]["AdminAddiAttemptEventDto"][];
+            /** Format: date-time */
+            expiresAt: string;
+            /**
+             * @description Addi applicationId, masked. null until Addi reports one.
+             * @example 1a2b…f0e7
+             */
+            externalIdMasked: string | null;
+            lastError: components["schemas"]["AdminAddiCheckoutErrorDto"] | null;
+            /** @description Whether Addi's link was accepted and handed to the buyer. The URL itself is never published. */
+            linkDelivered: boolean;
+            /**
+             * @description Local attempt status (the normalized one).
+             * @enum {string}
+             */
+            localStatus: "created" | "processing" | "approved" | "declined" | "voided" | "error" | "expired";
+            /**
+             * @description Status exactly as Addi reported it, or our own closing code. null with no answer.
+             * @example ABANDONED
+             */
+            providerStatus: string | null;
+            /** @description Internal reference sent to Addi as orderId; unique per attempt. */
+            reference: string;
+            /** @description This attempt's result. */
+            result: components["schemas"]["AdminAddiOutcomeDto"];
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminAddiAttemptEventDto: {
+            /** Format: date-time */
+            at: string;
+            /** @description Sanitized detail: the status as Addi named it (provider_status), the origin of an unauthorized link (scheme and host only), or the confirmation day of a recorded cancellation. Never a URL path, a query or a payload. */
+            detail: string | null;
+            /** @enum {string} */
+            kind: "opened" | "link_not_delivered" | "link_delivered" | "provider_status" | "expired_unconfirmed" | "cancellation_recorded";
+            /** @example Addi informó: Abandonado por el cliente */
+            label: string;
+        };
+        AdminAddiCancellationDto: {
+            /** @description Role of the administrator who recorded it. */
+            actorRole: string;
+            /** Format: int32 */
+            amountCop: number;
+            attemptNumber: number;
+            /**
+             * Format: date
+             * @description Day Addi confirmed the cancellation, as recorded by the team (Colombia).
+             */
+            confirmedOn: string;
+            /** @enum {string} */
+            currency: "COP";
+            /** @description Addi applicationId, masked. */
+            externalIdMasked: string | null;
+            externalReference: string | null;
+            id: string;
+            /** @description Team note. Panel only. */
+            note: string;
+            /** Format: date-time */
+            recordedAt: string;
+            /** @description Internal reference sent to Addi as orderId. */
+            reference: string;
+            /**
+             * @description addi_portal_manual: the team confirmed it in Addi's Allies Portal and recorded it here. Addi does not report cancellations by callback.
+             * @enum {string}
+             */
+            source: "addi_portal_manual";
+            sourceLabel: string;
+            /** @enum {string} */
+            status: "cancelled";
+            /** @example Cancelado en Addi */
+            statusLabel: string;
+        };
+        AdminAddiCancellationEditingDto: {
+            /** @description Whether a cancellation can be recorded now (state only; recording also requires payments.manage_manual). */
+            allowed: boolean;
+            /** @description The approved attempt, if any. */
+            attemptNumber: number | null;
+            /** @enum {string|null} */
+            lock: "addi_payment_not_approved" | "addi_cancellation_recorded" | null;
+        };
+        AdminAddiCheckoutErrorDto: {
+            /** Format: date-time */
+            at: string;
+            /** @example addi_redirect_unverified */
+            code: string;
+            /** @example Origen del enlace todavía no autorizado */
+            label: string;
+            /** @description Origin only (scheme and host). Never the path, the query or the full URL. */
+            origin: string | null;
+        };
+        AdminAddiListSummaryDto: {
+            /** @description Addi attempts on this order. */
+            attemptCount: number;
+            /** @example Abandonado por el cliente */
+            label: string;
+            /**
+             * @description awaiting_provider: application opened, no callback yet. link_not_delivered: Addi opened it but its link could not be handed out. pending/approved/abandoned/declined/rejected/provider_error: what Addi's authenticated callback reported (PENDING, APPROVED, ABANDONED, DECLINED, REJECTED, INTERNAL_ERROR). not_opened/client_has_credit: Addi refused to open it. expired_unconfirmed: two hours passed with NO callback; never presented as an abandonment. cancelled: approved and later cancelled, ONLY when the cancellation was recorded and audited from the panel.
+             * @enum {string}
+             */
+            outcome: "awaiting_provider" | "link_not_delivered" | "pending" | "approved" | "abandoned" | "declined" | "rejected" | "provider_error" | "not_opened" | "client_has_credit" | "expired_unconfirmed" | "cancelled";
+            /**
+             * @description Badge tone. The label always goes with it: colour is never the only signal.
+             * @enum {string}
+             */
+            tone: "success" | "info" | "warning" | "danger" | "neutral";
+        };
+        AdminAddiOutcomeDto: {
+            /** @example Abandonado por el cliente */
+            label: string;
+            /**
+             * @description awaiting_provider: application opened, no callback yet. link_not_delivered: Addi opened it but its link could not be handed out. pending/approved/abandoned/declined/rejected/provider_error: what Addi's authenticated callback reported (PENDING, APPROVED, ABANDONED, DECLINED, REJECTED, INTERNAL_ERROR). not_opened/client_has_credit: Addi refused to open it. expired_unconfirmed: two hours passed with NO callback; never presented as an abandonment. cancelled: approved and later cancelled, ONLY when the cancellation was recorded and audited from the panel.
+             * @enum {string}
+             */
+            outcome: "awaiting_provider" | "link_not_delivered" | "pending" | "approved" | "abandoned" | "declined" | "rejected" | "provider_error" | "not_opened" | "client_has_credit" | "expired_unconfirmed" | "cancelled";
+            /**
+             * @description Badge tone. The label always goes with it: colour is never the only signal.
+             * @enum {string}
+             */
+            tone: "success" | "info" | "warning" | "danger" | "neutral";
+        };
+        AdminAddiPaymentDto: {
+            /** @description The attempt Addi approved, if any. */
+            approvedAttemptNumber: number | null;
+            /** @description Every Addi attempt, NEWEST FIRST. None is hidden or replaced. */
+            attempts: components["schemas"]["AdminAddiAttemptDto"][];
+            cancellationEditing: components["schemas"]["AdminAddiCancellationEditingDto"];
+            /** @description Why cancellations have to be recorded by hand. */
+            cancellationNotice: string;
+            /** @description Recorded cancellations. */
+            cancellations: components["schemas"]["AdminAddiCancellationDto"][];
+            channel: components["schemas"]["AdminPaymentChannelDto"];
+            /** @description Current Addi result: the latest attempt's, or cancelled when the approved attempt has a recorded cancellation. Independent of the order status and of the local payment status, which keep their own fields. */
+            current: components["schemas"]["AdminAddiOutcomeDto"];
+            currentAttemptNumber: number | null;
+        };
         AdminCardDetailsDto: {
             /**
              * @description Card network code as reported by the provider, validated. null when not reported.
@@ -2180,6 +2329,8 @@ export interface components {
             statusLabel: string;
         };
         AdminOrderDto: {
+            /** @description Addi Online orders only (null otherwise): current Addi result, every attempt with its timeline, recorded cancellations and whether one can be recorded. */
+            addiPayment: components["schemas"]["AdminAddiPaymentDto"] | null;
             /**
              * @description Outcomes that can be applied from the current payment state. The panel renders these instead of reimplementing the state machine.
              * @example [
@@ -2204,6 +2355,7 @@ export interface components {
             payment: components["schemas"]["OrderPaymentDto"];
             /** @description Payment attempts opened for this order, NEWEST FIRST. Every attempt is returned regardless of its environment: they are NOT filtered by the order's payment.environment, because an order still carrying its initial value would otherwise hide a real production attempt. Empty when nobody has opened a checkout. */
             paymentAttempts: components["schemas"]["AdminPaymentAttemptDto"][];
+            paymentChannel: components["schemas"]["AdminPaymentChannelDto"];
             paymentEditing: components["schemas"]["AdminOrderPaymentEditingDto"];
             /** @description Append-only payment history. Separate from the order timeline on purpose. */
             paymentEvents: components["schemas"]["AdminPaymentEventDto"][];
@@ -2286,6 +2438,8 @@ export interface components {
             identificationTypeLabel: string;
         };
         AdminOrderListItemDto: {
+            /** @description Addi Online orders only: the latest Addi result (or cancelled when recorded). null for any other order and for an Addi Online order with no attempt yet. */
+            addiPayment: components["schemas"]["AdminAddiListSummaryDto"] | null;
             /** Format: date-time */
             createdAt: string;
             /** @example Ana Pérez */
@@ -2293,6 +2447,8 @@ export interface components {
             id: string;
             /** @description Total number of lines in the order. The panel subtracts one from it to say "and N more products"; the backend does not compose that text. */
             itemCount: number;
+            /** @description How this order is paid, for every order and every payment status (see AdminPaymentChannelDto). */
+            paymentChannel: components["schemas"]["AdminPaymentChannelDto"];
             /** @description Current manual reconciliation (ADR 0029), so a row can show the provider attempt and the final payment apart. null when the order was never reconciled. */
             paymentReconciliation: components["schemas"]["AdminOrderPaymentReconciliationSummaryDto"] | null;
             /**
@@ -2541,7 +2697,7 @@ export interface components {
             environment: "sandbox" | "production";
             /** @description When the checkout stops being reusable. */
             expiresAt: string;
-            /** @description Addi only: the applicationId Addi assigned, to look the application up with Addi. Always null for Wompi, whose transaction identifier is still not published. */
+            /** @description Addi only: the applicationId Addi assigned, MASKED (first and last four characters). Always null for Wompi, whose transaction identifier is still not published. */
             externalId: string | null;
             /** @description Whether the provider has bound a transaction to this attempt. The identifier itself is never published. */
             hasTransactionId: boolean;
@@ -2577,6 +2733,15 @@ export interface components {
              * @example https://originations.addi.com
              */
             origin: string | null;
+        };
+        AdminPaymentChannelDto: {
+            /**
+             * @description addi_online: the order was created choosing Addi in the storefront and is paid through the Addi integration. addi_marketplace: Addi set by hand from the panel; manual, with no integration. wompi, bank_transfer and cash as before.
+             * @enum {string}
+             */
+            code: "addi_online" | "addi_marketplace" | "wompi" | "bank_transfer" | "cash";
+            /** @example Addi Online */
+            label: string;
         };
         AdminPaymentEventDto: {
             attemptNumber: number;
@@ -3635,6 +3800,20 @@ export interface components {
             slug: string;
             variants: components["schemas"]["ProductVariantDto"][];
         };
+        EditOrderAddiCancellationInputDto: {
+            /** @description Explicit confirmation. POST /edit rejects it without confirmed: true (order_reconciliation_invalid confirmation_required); the preview ignores it. */
+            confirmed?: boolean;
+            /**
+             * Format: date
+             * @description Day Addi confirmed the cancellation (Colombia). Not in the future and not before the approval.
+             * @example 2026-10-12
+             */
+            confirmedOn: string;
+            /** @description Cancellation reference in Addi's portal, if any. */
+            externalReference?: string | null;
+            /** @description Required. At most 1000 characters after trimming. */
+            note: string;
+        };
         EditOrderPaymentChangeDto: {
             /** @enum {string} */
             methodAfter: "wompi" | "addi" | "bank_transfer" | "cash";
@@ -3664,6 +3843,8 @@ export interface components {
             status: "pending" | "unpaid" | "failed" | "paid";
         };
         EditOrderRequestDto: {
+            /** @description Records that an Addi credit Addi APPROVED was later cancelled in Addi's Allies Portal, alone in its edit (order_request_invalid otherwise). Addi does not report cancellations by callback, so this is the only way to show «Cancelado en Addi». The APPROVED result, its date, the attempt, the payment history, the payment status and the order status are NEVER modified, and nothing is sent to Addi. Blocked with 409 order_edit_blocked addi_payment_not_approved when no attempt was approved by Addi's callback, or addi_cancellation_recorded when it is already recorded. 400 order_reconciliation_invalid with confirmed_on_required, confirmed_on_invalid, note_required, note_invalid, note_too_long, cancellation_reference_invalid, cancellation_reference_too_long or confirmation_required. Idempotent like the reconciliation. Audited as order.addi_cancellation_recorded without the note. Requires payments.manage_manual (super_admin and master_admin). */
+            addiCancellation?: components["schemas"]["EditOrderAddiCancellationInputDto"];
             /** @description Version the caller last read. */
             expectedVersion: number;
             /** @description Internal notes, at most 2000 characters after trimming. null or an empty string clears them. Requires orders.update_status. */
@@ -3692,7 +3873,7 @@ export interface components {
         };
         EditOrderResultDto: {
             /** @description Fields that actually change. Asking for the current value of a field does not count. */
-            changedFields: ("status" | "internalNotes" | "items" | "paymentMethod" | "paymentStatus" | "paymentReconciliation")[];
+            changedFields: ("status" | "internalNotes" | "items" | "paymentMethod" | "paymentStatus" | "paymentReconciliation" | "addiCancellation")[];
             /** @description Customer emails this edit writes —or would write, in a preview—, by event. At most one event per edit. */
             customerNotifications: ("order_received" | "payment_reminder" | "payment_processing" | "payment_approved" | "payment_declined" | "payment_voided" | "payment_expired" | "payment_error" | "order_preparing" | "order_ready_to_ship" | "order_shipped" | "order_delivered" | "order_cancelled" | "order_status_reminder")[];
             /** @description The order after the edit, or as it would be after it in a preview. */
@@ -3898,7 +4079,7 @@ export interface components {
              * @description Only with code order_edit_blocked: why the edit cannot be applied.
              * @enum {string}
              */
-            reason?: "items_locked_status" | "payment_in_flight" | "checkout_opened" | "paid_total_changed" | "shipping_not_recalculable" | "payment_not_pending" | "payment_status_automatic" | "payment_status_transition_invalid" | "payment_confirmed_by_provider" | "reconciliation_payment_settled" | "reconciliation_order_closed";
+            reason?: "items_locked_status" | "payment_in_flight" | "checkout_opened" | "paid_total_changed" | "shipping_not_recalculable" | "payment_not_pending" | "payment_status_automatic" | "payment_status_transition_invalid" | "payment_confirmed_by_provider" | "reconciliation_payment_settled" | "reconciliation_order_closed" | "addi_payment_not_approved" | "addi_cancellation_recorded";
         };
         OrderLineDto: {
             attributes: components["schemas"]["ProductVariantAttributeDto"][];
@@ -4105,7 +4286,7 @@ export interface components {
              * @description Only with code order_reconciliation_invalid: which field to fix.
              * @enum {string}
              */
-            reason?: "status_invalid" | "method_invalid" | "note_invalid" | "note_too_long" | "note_required" | "external_payment_id_invalid" | "external_payment_id_too_long" | "external_payment_id_required" | "confirmation_required";
+            reason?: "status_invalid" | "method_invalid" | "note_invalid" | "note_too_long" | "note_required" | "external_payment_id_invalid" | "external_payment_id_too_long" | "external_payment_id_required" | "confirmation_required" | "confirmed_on_required" | "confirmed_on_invalid" | "cancellation_reference_invalid" | "cancellation_reference_too_long";
         };
         OrderShipmentDto: {
             /** @example Servientrega */
@@ -7270,7 +7451,7 @@ export interface operations {
                     "application/json": components["schemas"]["EditOrderResultDto"];
                 };
             };
-            /** @description order_request_invalid (unknown field, empty edit, nothing changes, notes too long, duplicate line, unknown paymentMethod or paymentStatus, paymentStatus combined with status or items, paymentReconciliation combined with any other field), order_reconciliation_invalid with its reason (see OrderReconciliationErrorDto), order_shipment_invalid, order_product_unavailable, order_variant_required, order_variant_unavailable or order_out_of_stock */
+            /** @description order_request_invalid (unknown field, empty edit, nothing changes, notes too long, duplicate line, unknown paymentMethod or paymentStatus, paymentStatus combined with status or items, paymentReconciliation or the credit cancellation combined with any other field), order_reconciliation_invalid with its reason (see OrderReconciliationErrorDto), order_shipment_invalid, order_product_unavailable, order_variant_required, order_variant_unavailable or order_out_of_stock */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -12217,7 +12398,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponseDto"];
                 };
             };
-            /** @description addi_application_rejected, payment_checkout_not_allowed, payment_integration_disabled or addi_live_payments_not_enabled */
+            /** @description addi_application_rejected, addi_checkout_verifying (Addi opened the application but its address is not authorized yet; do not retry), payment_checkout_not_allowed, payment_integration_disabled or addi_live_payments_not_enabled */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -12226,7 +12407,7 @@ export interface operations {
                     "application/json": components["schemas"]["AddiCheckoutErrorDto"];
                 };
             };
-            /** @description payment_provider_unavailable: Addi did not answer, or its redirection could not be verified; the same reference is retried */
+            /** @description payment_provider_unavailable: Addi did not answer, or answered a 301 without a usable Location; the same reference is retried */
             503: {
                 headers: {
                     [name: string]: unknown;
