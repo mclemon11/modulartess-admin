@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import { OrderAddiPaymentCard } from './addi-payment-card';
+import { OrderDuplicateCancellationCard } from './duplicate-cancellation-card';
 import catalog from './catalog.module.css';
 import { formatDateTime } from './format';
 import { OrderActionsBar } from './order-actions-bar';
@@ -112,6 +113,7 @@ export function OrderDetailView({
         <div className={styles.detailColumn}>
           <OrderPaymentCard now={now} order={order} />
           <OrderAddiPaymentCard onUpdated={setOrder} order={order} role={role} />
+          <OrderDuplicateCancellationCard onUpdated={setOrder} order={order} role={role} />
           <OrderPaymentAttemptsCard now={now} order={order} />
           <PaymentSimulator onUpdated={setOrder} order={order} role={role} />
           <OrderPaymentHistoryCard order={order} />

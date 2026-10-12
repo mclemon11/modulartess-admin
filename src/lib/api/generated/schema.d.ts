@@ -2024,7 +2024,7 @@ export interface components {
             callbackUsernameConfigured: boolean;
             /** @example …ally */
             callbackUsernameHint: string | null;
-            /** @description Exact origins accepted in Addi's redirection. */
+            /** @description Exact exceptions (ADDI_CHECKOUT_ORIGINS) to the structural redirect policy. Empty by default: https on addi.com or any *.addi.com host already passes the policy. */
             checkoutOrigins: string[];
             clientIdConfigured: boolean;
             /**
@@ -2264,6 +2264,25 @@ export interface components {
              */
             lastFour: string | null;
         };
+        AdminDuplicateCancellationDto: {
+            actorRole: string;
+            /** Format: date-time */
+            at: string;
+            canonicalOrderId: string;
+            /** @example MZ-5TWA4SD7 */
+            canonicalPublicId: string;
+            note: string;
+            /** @enum {string} */
+            reason: "duplicate_order";
+        };
+        AdminDuplicateCancellationEditingDto: {
+            allowed: boolean;
+            /**
+             * @description null when allowed. The backend re-checks everything when saving.
+             * @enum {string|null}
+             */
+            lock: "duplicate_order_not_pending" | "duplicate_order_payment_settled" | "duplicate_order_attempt_active" | "duplicate_order_reconciled" | null;
+        };
         AdminNotificationDto: {
             attempts: number;
             /**
@@ -2344,6 +2363,9 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             customer: components["schemas"]["OrderCustomerDto"];
+            duplicateCancellationEditing: components["schemas"]["AdminDuplicateCancellationEditingDto"];
+            /** @description Set when the order was cancelled as a duplicate of a canonical order: reason, canonical order, note, role and time. null otherwise. */
+            duplicateOf: components["schemas"]["AdminDuplicateCancellationDto"] | null;
             /** @description Immutable snapshot taken when the order was created. Read-only: nothing has been sent to DIAN or to an invoicing provider. */
             electronicInvoice: components["schemas"]["AdminOrderElectronicInvoiceDto"];
             id: string;
@@ -3814,6 +3836,22 @@ export interface components {
             /** @description Required. At most 1000 characters after trimming. */
             note: string;
         };
+        EditOrderDuplicateCancellationInputDto: {
+            /**
+             * @description Public number of the canonical order this one duplicates. It must exist, be another order and not be cancelled.
+             * @example MZ-5TWA4SD7
+             */
+            canonicalPublicId: string;
+            /** @description Explicit confirmation. POST /edit rejects it without confirmed: true (order_reconciliation_invalid confirmation_required); the preview ignores it. */
+            confirmed?: boolean;
+            /** @description Required. At most 1000 characters after trimming. Internal: never shown to the customer. */
+            note: string;
+            /**
+             * @description Exactly duplicate_order. Any other value is order_reconciliation_invalid cancellation_reason_invalid.
+             * @enum {string}
+             */
+            reason: "duplicate_order";
+        };
         EditOrderPaymentChangeDto: {
             /** @enum {string} */
             methodAfter: "wompi" | "addi" | "bank_transfer" | "cash";
@@ -3845,6 +3883,8 @@ export interface components {
         EditOrderRequestDto: {
             /** @description Records that an Addi credit Addi APPROVED was later cancelled in Addi's Allies Portal, alone in its edit (order_request_invalid otherwise). Addi does not report cancellations by callback, so this is the only way to show «Cancelado en Addi». The APPROVED result, its date, the attempt, the payment history, the payment status and the order status are NEVER modified, and nothing is sent to Addi. Blocked with 409 order_edit_blocked addi_payment_not_approved when no attempt was approved by Addi's callback, or addi_cancellation_recorded when it is already recorded. 400 order_reconciliation_invalid with confirmed_on_required, confirmed_on_invalid, note_required, note_invalid, note_too_long, cancellation_reference_invalid, cancellation_reference_too_long or confirmation_required. Idempotent like the reconciliation. Audited as order.addi_cancellation_recorded without the note. Requires payments.manage_manual (super_admin and master_admin). */
             addiCancellation?: components["schemas"]["EditOrderAddiCancellationInputDto"];
+            /** @description Cancels this order as a duplicate of the canonical one, alone in its edit (order_request_invalid otherwise). Reason exactly duplicate_order, canonical order and note required; preview first, confirmed: true to save. Only an unpaid order: pending_payment, payment not approved nor in progress, no open payment attempt, no APPROVED from a provider and no manual reconciliation (409 order_edit_blocked duplicate_order_not_pending, duplicate_order_payment_settled, duplicate_order_attempt_active, duplicate_order_reconciled or duplicate_order_canonical_invalid). It writes NO notification at all —no order_cancelled email to the customer or the team—; the regular POST /cancel is unchanged and still emails. It only cancels the internal order: attempts, provider callbacks, references, payment history and requests at the provider are kept untouched. Pending payment reminders are suppressed. Audited as order.cancelled_as_duplicate with the canonical order and without the note. Idempotent: repeating it returns replayed: true and writes nothing. Requires orders.cancel and payments.manage_manual (super_admin and master_admin). */
+            duplicateCancellation?: components["schemas"]["EditOrderDuplicateCancellationInputDto"];
             /** @description Version the caller last read. */
             expectedVersion: number;
             /** @description Internal notes, at most 2000 characters after trimming. null or an empty string clears them. Requires orders.update_status. */
@@ -3873,7 +3913,7 @@ export interface components {
         };
         EditOrderResultDto: {
             /** @description Fields that actually change. Asking for the current value of a field does not count. */
-            changedFields: ("status" | "internalNotes" | "items" | "paymentMethod" | "paymentStatus" | "paymentReconciliation" | "addiCancellation")[];
+            changedFields: ("status" | "internalNotes" | "items" | "paymentMethod" | "paymentStatus" | "paymentReconciliation" | "addiCancellation" | "duplicateCancellation")[];
             /** @description Customer emails this edit writes —or would write, in a preview—, by event. At most one event per edit. */
             customerNotifications: ("order_received" | "payment_reminder" | "payment_processing" | "payment_approved" | "payment_declined" | "payment_voided" | "payment_expired" | "payment_error" | "order_preparing" | "order_ready_to_ship" | "order_shipped" | "order_delivered" | "order_cancelled" | "order_status_reminder")[];
             /** @description The order after the edit, or as it would be after it in a preview. */
@@ -4079,7 +4119,7 @@ export interface components {
              * @description Only with code order_edit_blocked: why the edit cannot be applied.
              * @enum {string}
              */
-            reason?: "items_locked_status" | "payment_in_flight" | "checkout_opened" | "paid_total_changed" | "shipping_not_recalculable" | "payment_not_pending" | "payment_status_automatic" | "payment_status_transition_invalid" | "payment_confirmed_by_provider" | "reconciliation_payment_settled" | "reconciliation_order_closed" | "addi_payment_not_approved" | "addi_cancellation_recorded";
+            reason?: "items_locked_status" | "payment_in_flight" | "checkout_opened" | "paid_total_changed" | "shipping_not_recalculable" | "payment_not_pending" | "payment_status_automatic" | "payment_status_transition_invalid" | "payment_confirmed_by_provider" | "reconciliation_payment_settled" | "reconciliation_order_closed" | "addi_payment_not_approved" | "addi_cancellation_recorded" | "duplicate_order_not_pending" | "duplicate_order_payment_settled" | "duplicate_order_attempt_active" | "duplicate_order_reconciled" | "duplicate_order_canonical_invalid";
         };
         OrderLineDto: {
             attributes: components["schemas"]["ProductVariantAttributeDto"][];
@@ -4286,7 +4326,7 @@ export interface components {
              * @description Only with code order_reconciliation_invalid: which field to fix.
              * @enum {string}
              */
-            reason?: "status_invalid" | "method_invalid" | "note_invalid" | "note_too_long" | "note_required" | "external_payment_id_invalid" | "external_payment_id_too_long" | "external_payment_id_required" | "confirmation_required" | "confirmed_on_required" | "confirmed_on_invalid" | "cancellation_reference_invalid" | "cancellation_reference_too_long";
+            reason?: "status_invalid" | "method_invalid" | "note_invalid" | "note_too_long" | "note_required" | "external_payment_id_invalid" | "external_payment_id_too_long" | "external_payment_id_required" | "confirmation_required" | "confirmed_on_required" | "confirmed_on_invalid" | "cancellation_reference_invalid" | "cancellation_reference_too_long" | "cancellation_reason_invalid" | "canonical_order_required" | "canonical_order_invalid";
         };
         OrderShipmentDto: {
             /** @example Servientrega */
@@ -12229,7 +12269,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description 8-128 characters. Makes a retried submission safe: one key, one order. */
+                /** @description 8-128 characters of [A-Za-z0-9._:-]. The web sends its checkoutSubmissionId: a random value per checkout submission, never derived from personal data. Makes a retried submission safe: one key, one order. The key is valid for 24 hours from the order it created: within that window the same key and the same body always return that same order (whatever its status now) without new notifications; the same key with a different body is 409 order_idempotency_conflict and the original order is not modified. After 24 hours the key may create a new order; the old one is left untouched. */
                 "Idempotency-Key": string;
             };
             path?: never;

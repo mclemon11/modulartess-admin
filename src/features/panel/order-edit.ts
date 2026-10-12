@@ -14,6 +14,7 @@ import type {
   OrderShipmentInput,
 } from '@/lib/api/orders';
 
+import { DUPLICATE_BLOCK_MESSAGES, parseDuplicateCancellation } from './duplicate-cancellation';
 import {
   ADDI_CANCELLATION_BLOCK_MESSAGES,
   ADDI_CANCELLATION_INVALID_MESSAGES,
@@ -174,6 +175,7 @@ const ALLOWED_KEYS = new Set([
   'paymentStatus',
   'paymentReconciliation',
   'addiCancellation',
+  'duplicateCancellation',
 ]);
 
 /**
@@ -292,6 +294,14 @@ export function parseOrderEdit(raw: unknown): EditOrderRequest | null {
 
     if (cancellation === undefined || Object.keys(result).length > 1) return null;
     result.addiCancellation = cancellation;
+  }
+
+  // Cancelar como pedido duplicado, sola en su edición como exige el backend.
+  if (body.duplicateCancellation !== undefined) {
+    const cancellation = parseDuplicateCancellation(body.duplicateCancellation);
+
+    if (cancellation === undefined || Object.keys(result).length > 1) return null;
+    result.duplicateCancellation = cancellation;
   }
 
   return Object.keys(result).length > 1 ? result : null;
@@ -613,6 +623,7 @@ const BLOCK_MESSAGES: Readonly<Record<string, string>> = {
   reconciliation_order_closed:
     'Este pedido está cancelado o ya no espera el pago: no se puede conciliar a ese estado.',
   ...ADDI_CANCELLATION_BLOCK_MESSAGES,
+  ...DUPLICATE_BLOCK_MESSAGES,
 };
 
 const LINE_MESSAGES: Readonly<Record<string, string>> = {

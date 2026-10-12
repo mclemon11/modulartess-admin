@@ -55,3 +55,11 @@ catálogo, `order_transition_invalid` y `version_conflict`. Los medios y desenla
 validan contra sus listas cerradas, que una prueba contrasta con el contrato. Ningún texto del backend viaja. La
 búsqueda de productos reutiliza `GET /v1/admin/products?q=` y recorta cada producto a nombre, SKU,
 precio, variantes activas y disponibilidad resuelta por el backend.
+
+## Cancelar como pedido duplicado (2026-10-12)
+
+La ficha ofrece «Cancelar como pedido duplicado» (ADR 0031 del backend) a `super_admin` y
+`master_admin`, solo cuando el backend lo permite y siempre con vista previa: pedido canónico y
+nota obligatorios, motivo único «pedido duplicado». La vista previa muestra «Correos al cliente:
+ninguno»; si alguna vez anunciara uno, el botón de confirmar queda deshabilitado. Un pedido ya
+cancelado así enseña el canónico, la nota, la hora y el rol. «Cancelar pedido» no cambia.
