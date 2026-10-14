@@ -13,3 +13,6 @@ allowBuilds:
   unrs-resolver: false
   '@firebase/util': false
   protobufjs: false
+
+overrides:
+  '@grpc/grpc-js': 1.14.6

@@ -2244,3 +2244,9 @@ Nada de esto se compensa en el panel; cuando exista en el contrato, se implement
 4. Sustituir el simulador por la pasarela real en cuanto el contrato publique el webhook
    verificado. El panel no necesita cambiar de forma: ya consume `payment`, `paymentEvents` y
    `environment`, y `live` se distingue de `sandbox` en el mismo sitio.
+
+## Seguridad de dependencias (2026-10-14)
+
+- Next.js y su configuracion de ESLint se actualizaron a 16.3.8.
+- Firebase, google-auth-library y la dependencia transitiva gRPC se actualizaron a versiones corregidas.
+- pnpm audit --prod quedo sin vulnerabilidades conocidas; las pruebas completas pasan y el panel conserva autenticacion cerrada, noindex y respuestas personales no-store.
