@@ -1625,14 +1625,34 @@
             "type": "array"
           },
           "nextPageToken": {
-            "description": "Opaque cursor for the next page, or null when there are no more. Page size defaults to 20 and tops out at 50.",
+            "description": "Opaque cursor for the next page, or null when there are no more. Page size defaults to 20 and tops out at 100.",
             "nullable": true,
             "type": "string"
+          },
+          "page": {
+            "description": "Page number from 1 when the page was asked for by number or is the first page; null when it was reached with pageToken, whose position is not numbered.",
+            "minimum": 1,
+            "nullable": true,
+            "type": "number"
+          },
+          "pageSize": {
+            "description": "Effective page size used for this page.",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "number"
+          },
+          "total": {
+            "description": "Number of orders in the list when this page was read. Counted on the same ordered query, so it matches what paging walks through.",
+            "minimum": 0,
+            "type": "number"
           }
         },
         "required": [
           "items",
-          "nextPageToken"
+          "nextPageToken",
+          "total",
+          "page",
+          "pageSize"
         ],
         "type": "object"
       },
@@ -4177,6 +4197,30 @@
         ],
         "type": "object"
       },
+      "CreateOrderAnalyticsDto": {
+        "properties": {
+          "clientId": {
+            "maxLength": 64,
+            "pattern": "^[0-9]+\\.[0-9]+$",
+            "type": "string"
+          },
+          "sessionId": {
+            "maxLength": 15,
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "sessionNumber": {
+            "maximum": 1000000,
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "clientId",
+          "sessionId"
+        ],
+        "type": "object"
+      },
       "CreateOrderBuyerIdentificationDto": {
         "properties": {
           "identificationNumber": {
@@ -4325,6 +4369,14 @@
       },
       "CreateOrderRequestDto": {
         "properties": {
+          "analytics": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreateOrderAnalyticsDto"
+              }
+            ],
+            "description": "Pseudonymous GA4 attribution captured only after analytics consent. It contains no name, email, phone, document or address; it is stored internally and never echoed in an order response."
+          },
           "buyerIdentification": {
             "allOf": [
               {
@@ -7431,6 +7483,231 @@
         ],
         "type": "object"
       },
+      "PublicOfferPageDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicOfferProductDto"
+            },
+            "type": "array"
+          },
+          "nextPageToken": {
+            "description": "Opaque cursor bound to this exact combination of search, filters and sort, as in GET /v1/products. Reusing it with a different one answers 400 product_cursor_invalid.",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "nextPageToken"
+        ],
+        "type": "object"
+      },
+      "PublicOfferProductDto": {
+        "properties": {
+          "availability": {
+            "enum": [
+              "in_stock",
+              "out_of_stock"
+            ],
+            "type": "string"
+          },
+          "category": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductTaxonomyDto"
+              }
+            ],
+            "nullable": true,
+            "type": "object"
+          },
+          "compareAtPriceCop": {
+            "description": "Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. It belongs to the SAME option whose price is priceFromCop: with variants, the first active variant, in published order, priced at priceFromCop; without variants, the base option. Never another variant's. Null when that option has no valid previous price.",
+            "format": "int32",
+            "nullable": true,
+            "type": "number"
+          },
+          "featured": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "mpn": {
+            "description": "Same value as PublicProductDto.mpn: the feed is built from cards. Manufacturer part number for Merchant Center and structured data. Modulartess manufactures what it sells, so it is the product SKU, which is mandatory, immutable and unique, when the product sells through its base option. null while the product has active variants: each one carries its own SKU and the public URL preselects none, so no single MPN describes the page. Never invented.",
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "newBadge": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicNewBadgeDto"
+              }
+            ],
+            "description": "Published only while newUntil is in the future.",
+            "nullable": true,
+            "type": "object"
+          },
+          "priceFromCop": {
+            "example": 1490000,
+            "type": "number"
+          },
+          "priceToCop": {
+            "description": "Equal to priceFromCop when there is a single price.",
+            "example": 1890000,
+            "type": "number"
+          },
+          "primaryImage": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicProductImageDto"
+              }
+            ],
+            "nullable": true,
+            "type": "object"
+          },
+          "productType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductTaxonomyDto"
+              }
+            ],
+            "nullable": true,
+            "type": "object"
+          },
+          "promotionLabel": {
+            "description": "Promotion badge text, already defaulted. Published only when compareAtPriceCop is not null on this card and the product has its badge enabled; null otherwise, while compareAtPriceCop is still published.",
+            "nullable": true,
+            "type": "string"
+          },
+          "shortDescription": {
+            "description": "Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations.",
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "variants": {
+            "description": "Active variants only, in published order. Empty when the product sells through its own SKU, price and stock (then mpn is the product SKU). Nothing is added or transformed: ids, SKUs, prices and availability are the projection's.",
+            "items": {
+              "$ref": "#/components/schemas/PublicOfferVariantDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "mpn",
+          "name",
+          "shortDescription",
+          "category",
+          "productType",
+          "priceFromCop",
+          "priceToCop",
+          "availability",
+          "featured",
+          "primaryImage",
+          "updatedAt",
+          "compareAtPriceCop",
+          "promotionLabel",
+          "newBadge",
+          "variants"
+        ],
+        "type": "object"
+      },
+      "PublicOfferVariantAttributeDto": {
+        "properties": {
+          "key": {
+            "description": "Axis key, as in variants[].attributes.",
+            "example": "color",
+            "type": "string"
+          },
+          "label": {
+            "description": "Visible label of the axis, as published in attributes[]; the key when no axis is published.",
+            "example": "Color",
+            "type": "string"
+          },
+          "optionLabel": {
+            "description": "Visible label of the option, exactly as the product page shows it.",
+            "example": "Fresno",
+            "type": "string"
+          },
+          "value": {
+            "description": "Stable option value.",
+            "example": "fresno",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value",
+          "optionLabel"
+        ],
+        "type": "object"
+      },
+      "PublicOfferVariantDto": {
+        "properties": {
+          "attributes": {
+            "items": {
+              "$ref": "#/components/schemas/PublicOfferVariantAttributeDto"
+            },
+            "type": "array"
+          },
+          "availability": {
+            "enum": [
+              "in_stock",
+              "out_of_stock"
+            ],
+            "type": "string"
+          },
+          "compareAtPriceCop": {
+            "description": "Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. Only published when valid.",
+            "format": "int32",
+            "nullable": true,
+            "type": "number"
+          },
+          "id": {
+            "description": "Immutable variant id, as in PublicProductDto.variants[].id.",
+            "type": "string"
+          },
+          "imageUrls": {
+            "description": "URLs of the product images associated with the visual option this variant uses, in order, as in PublicProductDto.images[].url. Empty when no published option associates images. Never videos.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "priceCop": {
+            "description": "Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as \"$ 1.450.000\".",
+            "example": 1450000,
+            "format": "int32",
+            "type": "number"
+          },
+          "sku": {
+            "description": "Official, immutable and globally unique SKU of the variant. It is the variant's manufacturer part number.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "priceCop",
+          "compareAtPriceCop",
+          "availability",
+          "attributes",
+          "imageUrls"
+        ],
+        "type": "object"
+      },
       "PublicOrderDto": {
         "properties": {
           "customerName": {
@@ -7626,6 +7903,11 @@
           "id": {
             "type": "string"
           },
+          "mpn": {
+            "description": "Same value as PublicProductDto.mpn: the feed is built from cards. Manufacturer part number for Merchant Center and structured data. Modulartess manufactures what it sells, so it is the product SKU, which is mandatory, immutable and unique, when the product sells through its base option. null while the product has active variants: each one carries its own SKU and the public URL preselects none, so no single MPN describes the page. Never invented.",
+            "nullable": true,
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -7686,6 +7968,7 @@
         "required": [
           "id",
           "slug",
+          "mpn",
           "name",
           "shortDescription",
           "category",
@@ -7788,6 +8071,11 @@
             },
             "type": "array"
           },
+          "mpn": {
+            "description": "Manufacturer part number for Merchant Center and structured data. Modulartess manufactures what it sells, so it is the product SKU, which is mandatory, immutable and unique, when the product sells through its base option. null while the product has active variants: each one carries its own SKU and the public URL preselects none, so no single MPN describes the page. Never invented.",
+            "nullable": true,
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -7881,6 +8169,7 @@
         "required": [
           "id",
           "sku",
+          "mpn",
           "slug",
           "name",
           "shortDescription",
@@ -13059,9 +13348,18 @@
     },
     "/v1/admin/orders": {
       "get": {
-        "description": "Ordered by createdAt descending. Rows carry no address, email or phone: those are on the detail. Paid rows carry paymentSummary (provider and safe method summary) and rows paid through the online credit integration carry their latest result (see the row schema); reading them costs one extra query per 30 such rows, never one per row. Every row carries paymentChannel. There is no server-side filter: the latest attempt status is not stored on the order, so filtering by it would need a denormalized field and a composite index. Requires orders.read.",
+        "description": "Ordered by createdAt descending, then by id descending, so the order is stable across pages. Every page carries the total number of orders, for numbered navigation. Rows carry no address, email or phone: those are on the detail. Paid rows carry paymentSummary (provider and safe method summary) and rows paid through the online credit integration carry their latest result (see the row schema); reading them costs one extra query per 30 such rows, never one per row. Every row carries paymentChannel. There is no server-side filter: the latest attempt status is not stored on the order, so filtering by it would need a denormalized field and a composite index. Requires orders.read.",
         "operationId": "AdminOrdersController_list",
         "parameters": [
+          {
+            "description": "Page number from 1, up to 10000, for numbered navigation. Mutually exclusive with pageToken (order_request_invalid). The start of the page is resolved with a keys-only read of the earlier rows and a cursor, never by reading whole orders; a page past the total answers an empty items array. Without page or pageToken the first page is served.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
           {
             "description": "Opaque cursor.",
             "in": "query",
@@ -13072,7 +13370,7 @@
             }
           },
           {
-            "description": "Default 20, maximum 50.",
+            "description": "Default 20, maximum 100.",
             "in": "query",
             "name": "pageSize",
             "required": false,
@@ -21028,6 +21326,148 @@
           }
         ],
         "summary": "Read one active product by slug",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/v1/products/offers": {
+      "get": {
+        "description": "Same query, order and cursor as GET /v1/products, without facets. Each item is the listing card plus mpn and the ACTIVE variants with their official SKU, price, availability, attribute labels and the images of the visual option they use. Nothing is added or transformed. Built for product feeds (Google Merchant Center) so that one paged read replaces one read per product sheet. Only pageSize and pageToken are expected; the other listing filters are accepted with the same semantics.",
+        "operationId": "PublicProductsController_listOffers",
+        "parameters": [
+          {
+            "description": "Opaque cursor. Belongs to one combination of search, filters and sort.",
+            "in": "query",
+            "name": "pageToken",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maximum 24.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "enum": [
+                "newest",
+                "price_asc",
+                "price_desc",
+                "name_asc",
+                "name_desc"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "featured",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "availability",
+            "required": false,
+            "schema": {
+              "enum": [
+                "in_stock",
+                "out_of_stock"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "finish",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "productType",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOfferPageDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "product_invalid, product_filter_invalid or product_cursor_invalid"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          }
+        ],
+        "summary": "List the active catalogue as offers: cards with their active variants",
         "tags": [
           "products"
         ]

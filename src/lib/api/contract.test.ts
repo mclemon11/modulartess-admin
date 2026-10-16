@@ -584,11 +584,17 @@ describe('pedidos administrativos', () => {
     expect(preview.properties.primaryImageUrl.nullable).toBe(true);
   });
 
-  it('el listado solo admite pageToken y pageSize: no hay buscador ni filtros', () => {
+  it('el listado admite page, pageSize y pageToken: no hay buscador ni filtros', () => {
     const parameters = contract.paths['/v1/admin/orders'].get.parameters ?? [];
     const names = parameters.map((parameter: { name: string }) => parameter.name).sort();
 
-    expect(names).toEqual(['pageSize', 'pageToken']);
+    expect(names).toEqual(['page', 'pageSize', 'pageToken']);
+  });
+
+  it('la página del listado publica total, número y tamaño', () => {
+    expect(
+      Object.keys(contract.components.schemas.AdminOrderPageDto.properties ?? {}).sort(),
+    ).toEqual(['items', 'nextPageToken', 'page', 'pageSize', 'total']);
   });
 
   it('la ficha trae la instantánea de cada línea, con su imagen y sus atributos', () => {
@@ -977,16 +983,16 @@ describe('catálogo de categorías', () => {
 
 describe('contrato del backend con la edición controlada de pedidos', () => {
   /*
-   * La copia es byte a byte la de `openapi/openapi.json` del backend que permite a quien administra
-   * la galería retirar una foto. Si alguien la cambia a mano o la actualiza sin regenerar, esto
-   * falla aquí.
+   * La copia es byte a byte la de `openapi/openapi.json` del backend que numera las páginas del
+   * listado de pedidos y publica su total. Si alguien la cambia a mano o la actualiza sin
+   * regenerar, esto falla aquí.
    */
-  it('la copia comiteada es exactamente la del backend con la cancelación como duplicado', () => {
+  it('la copia comiteada es exactamente la del backend con la paginación numerada de pedidos', () => {
     const digest = createHash('sha256')
       .update(readFileSync('openapi/backend-v1.json'))
       .digest('hex');
 
-    expect(digest).toBe('330103b966bb9b2246b93434674d2221dbd51bbe72a6a6e47682f8429420b215');
+    expect(digest).toBe('69e8ef02b06ac002682217a0cead8e33cdc2ba2734876f58bf3c47b6635eaa96');
   });
 
   /*

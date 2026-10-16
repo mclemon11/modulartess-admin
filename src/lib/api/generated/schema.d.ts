@@ -384,7 +384,7 @@ export interface paths {
         };
         /**
          * List orders for the panel
-         * @description Ordered by createdAt descending. Rows carry no address, email or phone: those are on the detail. Paid rows carry paymentSummary (provider and safe method summary) and rows paid through the online credit integration carry their latest result (see the row schema); reading them costs one extra query per 30 such rows, never one per row. Every row carries paymentChannel. There is no server-side filter: the latest attempt status is not stored on the order, so filtering by it would need a denormalized field and a composite index. Requires orders.read.
+         * @description Ordered by createdAt descending, then by id descending, so the order is stable across pages. Every page carries the total number of orders, for numbered navigation. Rows carry no address, email or phone: those are on the detail. Paid rows carry paymentSummary (provider and safe method summary) and rows paid through the online credit integration carry their latest result (see the row schema); reading them costs one extra query per 30 such rows, never one per row. Every row carries paymentChannel. There is no server-side filter: the latest attempt status is not stored on the order, so filtering by it would need a denormalized field and a composite index. Requires orders.read.
          */
         get: operations["AdminOrdersController_list"];
         put?: never;
@@ -1830,6 +1830,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/products/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the active catalogue as offers: cards with their active variants
+         * @description Same query, order and cursor as GET /v1/products, without facets. Each item is the listing card plus mpn and the ACTIVE variants with their official SKU, price, availability, attribute labels and the images of the visual option they use. Nothing is added or transformed. Built for product feeds (Google Merchant Center) so that one paged read replaces one read per product sheet. Only pageSize and pageToken are expected; the other listing filters are accepted with the same semantics.
+         */
+        get: operations["PublicProductsController_listOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/shipping/capabilities": {
         parameters: {
             query?: never;
@@ -2499,8 +2519,14 @@ export interface components {
         };
         AdminOrderPageDto: {
             items: components["schemas"]["AdminOrderListItemDto"][];
-            /** @description Opaque cursor for the next page, or null when there are no more. Page size defaults to 20 and tops out at 50. */
+            /** @description Opaque cursor for the next page, or null when there are no more. Page size defaults to 20 and tops out at 100. */
             nextPageToken: string | null;
+            /** @description Page number from 1 when the page was asked for by number or is the first page; null when it was reached with pageToken, whose position is not numbered. */
+            page: number | null;
+            /** @description Effective page size used for this page. */
+            pageSize: number;
+            /** @description Number of orders in the list when this page was read. Counted on the same ordered query, so it matches what paging walks through. */
+            total: number;
         };
         AdminOrderPaymentEditingDto: {
             /**
@@ -3389,6 +3415,11 @@ export interface components {
             /** @enum {string} */
             role: "super_admin" | "master_admin" | "moderator";
         };
+        CreateOrderAnalyticsDto: {
+            clientId: string;
+            sessionId: string;
+            sessionNumber?: number;
+        };
         CreateOrderBuyerIdentificationDto: {
             /**
              * @description Always a string, never a number: leading zeros are kept. Spaces and thousand-separator dots are removed. Colombian numeric documents (11, 12, 13, 31, 91) accept digits only, 3 to 20 of them; a NIT is sent without its verification digit. Foreign documents accept letters, digits and hyphens.
@@ -3461,6 +3492,8 @@ export interface components {
             variantId?: string;
         };
         CreateOrderRequestDto: {
+            /** @description Pseudonymous GA4 attribution captured only after analytics consent. It contains no name, email, phone, document or address; it is stored internally and never echoed in an order response. */
+            analytics?: components["schemas"]["CreateOrderAnalyticsDto"];
             /** @description Identification of the person who buys and pays. Required to create the order once CHECKOUT_BUYER_DATA_ENFORCEMENT=strict; while compatible, omitting it is accepted only for the shop released before this field. When present it is always validated, in both phases. Stored in a private snapshot, separate from the order and from the electronic invoice. It is not echoed in any public order response, listing, email, log or URL. */
             buyerIdentification?: components["schemas"]["CreateOrderBuyerIdentificationDto"];
             customer: components["schemas"]["CreateOrderCustomerDto"];
@@ -4693,6 +4726,90 @@ export interface components {
              */
             until: string;
         };
+        PublicOfferPageDto: {
+            items: components["schemas"]["PublicOfferProductDto"][];
+            /** @description Opaque cursor bound to this exact combination of search, filters and sort, as in GET /v1/products. Reusing it with a different one answers 400 product_cursor_invalid. */
+            nextPageToken: string | null;
+        };
+        PublicOfferProductDto: {
+            /** @enum {string} */
+            availability: "in_stock" | "out_of_stock";
+            category: components["schemas"]["ProductTaxonomyDto"] | null;
+            /**
+             * Format: int32
+             * @description Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. It belongs to the SAME option whose price is priceFromCop: with variants, the first active variant, in published order, priced at priceFromCop; without variants, the base option. Never another variant's. Null when that option has no valid previous price.
+             */
+            compareAtPriceCop: number | null;
+            featured: boolean;
+            id: string;
+            /** @description Same value as PublicProductDto.mpn: the feed is built from cards. Manufacturer part number for Merchant Center and structured data. Modulartess manufactures what it sells, so it is the product SKU, which is mandatory, immutable and unique, when the product sells through its base option. null while the product has active variants: each one carries its own SKU and the public URL preselects none, so no single MPN describes the page. Never invented. */
+            mpn: string | null;
+            name: string;
+            /** @description Published only while newUntil is in the future. */
+            newBadge: components["schemas"]["PublicNewBadgeDto"] | null;
+            /** @example 1490000 */
+            priceFromCop: number;
+            /**
+             * @description Equal to priceFromCop when there is a single price.
+             * @example 1890000
+             */
+            priceToCop: number;
+            primaryImage: components["schemas"]["PublicProductImageDto"] | null;
+            productType: components["schemas"]["ProductTaxonomyDto"] | null;
+            /** @description Promotion badge text, already defaulted. Published only when compareAtPriceCop is not null on this card and the product has its badge enabled; null otherwise, while compareAtPriceCop is still published. */
+            promotionLabel: string | null;
+            /** @description Commercial one-or-two-sentence lead-in, at most 180 characters. Plain text: no markup, and it does not repeat the product name as a heading. The only editorial field publishing requires, and the one the listing card reuses. Records written before this limit may still be longer; the cap applies to new mutations. */
+            shortDescription: string;
+            slug: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Active variants only, in published order. Empty when the product sells through its own SKU, price and stock (then mpn is the product SKU). Nothing is added or transformed: ids, SKUs, prices and availability are the projection's. */
+            variants: components["schemas"]["PublicOfferVariantDto"][];
+        };
+        PublicOfferVariantAttributeDto: {
+            /**
+             * @description Axis key, as in variants[].attributes.
+             * @example color
+             */
+            key: string;
+            /**
+             * @description Visible label of the axis, as published in attributes[]; the key when no axis is published.
+             * @example Color
+             */
+            label: string;
+            /**
+             * @description Visible label of the option, exactly as the product page shows it.
+             * @example Fresno
+             */
+            optionLabel: string;
+            /**
+             * @description Stable option value.
+             * @example fresno
+             */
+            value: string;
+        };
+        PublicOfferVariantDto: {
+            attributes: components["schemas"]["PublicOfferVariantAttributeDto"][];
+            /** @enum {string} */
+            availability: "in_stock" | "out_of_stock";
+            /**
+             * Format: int32
+             * @description Previous price in whole pesos, shown struck through. When present it is ALWAYS strictly greater than priceCop; null means no promotion. The discount percentage is NOT stored: the storefront computes it, rounding down. Only published when valid.
+             */
+            compareAtPriceCop: number | null;
+            /** @description Immutable variant id, as in PublicProductDto.variants[].id. */
+            id: string;
+            /** @description URLs of the product images associated with the visual option this variant uses, in order, as in PublicProductDto.images[].url. Empty when no published option associates images. Never videos. */
+            imageUrls: string[];
+            /**
+             * Format: int32
+             * @description Whole Colombian pesos, as an integer. 1450000 means one million four hundred and fifty thousand pesos. Never a decimal: COP has no subdivision in use, so a fraction can only come from a miscalculation and is rejected, and the value is never stored as formatted text. The currency symbol and the thousand separators belong to the frontend, which renders this value as "$ 1.450.000".
+             * @example 1450000
+             */
+            priceCop: number;
+            /** @description Official, immutable and globally unique SKU of the variant. It is the variant's manufacturer part number. */
+            sku: string;
+        };
         PublicOrderDto: {
             /** @example Cliente Demo */
             customerName: string;
@@ -4761,6 +4878,8 @@ export interface components {
             compareAtPriceCop: number | null;
             featured: boolean;
             id: string;
+            /** @description Same value as PublicProductDto.mpn: the feed is built from cards. Manufacturer part number for Merchant Center and structured data. Modulartess manufactures what it sells, so it is the product SKU, which is mandatory, immutable and unique, when the product sells through its base option. null while the product has active variants: each one carries its own SKU and the public URL preselects none, so no single MPN describes the page. Never invented. */
+            mpn: string | null;
             name: string;
             /** @description Published only while newUntil is in the future. */
             newBadge: components["schemas"]["PublicNewBadgeDto"] | null;
@@ -4808,6 +4927,8 @@ export interface components {
             measurements: string;
             /** @description The product gallery in the order chosen in the panel: images and published videos, discriminated by mediaType. A video may come first; the primary image is still primaryImage. Without videos it equals images. Projections written before this field derive it from images. */
             media: (components["schemas"]["PublicProductImageMediaDto"] | components["schemas"]["PublicProductVideoMediaDto"])[];
+            /** @description Manufacturer part number for Merchant Center and structured data. Modulartess manufactures what it sells, so it is the product SKU, which is mandatory, immutable and unique, when the product sells through its base option. null while the product has active variants: each one carries its own SKU and the public URL preselects none, so no single MPN describes the page. Never invented. */
+            mpn: string | null;
             name: string;
             /** @description Published only while newUntil is in the future. */
             newBadge: components["schemas"]["PublicNewBadgeDto"] | null;
@@ -7272,9 +7393,11 @@ export interface operations {
     AdminOrdersController_list: {
         parameters: {
             query?: {
+                /** @description Page number from 1, up to 10000, for numbered navigation. Mutually exclusive with pageToken (order_request_invalid). The start of the page is resolved with a keys-only read of the earlier rows and a cursor, never by reading whole orders; a page past the total answers an empty items array. Without page or pageToken the first page is served. */
+                page?: number;
                 /** @description Opaque cursor. */
                 pageToken?: string;
-                /** @description Default 20, maximum 50. */
+                /** @description Default 20, maximum 100. */
                 pageSize?: number;
             };
             header?: never;
@@ -12695,6 +12818,55 @@ export interface operations {
             };
             /** @description product_not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PublicProductsController_listOffers: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor. Belongs to one combination of search, filters and sort. */
+                pageToken?: string;
+                /** @description Maximum 24. */
+                pageSize?: number;
+                sort?: "newest" | "price_asc" | "price_desc" | "name_asc" | "name_desc";
+                featured?: boolean;
+                availability?: "in_stock" | "out_of_stock";
+                size?: string;
+                finish?: string;
+                productType?: string;
+                category?: string;
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicOfferPageDto"];
+                };
+            };
+            /** @description product_invalid, product_filter_invalid or product_cursor_invalid */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
