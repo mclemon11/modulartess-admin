@@ -73,20 +73,19 @@ function toFailure(error: unknown): BackendFailure {
 }
 
 /**
- * Listado administrativo.
+ * Listado administrativo, por número de página.
  *
- * El contrato solo admite `pageToken` y `pageSize`: no hay búsqueda ni filtros, y la paginación es
- * por cursor opaco, así que se puede avanzar pero no saltar a una página concreta ni saber cuántas
- * hay.
+ * El backend resuelve la página con un cursor propio y publica el total, así que el panel puede
+ * pintar números de página sin descargar todos los pedidos. Sin `page` se sirve la primera.
  */
 export async function listOrders(
   sessionMaterial: string,
-  options: { readonly pageToken?: string; readonly pageSize?: number } = {},
+  options: { readonly page?: number; readonly pageSize?: number } = {},
 ): Promise<AdminOrderPage> {
-  const query: { pageToken?: string; pageSize?: number } = {};
+  const query: { page?: number; pageSize?: number } = {};
 
-  if (options.pageToken !== undefined && options.pageToken !== '') {
-    query.pageToken = options.pageToken;
+  if (options.page !== undefined) {
+    query.page = options.page;
   }
 
   if (options.pageSize !== undefined) {

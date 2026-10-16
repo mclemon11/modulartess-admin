@@ -1,12 +1,17 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 import catalog from '@/features/panel/catalog.module.css';
-import { OrderMobileCard } from '@/features/panel/order-mobile-card';
 import { describeOrderBackendFailure } from '@/features/panel/order-errors';
-import { OrdersTable } from '@/features/panel/orders-table';
+import {
+  orderListSearch,
+  orderPageCount,
+  readOrderListPosition,
+} from '@/features/panel/order-pagination';
+import { OrdersBrowser } from '@/features/panel/orders-browser';
 import { PanelHeader } from '@/features/panel/panel-header';
 import { PanelPageHeader } from '@/features/panel/panel-page-header';
-import { EmptyState, ErrorState } from '@/features/panel/panel-states';
+import { ErrorState } from '@/features/panel/panel-states';
 import { RefreshButton } from '@/features/panel/refresh-button';
 import { resolvePanelSession } from '@/features/panel/session-context';
 import { listOrders } from '@/lib/api/orders';
@@ -18,8 +23,14 @@ type PageProps = {
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function firstValue(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
+function toSearch(params: Record<string, string | string[] | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    for (const item of Array.isArray(value) ? value : value === undefined ? [] : [value]) {
+      search.append(key, item);
+    }
+  }
+  return search.toString();
 }
 
 /**
@@ -32,16 +43,16 @@ function firstValue(value: string | string[] | undefined): string | undefined {
  * así que la tabla no pide la ficha de ningún pedido para pintarlas. Son dos lecturas distintas y
  * van separadas: una dice si el dinero llegó y la otra por dónde va el trabajo.
  *
- * Lo que las referencias muestran y **no** está aquí, porque OpenAPI no lo publica: las cinco
- * tarjetas de métricas con su variación mensual —`Total pedidos 48`, `Pendientes 12`…—, el
- * buscador, los chips por estado con sus conteos, el rango «Últimos 30 días», la exportación, la
- * selección múltiple, el correo del cliente, y las dos columnas de la derecha —«Pedidos que
- * requieren atención» y «Últimos pedidos»—. `GET /v1/admin/orders` solo admite `pageToken` y
- * `pageSize`, y la fila no publica el correo: deducir un total global de la página cargada sería
- * inventarlo. El **medio** de pago sí está: cada fila lleva `paymentSummary` con el pago aprobado.
+ * La paginación es **numerada**: `GET /v1/admin/orders` acepta un número de página y publica el
+ * total, y resuelve la posición con su propio cursor. La posición vive en la URL
+ * (`?page=2&pageSize=20`), así que recargar o compartir el enlace abre la misma página. Esta
+ * pantalla pinta la página pedida en el servidor; los cambios posteriores los hace
+ * `OrdersBrowser` en el navegador sin borrar la tabla mientras llega la nueva.
  *
- * La paginación tampoco puede ser numérica: el contrato devuelve un `pageToken` opaco, que permite
- * avanzar pero no saltar a una página concreta ni saber cuántas hay.
+ * Lo que las referencias muestran y **no** está aquí, porque OpenAPI no lo publica: las tarjetas de
+ * métricas, el buscador, los chips por estado, el rango «Últimos 30 días», la exportación, la
+ * selección múltiple y el correo del cliente. El listado tiene un único orden, del más reciente al
+ * más antiguo, y no hay filtros que conservar entre páginas.
  */
 export default async function OrdersPage({ searchParams }: PageProps) {
   const session = await resolvePanelSession();
@@ -51,16 +62,14 @@ export default async function OrdersPage({ searchParams }: PageProps) {
   }
 
   const params = await searchParams;
-  const pageToken = firstValue(params.pageToken);
+  const position = readOrderListPosition({ page: params.page, pageSize: params.pageSize });
+  const current = toSearch(params);
   const trail = [{ href: '/panel', label: 'Panel' }, { label: 'Pedidos' }];
 
   let page;
 
   try {
-    page = await listOrders(
-      session.session.sessionMaterial,
-      pageToken === undefined ? {} : { pageToken },
-    );
+    page = await listOrders(session.session.sessionMaterial, position);
   } catch (error) {
     const message = isBackendFailure(error)
       ? describeOrderBackendFailure(error.code, 'list')
@@ -73,7 +82,10 @@ export default async function OrdersPage({ searchParams }: PageProps) {
           <PanelPageHeader title="Pedidos" />
           <ErrorState
             action={
-              <Link className={catalog.buttonSecondary} href="/panel/pedidos">
+              <Link
+                className={catalog.buttonSecondary}
+                href={`/panel/pedidos${orderListSearch(current, position)}`}
+              >
                 Reintentar
               </Link>
             }
@@ -83,6 +95,12 @@ export default async function OrdersPage({ searchParams }: PageProps) {
         </div>
       </>
     );
+  }
+
+  // Un enlace guardado a una página que ya no existe abre la última que sí existe.
+  const last = orderPageCount(page.total, page.pageSize);
+  if (page.items.length === 0 && page.total > 0 && position.page > last) {
+    redirect(`/panel/pedidos${orderListSearch(current, { ...position, page: last })}`);
   }
 
   return (
@@ -95,47 +113,8 @@ export default async function OrdersPage({ searchParams }: PageProps) {
           title="Pedidos"
         />
 
-        {page.items.length === 0 ? (
-          <OrdersEmpty />
-        ) : (
-          <section className={catalog.listSurface}>
-            <OrdersTable orders={page.items} />
-
-            <ul className={catalog.cardList}>
-              {page.items.map((order) => (
-                <li key={order.id}>
-                  <OrderMobileCard order={order} />
-                </li>
-              ))}
-            </ul>
-
-            <div className={catalog.pagination}>
-              <p className={catalog.paginationNote}>
-                Mostrando {page.items.length} pedido{page.items.length === 1 ? '' : 's'}.
-              </p>
-              {page.nextPageToken === null ? (
-                <p className={catalog.paginationNote}>No hay más páginas.</p>
-              ) : (
-                <Link
-                  className={catalog.buttonSecondary}
-                  href={`/panel/pedidos?pageToken=${encodeURIComponent(page.nextPageToken)}`}
-                >
-                  Cargar más pedidos
-                </Link>
-              )}
-            </div>
-          </section>
-        )}
+        <OrdersBrowser initial={page} />
       </div>
     </>
-  );
-}
-
-function OrdersEmpty() {
-  return (
-    <EmptyState icon="pedidos" title="Todavía no hay pedidos">
-      Aquí aparecerán las compras que lleguen desde la tienda. No se crean desde el panel: un pedido
-      nace cuando alguien compra.
-    </EmptyState>
   );
 }

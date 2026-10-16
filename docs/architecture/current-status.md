@@ -348,6 +348,33 @@ separada con la frase «ACTIVAR ADDI». Los intentos de Addi aparecen con provee
 ficha; un pedido «Addi (checkout web)» se cuenta por sus intentos y uno «Addi Marketplace» sigue
 siendo manual y conciliable como siempre. Despliegue: backend primero.
 
+### Paginación numerada de pedidos: implementada
+
+`/panel/pedidos` sustituye «Cargar más pedidos» por una paginación real: «Anterior», «Siguiente»,
+números de página con la actual marcada (`aria-current="page"`), selector de 10, 20, 50 o 100
+pedidos por página (20 por omisión) y el texto «Mostrando 21–40 de 126 pedidos». Se apoya en el
+contrato del backend, que ahora acepta `page` en `GET /v1/admin/orders` y publica `total`, `page` y
+`pageSize`; el panel no descarga todos los pedidos ni pagina en el navegador.
+
+- **La posición vive en la URL** (`?page=2&pageSize=20`). Recargar o compartir el enlace abre la
+  misma página, y Atrás y Adelante del navegador recorren las páginas visitadas. Cambiar el tamaño
+  vuelve a la página 1. Un valor irreconocible abre la página 1 con 20 por página, y un enlace a una
+  página que ya no existe lleva a la última. El antiguo `pageToken` se descarta.
+- **La tabla no se borra mientras llega la siguiente.** La primera página se pinta en el servidor.
+  Los cambios posteriores escriben la URL con `history.pushState`, que Next.js sincroniza con
+  `useSearchParams`, y piden la página al BFF (`/api/admin/orders?page=&pageSize=`). Mientras tanto
+  la tabla anterior queda atenuada con `aria-busy`. Un fallo se avisa encima de ella con
+  «Reintentar» y no la borra.
+- **Móvil**: los números se sustituyen por «Página X de Y» entre «Anterior» y «Siguiente», que
+  ocupan el ancho disponible. Todos los controles miden al menos 44 px y no hay desbordamiento
+  horizontal.
+- **Orden y filtros**: el contrato tiene un único orden, del más reciente al más antiguo con el ID
+  como desempate, y no publica búsqueda ni filtros. No hay nada más que conservar entre páginas; si
+  la URL llevara otros parámetros, se mantienen.
+- Pruebas: `order-pagination.test.ts` (URL, ventana de números y texto del rango) y la ruta del BFF
+  (`src/app/api/admin/orders/route.test.ts`). La copia del contrato se actualizó con
+  `pnpm api:update` y los tipos con `pnpm api:generate`.
+
 ## Previsto, todavía no implementado
 
 Elementos que forman parte del diseño acordado, pero que aún no existen en el repositorio.
@@ -366,7 +393,7 @@ Elementos que forman parte del diseño acordado, pero que aún no existen en el 
 | Cobros reales de Wompi          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR PRODUCCIÓN».   |
 | Colecciones, SEO, descuentos    | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.              |
 | Lectura aparte de variantes     | Pendiente     | Viajan dentro del producto; un `GET` propio no tendría uso.         |
-| Paginación numérica             | Descartada    | El cursor es opaco: permite avanzar, no saltar de página.           |
+| Paginación numérica             | Solo pedidos  | Productos sigue con cursor opaco: no publica total ni número.       |
 | Reordenar imágenes arrastrando  | Pendiente     | Hoy se reordena con botones accesibles sobre el mismo PATCH.        |
 | Biblioteca de medios            | Pendiente     | Sin endpoint que liste objetos del bucket.                          |
 | Revocación al cerrar sesión     | Pendiente     | El contrato no publica un `DELETE`; el panel no lo inventa.         |
@@ -498,8 +525,8 @@ Listado, con los campos de `AdminOrderSummaryDto` y ninguno más: `publicId`, `c
 la lista no abre ni un pedido: el contrato dice que ese dato «is already in the order document: the
 row costs no extra read». Tabla amplia en
 escritorio, tarjetas apiladas en móvil, badges de los siete estados e importes como `$ 1.450.000`,
-sin «COP». Paginación **solo con `pageToken`**, porque el cursor es opaco: se avanza, no se salta a
-una página concreta. Estados de carga, vacío —«Todavía no hay pedidos»—, error controlado y backend
+sin «COP». La paginación por cursor de esta fase la sustituyó después la paginación numerada (ver
+«Paginación numerada de pedidos»). Estados de carga, vacío —«Todavía no hay pedidos»—, error controlado y backend
 no disponible.
 
 La columna **Productos** enseña la primera línea del pedido con la foto, el nombre y las unidades

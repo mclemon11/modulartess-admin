@@ -1,0 +1,199 @@
+/*
+ * Paginación numerada del listado de pedidos.
+ *
+ * Todos los controles miden al menos `--control-height` (44 px), el tamaño táctil del panel. En
+ * escritorio va en una fila: rango a la izquierda, selector y números a la derecha. Por debajo de
+ * 40rem los números se sustituyen por «Página X de Y» entre «Anterior» y «Siguiente», que ocupan el
+ * ancho disponible: así no hay desbordamiento horizontal con ninguna cantidad de páginas.
+ */
+
+.region {
+  transition: opacity 120ms ease;
+}
+
+.regionBusy {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) clamp(1rem, 3vw, 1.5rem);
+  border-top: 1px solid var(--color-panel-border);
+}
+
+.range {
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.size {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-panel-muted);
+  font-size: 0.875rem;
+}
+
+.select {
+  min-height: var(--control-height);
+  padding: 0 0.75rem;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: var(--radius-control);
+  background-color: var(--color-panel-surface);
+  color: var(--color-panel-text);
+  font: inherit;
+  font-weight: 600;
+}
+
+.pages {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pageButton,
+.stepButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-height);
+  min-height: var(--control-height);
+  padding: 0 0.75rem;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: var(--radius-control);
+  background-color: var(--color-panel-surface);
+  color: var(--color-panel-text);
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.pageButton:hover:not(:disabled),
+.stepButton:hover:not(:disabled) {
+  background-color: var(--color-panel-subtle);
+}
+
+.pageButton:focus-visible,
+.stepButton:focus-visible,
+.select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-brand-ring);
+  border-color: var(--color-brand);
+}
+
+.pageButton[aria-current='page'] {
+  border-color: var(--color-brand);
+  background-color: var(--color-brand);
+  color: var(--color-brand-contrast);
+  cursor: default;
+}
+
+.stepButton:disabled {
+  color: var(--color-panel-muted);
+  background-color: var(--color-panel-subtle);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.gap {
+  min-width: 1.5rem;
+  color: var(--color-panel-muted);
+  text-align: center;
+}
+
+.compactStatus {
+  display: none;
+  margin: 0;
+  color: var(--color-panel-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-md);
+  margin: 0 0 var(--space-md);
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-panel-subtle);
+  font-size: 0.875rem;
+}
+
+.noticeText {
+  margin: 0;
+}
+
+@media (max-width: 60rem) {
+  .bar {
+    padding: var(--space-md) 0 0;
+    border-top: none;
+  }
+}
+
+@media (max-width: 40rem) {
+  .bar,
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .size {
+    justify-content: space-between;
+  }
+
+  .select {
+    flex: 1 1 auto;
+    max-width: 10rem;
+  }
+
+  .pager {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .pages {
+    display: none;
+  }
+
+  .compactStatus {
+    display: block;
+  }
+
+  .stepButton {
+    width: 100%;
+  }
+}
+
+@media (min-width: 40.0625rem) {
+  .pager {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+}

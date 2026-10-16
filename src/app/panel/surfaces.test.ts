@@ -57,7 +57,8 @@ function statusEnum(name: string): readonly string[] {
   return status.enum ?? [];
 }
 
-const ORDERS_LIST = read('src/app/panel/pedidos/page.tsx');
+const ORDERS_LIST =
+  read('src/app/panel/pedidos/page.tsx') + read('src/features/panel/orders-browser.tsx');
 const ORDERS_TABLE = read('src/features/panel/orders-table.tsx');
 const ORDERS_CARD = read('src/features/panel/order-mobile-card.tsx');
 const PRODUCTS_LIST = read('src/app/panel/productos/page.tsx');
@@ -300,18 +301,42 @@ describe('listado de pedidos', () => {
 
 describe('paginación por cursor', () => {
   /*
-   * El contrato devuelve un cursor opaco: se puede avanzar, pero no saltar a una página concreta
-   * ni saber cuántas hay. Una paginación numérica anunciaría un total que nadie calculó.
+   * El contrato de productos devuelve un cursor opaco: se puede avanzar, pero no saltar a una
+   * página concreta ni saber cuántas hay. Una paginación numérica anunciaría un total que nadie
+   * calculó.
    */
-  it.each([
-    ['productos', PRODUCTS_LIST],
-    ['pedidos', ORDERS_LIST],
-  ])('%s avanza con el cursor y no numera páginas', (_name, source) => {
-    const visible = rendered(source);
+  it('productos avanza con el cursor y no numera páginas', () => {
+    const visible = rendered(PRODUCTS_LIST);
 
     expect(visible).toContain('nextPageToken');
     expect(visible).not.toContain('por página');
     expect(visible).not.toMatch(/de\s+\{[^}]*total/i);
+  });
+});
+
+describe('paginación numerada de pedidos', () => {
+  /*
+   * Pedidos sí numera, porque el contrato publica el número de página y el total. La expectativa
+   * sale del contrato: si el backend los retirara, la prueba pediría volver al cursor.
+   */
+  it('numera exactamente porque el contrato publica página y total', () => {
+    expect(publishes('AdminOrderPageDto', 'total')).toBe(true);
+    expect(publishes('AdminOrderPageDto', 'page')).toBe(true);
+    expect(publishes('AdminOrderPageDto', 'pageSize')).toBe(true);
+
+    const visible = rendered(ORDERS_LIST);
+
+    expect(visible).toContain('Pedidos por página');
+    expect(visible).toContain('aria-current');
+    expect(visible).toContain('data.total');
+  });
+
+  it('no queda «Cargar más» ni el cursor en el listado de pedidos', () => {
+    const visible = rendered(ORDERS_LIST);
+
+    expect(visible).not.toContain('Cargar más');
+    expect(visible).not.toContain('nextPageToken');
+    expect(visible).not.toContain('pageToken=');
   });
 });
 
