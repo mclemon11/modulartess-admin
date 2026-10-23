@@ -151,7 +151,7 @@ export function CommercialSection({
       </span>
 
       <fieldset className={group.group} disabled={disabled}>
-        <legend className={group.legend}>Preparación (días hábiles)</legend>
+        <legend className={group.legend}>Fabricación estimada (días hábiles)</legend>
         <div className={styles.row}>
           <DayField
             id={`${id}-prep-min`}
@@ -169,7 +169,7 @@ export function CommercialSection({
           />
         </div>
         <span className={styles.hint}>
-          La tienda lo muestra como «Preparación estimada»: no incluye el tránsito, que depende de
+          La tienda lo muestra como «Fabricación estimada»: no incluye el tránsito, que depende de
           la zona de envío. Deja los dos vacíos para no mostrarlo.
         </span>
       </fieldset>

@@ -188,7 +188,7 @@ describe('sección', () => {
       'Mostrar como nuevo hasta',
       'Etiqueta de nuevo',
       'Etiqueta de promoción',
-      'Preparación (días hábiles)',
+      'Fabricación estimada (días hábiles)',
       'Mínimo',
       'Máximo',
     ]) {
