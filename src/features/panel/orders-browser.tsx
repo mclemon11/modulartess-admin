@@ -12,12 +12,15 @@ import {
   orderPageCount,
   orderPageWindow,
   orderRangeLabel,
+  orderStatusSearch,
   readOrderListPosition,
+  readOrderStatusFilter,
   type OrderListPosition,
   type OrderPageSize,
 } from './order-pagination';
 import styles from './order-pagination.module.css';
 import { OrdersTable } from './orders-table';
+import { OrdersToolbar } from './orders-toolbar';
 import { EmptyState } from './panel-states';
 
 import type { AdminOrderPage } from '@/lib/api/orders';
@@ -26,8 +29,8 @@ type Failure = { readonly key: string; readonly message: string };
 
 const FALLBACK_ERROR = 'No pudimos cargar esta página de pedidos.';
 
-function keyOf(page: number, pageSize: number): string {
-  return `${page}:${pageSize}`;
+function keyOf(page: number, pageSize: number, status: string | null): string {
+  return `${page}:${pageSize}:${status ?? ''}`;
 }
 
 /** Mensaje del BFF si lo hay: es un texto fijo en español, nunca el del backend. */
@@ -54,6 +57,11 @@ async function failureMessage(response: Response): Promise<string> {
  * navegador cambian la URL igual, así que pasan por el mismo camino.
  *
  * Un fallo no borra nada: se avisa encima de la tabla que ya se veía, con «Reintentar».
+ *
+ * El filtro por estado vive en la URL (`?status=paid`) y lo aplica el backend, así que el total y
+ * los números de página son los de la lista filtrada. Cambiarlo vuelve a la página 1 y conserva el
+ * tamaño; cambiar de página o de tamaño lo conserva, porque `orderListSearch` no toca ningún otro
+ * parámetro. La exportación no navega: descarga todo el filtro activo sin mover la tabla.
  */
 export function OrdersBrowser({ initial }: { readonly initial: AdminOrderPage }) {
   const pathname = usePathname();
@@ -62,7 +70,8 @@ export function OrdersBrowser({ initial }: { readonly initial: AdminOrderPage })
     page: searchParams.get('page'),
     pageSize: searchParams.get('pageSize'),
   });
-  const requestedKey = keyOf(requested.page, requested.pageSize);
+  const requestedStatus = readOrderStatusFilter(searchParams.get('status'));
+  const requestedKey = keyOf(requested.page, requested.pageSize, requestedStatus);
 
   const [source, setSource] = useState(initial);
   const [data, setData] = useState(initial);
@@ -77,7 +86,7 @@ export function OrdersBrowser({ initial }: { readonly initial: AdminOrderPage })
   }
 
   const shownPage = data.page ?? 1;
-  const shownKey = keyOf(shownPage, data.pageSize);
+  const shownKey = keyOf(shownPage, data.pageSize, data.status);
   const loading = requestedKey !== shownKey && failure?.key !== requestedKey;
 
   useEffect(() => {
@@ -87,6 +96,7 @@ export function OrdersBrowser({ initial }: { readonly initial: AdminOrderPage })
       page: String(requested.page),
       pageSize: String(requested.pageSize),
     });
+    if (requestedStatus !== null) query.set('status', requestedStatus);
 
     void (async () => {
       try {
@@ -121,7 +131,15 @@ export function OrdersBrowser({ initial }: { readonly initial: AdminOrderPage })
 
     return () => controller.abort();
     // `attempt` vuelve a lanzar la misma petición tras un fallo.
-  }, [requestedKey, shownKey, requested.page, requested.pageSize, pathname, attempt]);
+  }, [
+    requestedKey,
+    shownKey,
+    requested.page,
+    requested.pageSize,
+    requestedStatus,
+    pathname,
+    attempt,
+  ]);
 
   const regionRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -152,7 +170,7 @@ export function OrdersBrowser({ initial }: { readonly initial: AdminOrderPage })
   }, [shownKey]);
 
   function go(next: OrderListPosition) {
-    if (keyOf(next.page, next.pageSize) === requestedKey) {
+    if (keyOf(next.page, next.pageSize, requestedStatus) === requestedKey) {
       // Ya es la página pedida. Si falló, pulsarla otra vez la reintenta; si está en camino, nada.
       if (failure?.key === requestedKey) {
         setFailure(null);
@@ -167,7 +185,17 @@ export function OrdersBrowser({ initial }: { readonly initial: AdminOrderPage })
     );
   }
 
-  if (data.total === 0 && !loading && failure === null) {
+  /** Cambia el filtro en la URL y vuelve a la página 1, con el mismo tamaño. */
+  function filter(status: string | null) {
+    if (status === requestedStatus) return;
+    window.history.pushState(
+      null,
+      '',
+      `${pathname}${orderStatusSearch(window.location.search, status, requested.pageSize)}`,
+    );
+  }
+
+  if (data.total === 0 && data.status === null && !loading && failure === null) {
     return (
       <EmptyState icon="pedidos" title="Todavía no hay pedidos">
         Aquí aparecerán las compras que lleguen desde la tienda. No se crean desde el panel: un
@@ -176,12 +204,38 @@ export function OrdersBrowser({ initial }: { readonly initial: AdminOrderPage })
     );
   }
 
+  const toolbar = (
+    <OrdersToolbar onStatusChange={filter} options={data.statusOptions} status={requestedStatus} />
+  );
+  const shownStatusLabel =
+    data.statusOptions.find((option) => option.value === data.status)?.label ?? data.status;
+
   const pageCount = orderPageCount(data.total, data.pageSize);
   const range = orderRangeLabel(shownPage, data.pageSize, data.items.length, data.total);
   const failed = failure !== null && failure.key === requestedKey;
 
+  if (data.total === 0 && data.status !== null && !loading && failure === null) {
+    return (
+      <>
+        {toolbar}
+        <EmptyState
+          action={
+            <button className={catalog.buttonSecondary} onClick={() => filter(null)} type="button">
+              Ver todos los pedidos
+            </button>
+          }
+          icon="pedidos"
+          title="No hay pedidos con este estado"
+        >
+          Ningún pedido está ahora en «{shownStatusLabel}». Elige otro estado o vuelve a ver todos.
+        </EmptyState>
+      </>
+    );
+  }
+
   return (
     <>
+      {toolbar}
       {failed ? (
         <div className={styles.notice} role="alert">
           <p className={styles.noticeText}>

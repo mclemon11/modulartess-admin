@@ -5,7 +5,9 @@ import {
   orderPageCount,
   orderPageWindow,
   orderRangeLabel,
+  orderStatusSearch,
   readOrderListPosition,
+  readOrderStatusFilter,
 } from './order-pagination';
 
 const pages = (current: number, count: number) =>
@@ -97,5 +99,45 @@ describe('texto del rango', () => {
 
   it('dice que no hay pedidos con la lista vacía', () => {
     expect(orderRangeLabel(1, 20, 0, 0)).toBe('No hay pedidos');
+  });
+});
+
+describe('filtro por estado en la URL', () => {
+  it('lee el valor técnico del estado y «Todos» cuando falta o no tiene forma de estado', () => {
+    expect(readOrderStatusFilter('paid')).toBe('paid');
+    expect(readOrderStatusFilter(['ready_to_ship', 'paid'])).toBe('ready_to_ship');
+    for (const value of [undefined, null, '', 'PAID', 'paid ', 'pa-id', '1paid', 'x'.repeat(41)]) {
+      expect(readOrderStatusFilter(value)).toBeNull();
+    }
+  });
+
+  it('cambiar de estado vuelve a la página 1 y conserva el tamaño', () => {
+    expect(orderStatusSearch('?page=4&pageSize=50', 'shipped', 50)).toBe(
+      '?page=1&pageSize=50&status=shipped',
+    );
+    expect(orderStatusSearch('?page=4&pageSize=50&status=paid', 'cancelled', 50)).toBe(
+      '?page=1&pageSize=50&status=cancelled',
+    );
+  });
+
+  it('«Todos» quita el filtro de la URL', () => {
+    expect(orderStatusSearch('?page=3&pageSize=10&status=paid', null, 10)).toBe(
+      '?page=1&pageSize=10',
+    );
+  });
+
+  it('anterior, siguiente, páginas numeradas y tamaño conservan el filtro', () => {
+    const current = '?page=2&pageSize=20&status=preparing';
+    for (const position of [
+      { page: 1, pageSize: 20 as const },
+      { page: 3, pageSize: 20 as const },
+      { page: 7, pageSize: 20 as const },
+      { page: 1, pageSize: 100 as const },
+    ]) {
+      const params = new URLSearchParams(orderListSearch(current, position));
+      expect(params.get('status')).toBe('preparing');
+      expect(params.get('page')).toBe(String(position.page));
+      expect(params.get('pageSize')).toBe(String(position.pageSize));
+    }
   });
 });

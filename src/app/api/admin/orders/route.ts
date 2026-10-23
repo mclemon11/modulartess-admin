@@ -7,14 +7,14 @@ import 'server-only';
  * cookie de sesión. Esta ruta traduce la cookie al encabezado interno y devuelve la página tal como
  * la responde el backend, con su total.
  *
- * Solo se propagan `page` y `pageSize`, que es lo que usa la paginación numerada del panel. Lo que
- * no se reconoce vuelve a la página 1 con 20 por página, igual que en la pantalla: los límites
- * reales los aplica el backend.
+ * Solo se propagan `page`, `pageSize` y el filtro `status`. Lo que no se reconoce vuelve a la
+ * página 1 con 20 por página y sin filtro, igual que en la pantalla: los límites y los estados
+ * válidos los decide el backend.
  */
 
 import type { NextRequest, NextResponse } from 'next/server';
 
-import { readOrderListPosition } from '@/features/panel/order-pagination';
+import { readOrderListPosition, readOrderStatusFilter } from '@/features/panel/order-pagination';
 import { handleQuery } from '@/features/session/query-route';
 import { listOrders } from '@/lib/api/orders';
 
@@ -24,5 +24,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     pageSize: request.nextUrl.searchParams.get('pageSize'),
   });
 
-  return handleQuery(request, (sessionMaterial) => listOrders(sessionMaterial, position));
+  const status = readOrderStatusFilter(request.nextUrl.searchParams.get('status'));
+
+  return handleQuery(request, (sessionMaterial) =>
+    listOrders(sessionMaterial, status === null ? position : { ...position, status }),
+  );
 }

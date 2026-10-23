@@ -6,7 +6,9 @@ import { describeOrderBackendFailure } from '@/features/panel/order-errors';
 import {
   orderListSearch,
   orderPageCount,
+  orderStatusSearch,
   readOrderListPosition,
+  readOrderStatusFilter,
 } from '@/features/panel/order-pagination';
 import { OrdersBrowser } from '@/features/panel/orders-browser';
 import { PanelHeader } from '@/features/panel/panel-header';
@@ -49,10 +51,13 @@ function toSearch(params: Record<string, string | string[] | undefined>): string
  * pantalla pinta la página pedida en el servidor; los cambios posteriores los hace
  * `OrdersBrowser` en el navegador sin borrar la tabla mientras llega la nueva.
  *
+ * El filtro por estado también vive en la URL (`?status=paid`) y lo aplica el backend: el total y
+ * las páginas son los de la lista filtrada. Las opciones y sus etiquetas salen de `statusOptions`.
+ * «Exportar CSV» descarga todos los pedidos del filtro activo, compuestos por el backend.
+ *
  * Lo que las referencias muestran y **no** está aquí, porque OpenAPI no lo publica: las tarjetas de
- * métricas, el buscador, los chips por estado, el rango «Últimos 30 días», la exportación, la
- * selección múltiple y el correo del cliente. El listado tiene un único orden, del más reciente al
- * más antiguo, y no hay filtros que conservar entre páginas.
+ * métricas, el buscador, el rango «Últimos 30 días», la selección múltiple y el correo del cliente
+ * en la fila. El listado tiene un único orden, del más reciente al más antiguo.
  */
 export default async function OrdersPage({ searchParams }: PageProps) {
   const session = await resolvePanelSession();
@@ -63,13 +68,17 @@ export default async function OrdersPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const position = readOrderListPosition({ page: params.page, pageSize: params.pageSize });
+  const status = readOrderStatusFilter(params.status);
   const current = toSearch(params);
   const trail = [{ href: '/panel', label: 'Panel' }, { label: 'Pedidos' }];
 
   let page;
 
   try {
-    page = await listOrders(session.session.sessionMaterial, position);
+    page = await listOrders(
+      session.session.sessionMaterial,
+      status === null ? position : { ...position, status },
+    );
   } catch (error) {
     const message = isBackendFailure(error)
       ? describeOrderBackendFailure(error.code, 'list')
@@ -82,12 +91,23 @@ export default async function OrdersPage({ searchParams }: PageProps) {
           <PanelPageHeader title="Pedidos" />
           <ErrorState
             action={
-              <Link
-                className={catalog.buttonSecondary}
-                href={`/panel/pedidos${orderListSearch(current, position)}`}
-              >
-                Reintentar
-              </Link>
+              <>
+                <Link
+                  className={catalog.buttonSecondary}
+                  href={`/panel/pedidos${orderListSearch(current, position)}`}
+                >
+                  Reintentar
+                </Link>
+                {status !== null ? (
+                  // Un enlace con un estado que el backend no reconoce también acaba aquí.
+                  <Link
+                    className={catalog.buttonSecondary}
+                    href={`/panel/pedidos${orderStatusSearch(current, null, position.pageSize)}`}
+                  >
+                    Ver todos los pedidos
+                  </Link>
+                ) : null}
+              </>
             }
             message={message}
             title="No pudimos cargar los pedidos"

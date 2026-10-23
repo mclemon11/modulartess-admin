@@ -91,6 +91,7 @@ const SERVER_ONLY_MODULES = [
   'src/app/api/admin/products/[productId]/variants/[variantId]/inventory-adjustments/route.ts',
   'src/app/api/admin/products/[productId]/variants/[variantId]/inventory/route.ts',
   'src/app/api/admin/orders/route.ts',
+  'src/app/api/admin/orders/export/route.ts',
   'src/app/api/admin/orders/[orderId]/route.ts',
   'src/app/api/admin/orders/[orderId]/status/route.ts',
   'src/app/api/admin/orders/[orderId]/cancel/route.ts',

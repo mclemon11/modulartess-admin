@@ -35,6 +35,8 @@ export const BACKEND_FAILURE_CODES = [
    * HTTPS de seguimiento válidos, y ninguna otra transición los acepta.
    */
   'backend_order_shipment_invalid',
+  /** Más pedidos de los que el backend exporta de una vez: hay que filtrar. */
+  'backend_order_export_too_large',
   /**
    * Edición de pedidos (ADR 0028 del backend). `order_edit_blocked` lleva su motivo de una lista
    * cerrada en `reference`; las líneas rechazadas por el catálogo llevan el código del backend.

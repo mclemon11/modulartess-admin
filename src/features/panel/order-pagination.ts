@@ -46,9 +46,9 @@ export function readOrderListPosition(params: {
 /**
  * Consulta de la URL para una posición, conservando cualquier otro parámetro.
  *
- * Hoy el contrato no publica filtros ni búsqueda, pero si la URL llevara otros parámetros no se
- * pierden al cambiar de página. El antiguo `pageToken` de «Cargar más» sí se descarta: una posición
- * numerada y un cursor a la vez no significan nada.
+ * Cualquier otro parámetro de la URL —hoy, el filtro `status`— se conserva al cambiar de página o
+ * de tamaño. El antiguo `pageToken` de «Cargar más» sí se descarta: una posición numerada y un
+ * cursor a la vez no significan nada.
  */
 export function orderListSearch(current: string, position: OrderListPosition): string {
   const params = new URLSearchParams(current);
@@ -56,6 +56,36 @@ export function orderListSearch(current: string, position: OrderListPosition): s
   params.set('page', String(position.page));
   params.set('pageSize', String(position.pageSize));
   return `?${params.toString()}`;
+}
+
+/**
+ * Forma de un estado en la URL: el valor técnico del contrato, en minúsculas y guiones bajos.
+ *
+ * El panel no tiene su propia lista de estados —la publica el backend en `statusOptions`—, así que
+ * aquí solo se descarta lo que no puede ser un estado. Un valor bien formado pero desconocido llega
+ * al backend, que lo rechaza con 400: es él quien sabe qué estados existen.
+ */
+const STATUS_SHAPE = /^[a-z][a-z_]{0,39}$/;
+
+/** El filtro por estado de la URL, o `null` para «Todos». */
+export function readOrderStatusFilter(value: RawParam): string | null {
+  const raw = first(value);
+  return raw !== undefined && STATUS_SHAPE.test(raw) ? raw : null;
+}
+
+/**
+ * Consulta de la URL al cambiar el filtro: vuelve a la página 1, conserva el tamaño y el resto de
+ * parámetros, y quita `status` para «Todos».
+ */
+export function orderStatusSearch(
+  current: string,
+  status: string | null,
+  pageSize: OrderPageSize,
+): string {
+  const params = new URLSearchParams(current);
+  if (status === null) params.delete('status');
+  else params.set('status', status);
+  return orderListSearch(params.toString(), { page: 1, pageSize });
 }
 
 /** Número de páginas. Una lista vacía tiene una página: la que dice que no hay nada. */

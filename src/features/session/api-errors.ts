@@ -48,6 +48,7 @@ export const SESSION_ERROR_CODES = [
   'account_sync_pending',
   'refund_required',
   'shipment_invalid',
+  'export_too_large',
   'order_edit_blocked',
   'order_line_rejected',
   'order_reconciliation_invalid',
@@ -142,6 +143,8 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
     'Este pedido ya está pagado y cancelarlo exigiría devolver el dinero. El flujo de reembolso todavía no está disponible.',
   shipment_invalid:
     'Revisa el envío: hacen falta la transportadora, el número de guía y un enlace https de seguimiento.',
+  export_too_large:
+    'Hay demasiados pedidos para exportarlos de una vez. Filtra por estado y vuelve a intentarlo.',
   order_edit_blocked: 'El estado del pedido o de su pago no permite este cambio.',
   order_line_rejected: 'Uno de los productos no se puede agregar tal como está.',
   order_reconciliation_invalid:
@@ -233,6 +236,7 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   account_sync_pending: 503,
   refund_required: 409,
   shipment_invalid: 400,
+  export_too_large: 422,
   order_edit_blocked: 409,
   order_line_rejected: 400,
   order_reconciliation_invalid: 400,
@@ -358,6 +362,8 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'refund_required';
     case 'backend_order_shipment_invalid':
       return 'shipment_invalid';
+    case 'backend_order_export_too_large':
+      return 'export_too_large';
     case 'backend_order_edit_blocked':
       return 'order_edit_blocked';
     case 'backend_order_line_rejected':

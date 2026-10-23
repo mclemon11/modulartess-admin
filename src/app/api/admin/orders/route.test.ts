@@ -59,6 +59,23 @@ describe('GET /api/admin/orders', () => {
     expect(listOrders).toHaveBeenCalledWith(MATERIAL, { page: 1, pageSize: 20 });
   });
 
+  it('reenvía el filtro por estado junto con la posición', async () => {
+    await GET(request('?page=2&pageSize=50&status=ready_to_ship'));
+    expect(listOrders).toHaveBeenCalledWith(MATERIAL, {
+      page: 2,
+      pageSize: 50,
+      status: 'ready_to_ship',
+    });
+  });
+
+  it('sin estado, o con uno mal formado, lista todos', async () => {
+    for (const search of ['?page=1&pageSize=20', '?page=1&pageSize=20&status=', '?status=PAID']) {
+      listOrders.mockClear();
+      await GET(request(search));
+      expect(listOrders).toHaveBeenCalledWith(MATERIAL, { page: 1, pageSize: 20 });
+    }
+  });
+
   it('sin cookie de sesión no llama al backend', async () => {
     const response = await GET(request('?page=2', false));
 

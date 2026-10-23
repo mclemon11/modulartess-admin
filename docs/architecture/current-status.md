@@ -1,6 +1,30 @@
 # Estado actual
 
-Última actualización: 2026-10-09 (conciliación manual del pago, ADR 0014).
+Última actualización: 2026-10-23 (filtro por estado y exportación CSV del listado de pedidos, ADR
+0016).
+
+## Listado de pedidos: filtro por estado y exportación CSV, implementado
+
+[`ADR 0016`](../decisions/0016-orders-status-filter-and-export.md). Consume el contrato de la ADR
+0034 del backend, copiado con `pnpm api:update` y regenerado con `pnpm api:generate`; una prueba
+fija su SHA-256.
+
+- **Selector «Estado»** encima de la tabla: «Todos» y las opciones de `statusOptions`, con las
+  etiquetas que publica el backend —las mismas de la columna Estado—. El panel no tiene lista
+  propia.
+- **Lo filtra el backend** (`GET /v1/admin/orders?status=`): el total y los números de página son los
+  de la lista filtrada. El filtro vive en la URL (`?status=paid`); cambiarlo vuelve a la página 1 y
+  conserva el tamaño; anterior, siguiente, páginas numeradas y tamaño lo conservan. «Ver todos»
+  lo quita. Sin coincidencias se dice «No hay pedidos con este estado» con «Ver todos los
+  pedidos», y la barra sigue a la vista.
+- **«Exportar CSV»** descarga todos los pedidos del filtro activo, no la página visible: el BFF
+  (`/api/admin/orders/export`) pide a `GET /v1/admin/orders/export` el archivo ya compuesto y reenvía
+  los bytes sin leerlos. El navegador recibe un archivo, nunca páginas de pedidos, y la cantidad por
+  página no interviene. «Exportando…» con `aria-busy` y un candado síncrono contra el doble clic;
+  `204` se avisa sin descargar nada; los errores, con texto fijo. No cambia la URL, la página ni el
+  filtro. Un `status` mal formado en la ruta de exportación responde 400 en lugar de exportarlo
+  todo.
+- Escritorio en una fila; por debajo de 40rem se apila a ancho completo. Controles de 44 px.
 
 ## Fase
 
@@ -369,8 +393,8 @@ contrato del backend, que ahora acepta `page` en `GET /v1/admin/orders` y public
   ocupan el ancho disponible. Todos los controles miden al menos 44 px y no hay desbordamiento
   horizontal.
 - **Orden y filtros**: el contrato tiene un único orden, del más reciente al más antiguo con el ID
-  como desempate, y no publica búsqueda ni filtros. No hay nada más que conservar entre páginas; si
-  la URL llevara otros parámetros, se mantienen.
+  como desempate, y un único filtro, el estado (ver arriba). El filtro y cualquier otro parámetro
+  de la URL se conservan al cambiar de página o de tamaño.
 - Pruebas: `order-pagination.test.ts` (URL, ventana de números y texto del rango) y la ruta del BFF
   (`src/app/api/admin/orders/route.test.ts`). La copia del contrato se actualizó con
   `pnpm api:update` y los tipos con `pnpm api:generate`.
@@ -574,7 +598,7 @@ El navegador no conoce la URL del backend, ni la audiencia, ni el identity token
 interna, y **nada del pedido se guarda** en `localStorage` ni en `sessionStorage`.
 
 Lo que las referencias de diseño muestran y **no** está, porque el contrato no lo publica: buscador,
-filtros y chips por estado con sus conteos, tarjetas de métricas, rango de fechas, exportación,
+chips por estado con sus conteos, tarjetas de métricas, rango de fechas,
 «Pedidos que requieren atención», «Últimos pedidos», **método** de pago —tarjeta, marca, últimos
 cuatro dígitos, referencia bancaria y fecha de cobro real—, descuento, canal de venta, selección
 múltiple, paginación numérica, «Contactar cliente», «Imprimir», «Ver perfil», «Ver en mapa», notas

@@ -384,7 +384,7 @@ export interface paths {
         };
         /**
          * List orders for the panel
-         * @description Ordered by createdAt descending, then by id descending, so the order is stable across pages. Every page carries the total number of orders, for numbered navigation. Rows carry no address, email or phone: those are on the detail. Paid rows carry paymentSummary (provider and safe method summary) and rows paid through the online credit integration carry their latest result (see the row schema); reading them costs one extra query per 30 such rows, never one per row. Every row carries paymentChannel. There is no server-side filter: the latest attempt status is not stored on the order, so filtering by it would need a denormalized field and a composite index. Requires orders.read.
+         * @description Ordered by createdAt descending, then by id descending, so the order is stable across pages. Every page carries the total number of orders, for numbered navigation. Rows carry no address, email or phone: those are on the detail. Paid rows carry paymentSummary (provider and safe method summary) and rows paid through the online credit integration carry their latest result (see the row schema); reading them costs one extra query per 30 such rows, never one per row. Every row carries paymentChannel. The list can be filtered by the order status (status); every page publishes the filter applied and the statuses available, with their labels. There is no filter by payment attempt: the latest attempt status is not stored on the order. Requires orders.read.
          */
         get: operations["AdminOrdersController_list"];
         put?: never;
@@ -529,6 +529,26 @@ export interface paths {
          * @description Only paid→preparing, preparing→ready_to_ship, ready_to_ship→shipped and shipped→delivered. No skips and no going back. preparing→shipped is rejected for new mutations: ready_to_ship is a real state and skipping it lost the only signal that tells an order still being produced from a finished one waiting for the carrier. Orders whose history already contains preparing→shipped keep reading fine and can still move on. pending_payment→paid is NOT available here: it is applied by the payment outcome, in the same transaction that confirms it. Lines, prices, totals and customer are never modified by a transition. Requires expectedVersion and orders.update_status, which all three roles have.
          */
         post: operations["AdminOrdersController_changeStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/orders/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the orders of the list as CSV
+         * @description Every order of the list with the same filter (status), not one page: the backend walks the list with its own cursor and stable order, 100 orders at a time, and answers one file. UTF-8 with BOM, semicolon separator, CRLF, Spanish headers, one row per order: public ID, creation date and time in America/Bogota, order status, payment status and payment method (their labels), customer name, email and phone, department, city, address, products with quantities, subtotal, shipping, shipping price status and total in COP. Every text cell is quoted, and one starting with =, +, -, @, tab or carriage return is prefixed with an apostrophe so a spreadsheet never evaluates it. Never carries the internal id, internal notes, provider references, card data, tax identification or analytics. No matching order answers 204 with no body. More than 10000 matching orders answers 422 order_export_too_large before reading any row. Read only: nothing is written, and nothing of the content is logged. Requires orders.read.
+         */
+        get: operations["AdminOrdersController_export"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2525,6 +2545,13 @@ export interface components {
             page: number | null;
             /** @description Effective page size used for this page. */
             pageSize: number;
+            /**
+             * @description Status filter applied to this page, or null when the list is unfiltered. total, page numbers and nextPageToken all describe the filtered list.
+             * @enum {string|null}
+             */
+            status: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled" | null;
+            /** @description Every status the list can be filtered by, in operational order (pending_payment, paid, preparing, ready_to_ship, shipped, delivered, then cancelled), with its label. The same on every page, filtered or not, so the panel never keeps its own list. */
+            statusOptions: components["schemas"]["AdminOrderStatusOptionDto"][];
             /** @description Number of orders in the list when this page was read. Counted on the same ordered query, so it matches what paging walks through. */
             total: number;
         };
@@ -2697,6 +2724,18 @@ export interface components {
             /** @example manual_quote_rule */
             reason: string | null;
             rulesetRevision: number;
+        };
+        AdminOrderStatusOptionDto: {
+            /**
+             * @description The same label as statusLabel on the rows: the name of the current state.
+             * @example Pendiente de pago
+             */
+            label: string;
+            /**
+             * @example pending_payment
+             * @enum {string}
+             */
+            value: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
         };
         AdminOrderSummaryDto: {
             /** Format: date-time */
@@ -7393,6 +7432,8 @@ export interface operations {
     AdminOrdersController_list: {
         parameters: {
             query?: {
+                /** @description Only orders whose current status is this one. Exact enum value; anything else answers 400 order_request_invalid. Omitted: every order. It is an equality inside the query, so total, numbered pages and the cursor describe the filtered list; a pageToken read with one status is rejected with another (order_request_invalid). */
+                status?: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
                 /** @description Page number from 1, up to 10000, for numbered navigation. Mutually exclusive with pageToken (order_request_invalid). The start of the page is resolved with a keys-only read of the earlier rows and a cursor, never by reading whole orders; a page past the total answers an empty items array. Without page or pageToken the first page is served. */
                 page?: number;
                 /** @description Opaque cursor. */
@@ -7986,6 +8027,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_export: {
+        parameters: {
+            query?: {
+                /** @description Only orders whose current status is this one. Exact enum value; anything else answers 400 order_request_invalid. Omitted: every order. It is an equality inside the query, so total, numbered pages and the cursor describe the filtered list; a pageToken read with one status is rejected with another (order_request_invalid). */
+                status?: "pending_payment" | "paid" | "preparing" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The CSV file, as an attachment named pedidos-modulartess-YYYY-MM-DD.csv, or pedidos-modulartess-estado-{status label slug}-YYYY-MM-DD.csv with a filter (Colombian day). X-Order-Export-Count carries the number of rows. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description No order matches the filter: there is nothing to export. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description order_request_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_export_too_large */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description order_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": components["schemas"]["ErrorResponseDto"];
                 };
             };
         };

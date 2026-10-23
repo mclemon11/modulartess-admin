@@ -12,10 +12,10 @@ import 'server-only';
  * son dos canales separados y no se mezclan.
  *
  * El contrato publica las operaciones administrativas de pedido que hay aquí y ninguna más:
- * listado, ficha, transición de estado, cancelación, edición controlada —estado, notas internas y
- * productos, con su vista previa— y el simulador de pago de staging. No hay búsqueda, ni filtros, ni
- * exportación, ni edición del cliente, ni pasarela real, ni reembolso: lo que no está aquí es
- * porque no está en OpenAPI.
+ * listado —con filtro por estado—, exportación CSV del listado, ficha, transición de estado,
+ * cancelación, edición controlada —estado, notas internas y productos, con su vista previa— y el
+ * simulador de pago de staging. No hay búsqueda, ni edición del cliente, ni pasarela real, ni
+ * reembolso: lo que no está aquí es porque no está en OpenAPI.
  */
 
 import { backendClient } from './backend-client';
@@ -28,6 +28,8 @@ export type AdminOrderPage = components['schemas']['AdminOrderPageDto'];
 export type AdminOrderSummary = components['schemas']['AdminOrderSummaryDto'];
 /** Fila del listado de pedidos: el resumen más cómo se cobró, solo con el pago aprobado. */
 export type AdminOrderListItem = components['schemas']['AdminOrderListItemDto'];
+/** Un estado por el que se puede filtrar el listado, con la etiqueta que publica el backend. */
+export type AdminOrderStatusOption = components['schemas']['AdminOrderStatusOptionDto'];
 export type AdminPaymentSummary = components['schemas']['AdminPaymentSummaryDto'];
 export type AdminPaymentProvider = components['schemas']['AdminPaymentProviderDto'];
 export type AdminPaymentMethod = components['schemas']['AdminPaymentMethodDto'];
@@ -80,9 +82,14 @@ function toFailure(error: unknown): BackendFailure {
  */
 export async function listOrders(
   sessionMaterial: string,
-  options: { readonly page?: number; readonly pageSize?: number } = {},
+  options: {
+    readonly page?: number;
+    readonly pageSize?: number;
+    /** Solo los pedidos en este estado; `null` o ausente, todos. Lo valida el backend. */
+    readonly status?: string | null;
+  } = {},
 ): Promise<AdminOrderPage> {
-  const query: { page?: number; pageSize?: number } = {};
+  const query: { page?: number; pageSize?: number; status?: OrderStatus } = {};
 
   if (options.page !== undefined) {
     query.page = options.page;
@@ -90,6 +97,11 @@ export async function listOrders(
 
   if (options.pageSize !== undefined) {
     query.pageSize = options.pageSize;
+  }
+
+  if (options.status !== undefined && options.status !== null) {
+    // El valor viaja tal cual: si no es un estado del contrato, el backend responde 400.
+    query.status = options.status as OrderStatus;
   }
 
   let response;
@@ -108,6 +120,58 @@ export async function listOrders(
   }
 
   return response.data;
+}
+
+export type OrderExport =
+  | { readonly kind: 'empty' }
+  | {
+      readonly kind: 'file';
+      readonly bytes: ArrayBuffer;
+      readonly contentDisposition: string | null;
+      readonly count: string | null;
+    };
+
+/**
+ * Exportación CSV de todos los pedidos del listado con el filtro dado, compuesta por el backend.
+ *
+ * El backend recorre el listado con su cursor y entrega el archivo entero: el panel no descarga
+ * páginas de pedidos ni monta filas, solo reenvía los bytes. `204` significa que no hay ningún
+ * pedido que exportar. Los bytes no se leen ni se registran aquí.
+ */
+export async function exportOrders(
+  sessionMaterial: string,
+  status: string | null,
+): Promise<OrderExport> {
+  let response;
+
+  try {
+    response = await backendClient().GET('/v1/admin/orders/export', {
+      params: { query: status === null ? {} : { status: status as OrderStatus } },
+      headers: sessionHeaders(sessionMaterial),
+      parseAs: 'arrayBuffer',
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.response.status === 204) {
+    return { kind: 'empty' };
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    if (backendErrorCode(response.error) === 'order_export_too_large') {
+      throw new BackendFailure('backend_order_export_too_large');
+    }
+
+    throw new BackendFailure(failureCodeFromStatus(response.response.status, RESOURCE));
+  }
+
+  return {
+    kind: 'file',
+    bytes: response.data,
+    contentDisposition: response.response.headers.get('content-disposition'),
+    count: response.response.headers.get('x-order-export-count'),
+  };
 }
 
 /**

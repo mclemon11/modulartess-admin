@@ -388,7 +388,7 @@ describe('tipos generados', () => {
  * el contrato y se actualiza la copia, esto falla aquí en lugar de fallar en producción.
  */
 describe('pedidos administrativos', () => {
-  it('publica exactamente las ocho operaciones que el panel usa', () => {
+  it('publica exactamente las nueve operaciones que el panel usa', () => {
     const operations: string[] = [];
 
     for (const [path, node] of Object.entries(contract.paths)) {
@@ -403,6 +403,7 @@ describe('pedidos administrativos', () => {
 
     expect(operations.sort()).toEqual([
       'GET /v1/admin/orders',
+      'GET /v1/admin/orders/export',
       'GET /v1/admin/orders/{orderId}',
       'POST /v1/admin/orders/{orderId}/cancel',
       'POST /v1/admin/orders/{orderId}/edit',
@@ -584,17 +585,31 @@ describe('pedidos administrativos', () => {
     expect(preview.properties.primaryImageUrl.nullable).toBe(true);
   });
 
-  it('el listado admite page, pageSize y pageToken: no hay buscador ni filtros', () => {
+  it('el listado admite page, pageSize, pageToken y status: no hay buscador', () => {
     const parameters = contract.paths['/v1/admin/orders'].get.parameters ?? [];
     const names = parameters.map((parameter: { name: string }) => parameter.name).sort();
 
-    expect(names).toEqual(['page', 'pageSize', 'pageToken']);
+    expect(names).toEqual(['page', 'pageSize', 'pageToken', 'status']);
   });
 
-  it('la página del listado publica total, número y tamaño', () => {
+  it('la página del listado publica total, número, tamaño, filtro y opciones de estado', () => {
     expect(
       Object.keys(contract.components.schemas.AdminOrderPageDto.properties ?? {}).sort(),
-    ).toEqual(['items', 'nextPageToken', 'page', 'pageSize', 'total']);
+    ).toEqual(['items', 'nextPageToken', 'page', 'pageSize', 'status', 'statusOptions', 'total']);
+    expect(
+      Object.keys(contract.components.schemas.AdminOrderStatusOptionDto.properties ?? {}).sort(),
+    ).toEqual(['label', 'value']);
+  });
+
+  /* La exportación la compone el backend: el panel solo reenvía el archivo. */
+  it('la exportación admite solo status y responde CSV o 204', () => {
+    const operation = contract.paths['/v1/admin/orders/export'].get;
+    const names = (operation.parameters ?? []).map((parameter: { name: string }) => parameter.name);
+
+    expect(names).toEqual(['status']);
+    expect(Object.keys(operation.responses['200'].content ?? {})).toEqual(['text/csv']);
+    expect(operation.responses).toHaveProperty('204');
+    expect(operation.responses).toHaveProperty('422');
   });
 
   it('la ficha trae la instantánea de cada línea, con su imagen y sus atributos', () => {
@@ -983,16 +998,16 @@ describe('catálogo de categorías', () => {
 
 describe('contrato del backend con la edición controlada de pedidos', () => {
   /*
-   * La copia es byte a byte la de `openapi/openapi.json` del backend que numera las páginas del
-   * listado de pedidos y publica su total. Si alguien la cambia a mano o la actualiza sin
+   * La copia es byte a byte la de `openapi/openapi.json` del backend que filtra el listado de
+   * pedidos por estado y lo exporta en CSV. Si alguien la cambia a mano o la actualiza sin
    * regenerar, esto falla aquí.
    */
-  it('la copia comiteada es exactamente la del backend con la paginación numerada de pedidos', () => {
+  it('la copia comiteada es exactamente la del backend con el filtro por estado y la exportación', () => {
     const digest = createHash('sha256')
       .update(readFileSync('openapi/backend-v1.json'))
       .digest('hex');
 
-    expect(digest).toBe('69e8ef02b06ac002682217a0cead8e33cdc2ba2734876f58bf3c47b6635eaa96');
+    expect(digest).toBe('fe28ce870eaefd3ba949f291a2ad91de7009af27fe5540b83277fde0661abb09');
   });
 
   /*

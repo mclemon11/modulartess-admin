@@ -1,0 +1,94 @@
+/*
+ * Barra del listado de pedidos: filtro por estado y exportación.
+ *
+ * Todos los controles miden al menos `--control-height` (44 px), el tamaño táctil del panel. En
+ * escritorio va en una fila: filtro a la izquierda y exportación a la derecha. Por debajo de 40rem
+ * se apila y cada control ocupa el ancho disponible, así que ninguna etiqueta larga de estado
+ * desborda la pantalla.
+ */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-md);
+  margin: 0 0 var(--space-md);
+}
+
+.filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.label {
+  color: var(--color-panel-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.select {
+  min-width: 12rem;
+  max-width: 100%;
+  min-height: var(--control-height);
+  padding: 0 0.75rem;
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: var(--radius-control);
+  background-color: var(--color-panel-surface);
+  color: var(--color-panel-text);
+  font: inherit;
+  font-weight: 600;
+}
+
+.select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-brand-ring);
+  border-color: var(--color-brand);
+}
+
+.export {
+  display: flex;
+  align-items: center;
+}
+
+.export button[aria-busy='true'] {
+  cursor: progress;
+}
+
+/* Vacía no ocupa alto, pero sigue en el árbol: una región viva oculta no siempre se anuncia. */
+.notice {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--color-panel-muted);
+  font-size: 0.875rem;
+}
+
+.noticeError {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+@media (max-width: 40rem) {
+  .toolbar,
+  .filter,
+  .export {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .filter button,
+  .export button {
+    width: 100%;
+  }
+}
