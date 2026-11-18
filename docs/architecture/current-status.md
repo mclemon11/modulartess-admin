@@ -1,7 +1,14 @@
 # Estado actual
 
-Última actualización: 2026-10-23 (filtro por estado y exportación CSV del listado de pedidos, ADR
-0016).
+Última actualización: 2026-11-18 (la tarjeta de Wompi resume el ambiente que cobra).
+
+## Integraciones: la tarjeta de Wompi resume el ambiente que cobra, corregido
+
+La pastilla, los tres relojes y el último error de la tarjeta de Wompi se leían siempre de sandbox.
+Con Producción activa y cobrando, la tarjeta decía «Configurado, apagado» y los webhooks «Nunca».
+Ahora salen del ambiente activo (`readOperatingEnvironment`), y la pastilla nombra el ambiente:
+«Producción · Activo». Sin ambiente activo resume Producción si el despliegue la permite y tiene
+llaves; si no, sandbox. La fila «Ambiente activo», «Checkouts de prueba» y «Pagos reales» no cambian.
 
 ## Listado de pedidos: filtro por estado y exportación CSV, implementado
 

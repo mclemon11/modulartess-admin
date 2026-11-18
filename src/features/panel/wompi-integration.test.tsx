@@ -399,6 +399,57 @@ describe('la tarjeta de Wompi y los pagos reales', () => {
   });
 });
 
+describe('la tarjeta de Wompi resume el ambiente que cobra', () => {
+  const card = (overrides: Partial<WompiIntegration>) =>
+    renderToStaticMarkup(
+      <WompiProviderCard
+        canManage
+        integration={integration(overrides)}
+        openIncidents={{ kind: 'exact', value: 0 }}
+      />,
+    );
+  const clock = (html: string, label: string) =>
+    new RegExp(`${label}</dt><dd[^>]*>([^<]*)<`).exec(html)?.[1];
+
+  /*
+   * El caso real que motivó el cambio: Producción cobrando y la tarjeta leyendo sandbox, apagado y
+   * sin un solo webhook. Falla si la pastilla o los relojes vuelven a salir de sandbox.
+   */
+  it('con Producción activa, la pastilla y los relojes son los de Producción', () => {
+    const html = card({
+      activeEnvironment: 'production',
+      livePaymentsEnabled: true,
+      sandbox: environmentConfig({
+        enabledForNewPayments: false,
+        lastVerifiedWebhookAt: null,
+        lastErrorCode: 'wompi_unreachable',
+      }),
+      production: environmentConfig({
+        enabledForNewPayments: true,
+        lastVerifiedWebhookAt: '2026-11-15T18:43:21.009Z',
+      }),
+    });
+
+    expect(html).toContain('Producción · Activo');
+    expect(html).not.toContain('Configurado, apagado');
+    expect(clock(html, 'Último webhook verificado')).not.toBe('Nunca');
+    expect(html).not.toContain('Último error');
+  });
+
+  it('con sandbox activo sigue resumiendo sandbox', () => {
+    expect(card({ activeEnvironment: 'sandbox' })).toContain('Pruebas · Activo');
+  });
+
+  it('sin ambiente activo y Producción bloqueada, resume las pruebas', () => {
+    const html = card({
+      activeEnvironment: 'disabled',
+      sandbox: environmentConfig({ enabledForNewPayments: false }),
+    });
+
+    expect(html).toContain('Pruebas · Configurado, apagado');
+  });
+});
+
 describe('activar pagos de prueba es otra decisión', () => {
   const sandbox = (configured: boolean, enabled: boolean) =>
     integration({ sandbox: environmentConfig({ configured, enabledForNewPayments: enabled }) });

@@ -8,7 +8,7 @@ import {
   describeIntegrationError,
   describeOpenIncidentCount,
   OPERATIONAL_CLOCKS,
-  readEnvironmentHealth,
+  readOperatingEnvironment,
   type IntegrationHealth,
   type OpenIncidentCount,
 } from './integration-labels';
@@ -59,7 +59,7 @@ export function HealthBadge({
  * Tarjeta de Wompi en el listado de integraciones.
  *
  * Resume el ambiente operativo, si sandbox está encendido, si producción sigue bloqueada, los tres
- * relojes y las incidencias abiertas. Todo sale del contrato; nada se deduce aquí.
+ * relojes del ambiente que cobra y las incidencias abiertas. Todo sale del contrato.
  */
 export function WompiProviderCard({
   integration,
@@ -76,8 +76,8 @@ export function WompiProviderCard({
   readonly openIncidents: OpenIncidentCount;
   readonly canManage: boolean;
 }) {
-  const sandbox = readEnvironmentHealth(integration.sandbox, { blocked: false });
-  const error = describeIntegrationError(integration.sandbox.lastErrorCode);
+  const operating = readOperatingEnvironment(integration);
+  const error = describeIntegrationError(operating.config.lastErrorCode);
 
   return (
     <section className={styles.provider}>
@@ -86,7 +86,10 @@ export function WompiProviderCard({
           <Icon name="integraciones" />
         </span>
         <h3 className={styles.providerName}>Wompi</h3>
-        <HealthBadge health={sandbox.health} label={sandbox.label} />
+        <HealthBadge
+          health={operating.health.health}
+          label={`${operating.label} · ${operating.health.label}`}
+        />
       </div>
 
       <p className={styles.providerText}>
@@ -114,10 +117,10 @@ export function WompiProviderCard({
         />
         {OPERATIONAL_CLOCKS.map((clock) => (
           <Fact
-            hint={clock.hint}
+            hint={`${clock.hint} Ambiente: ${operating.label}.`}
             key={clock.key}
             label={clock.label}
-            value={readClock(integration.sandbox, clock.key)}
+            value={readClock(operating.config, clock.key)}
           />
         ))}
         <Fact

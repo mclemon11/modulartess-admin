@@ -92,6 +92,41 @@ export function readEnvironmentHealth(
 }
 
 /**
+ * El ambiente que la tarjeta resume: **el que cobra**, no siempre sandbox.
+ *
+ * Con Producción activa, la pastilla, los relojes y el último error son los de Producción. Antes
+ * se leían siempre de sandbox, y una integración cobrando de verdad aparecía como «Configurado,
+ * apagado» con los webhooks en «Nunca». Sin ambiente activo se resume Producción cuando el
+ * despliegue la permite y tiene llaves, porque es el que importa encender; si no, sandbox.
+ */
+export type OperatingEnvironment = {
+  readonly key: 'sandbox' | 'production';
+  readonly label: string;
+  readonly config: WompiEnvironmentConfig;
+  readonly health: IntegrationHealthReading;
+};
+
+export function readOperatingEnvironment(integration: WompiIntegration): OperatingEnvironment {
+  const key =
+    integration.activeEnvironment === 'production' ||
+    (integration.activeEnvironment === 'disabled' &&
+      integration.livePaymentsEnabled &&
+      integration.production.configured)
+      ? 'production'
+      : 'sandbox';
+  const config = integration[key];
+
+  return {
+    key,
+    label: key === 'production' ? 'Producción' : 'Pruebas',
+    config,
+    health: readEnvironmentHealth(config, {
+      blocked: key === 'production' && !integration.livePaymentsEnabled,
+    }),
+  };
+}
+
+/**
  * Cuántas incidencias abiertas hay, y **hasta dónde lo sabemos**.
  *
  * El contrato no publica un total: la bandeja pagina por cursor opaco, así que una sola consulta
