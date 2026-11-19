@@ -72,6 +72,25 @@
   color: var(--color-brand-strong);
 }
 
+.providerLogo {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--color-border, rgb(0 0 0 / 8%));
+  border-radius: var(--radius-control);
+  background: #fff;
+}
+
+.providerLogo img {
+  display: block;
+  width: 1.75rem;
+  height: 1.75rem;
+  object-fit: contain;
+}
+
 .providerName {
   margin: 0;
   font-size: 1.0625rem;

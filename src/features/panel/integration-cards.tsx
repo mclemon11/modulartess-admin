@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 
 import catalog from './catalog.module.css';
@@ -12,7 +13,7 @@ import {
   type IntegrationHealth,
   type OpenIncidentCount,
 } from './integration-labels';
-import { Icon, SectionHeading } from './section-icon';
+import { SectionHeading } from './section-icon';
 
 import { addiHealth, describeAddiError, describeAddiIncidents } from './addi-integration';
 import { describeTikTokError, tiktokHealth } from './tiktok-integration';
@@ -47,6 +48,25 @@ const HEALTH_CLASS = {
 } as const satisfies Record<IntegrationHealth, unknown>;
 
 /** Pastilla de estado. Lleva **texto completo**: el color acompaña y nunca sustituye. */
+
+/**
+ * Logo oficial de cada servicio, servido desde `public/assets/integrations`. Es decorativo: el
+ * nombre del servicio ya va en el título de la tarjeta.
+ */
+const PROVIDER_LOGOS = {
+  wompi: '/assets/integrations/wompi.svg',
+  addi: '/assets/integrations/addi.svg',
+  tiktok: '/assets/integrations/tiktok.svg',
+} as const;
+
+function ProviderLogo({ provider }: { readonly provider: keyof typeof PROVIDER_LOGOS }) {
+  return (
+    <span aria-hidden="true" className={styles.providerLogo}>
+      <Image alt="" height={28} src={PROVIDER_LOGOS[provider]} unoptimized width={28} />
+    </span>
+  );
+}
+
 export function HealthBadge({
   health,
   label,
@@ -84,9 +104,7 @@ export function WompiProviderCard({
   return (
     <section className={styles.provider}>
       <div className={styles.providerHead}>
-        <span aria-hidden="true" className={styles.providerIcon}>
-          <Icon name="integraciones" />
-        </span>
+        <ProviderLogo provider="wompi" />
         <h3 className={styles.providerName}>Wompi</h3>
         <HealthBadge
           health={operating.health.health}
@@ -178,9 +196,7 @@ export function AddiProviderCard({
     return (
       <section className={styles.provider}>
         <div className={styles.providerHead}>
-          <span aria-hidden="true" className={styles.providerIcon}>
-            <Icon name="integraciones" />
-          </span>
+          <ProviderLogo provider="addi" />
           <h3 className={styles.providerName}>Addi</h3>
           <span className={styles.healthIncomplete}>Estado no disponible</span>
         </div>
@@ -197,9 +213,7 @@ export function AddiProviderCard({
   return (
     <section className={styles.provider}>
       <div className={styles.providerHead}>
-        <span aria-hidden="true" className={styles.providerIcon}>
-          <Icon name="integraciones" />
-        </span>
+        <ProviderLogo provider="addi" />
         <h3 className={styles.providerName}>Addi</h3>
         <HealthBadge health={health} label={label} />
       </div>
@@ -259,9 +273,7 @@ export function TikTokProviderCard({
     return (
       <section className={styles.provider}>
         <div className={styles.providerHead}>
-          <span aria-hidden="true" className={styles.providerIcon}>
-            <Icon name="integraciones" />
-          </span>
+          <ProviderLogo provider="tiktok" />
           <h3 className={styles.providerName}>TikTok</h3>
           <span className={styles.healthIncomplete}>Estado no disponible</span>
         </div>
@@ -278,9 +290,7 @@ export function TikTokProviderCard({
   return (
     <section className={styles.provider}>
       <div className={styles.providerHead}>
-        <span aria-hidden="true" className={styles.providerIcon}>
-          <Icon name="integraciones" />
-        </span>
+        <ProviderLogo provider="tiktok" />
         <h3 className={styles.providerName}>TikTok</h3>
         <HealthBadge health={health} label={label} />
       </div>
