@@ -17,7 +17,12 @@ import type {
   AddiConnectionTest,
   AddiIntegration,
   SetAddiActivationRequest,
+  SetTikTokActivationRequest,
+  TestTikTokIntegrationRequest,
+  TikTokConnectionTest,
+  TikTokIntegration,
   UpdateAddiIntegrationRequest,
+  UpdateTikTokIntegrationRequest,
   UpdateWompiIntegrationRequest,
   WompiConnectionTest,
 } from '@/lib/api/integrations';
@@ -121,4 +126,25 @@ export function setAddiActivation(
 
 export function testAddiConnection(): Promise<IntegrationResult<AddiConnectionTest>> {
   return send('/api/admin/integrations/addi/test', 'POST', {});
+}
+
+/* TikTok. Rutas propias del BFF; el navegador nunca habla con TikTok ni con el backend. */
+
+export function updateTikTokIntegration(
+  body: UpdateTikTokIntegrationRequest,
+): Promise<IntegrationResult<TikTokIntegration>> {
+  return send('/api/admin/integrations/tiktok', 'PATCH', body);
+}
+
+export function setTikTokActivation(
+  body: SetTikTokActivationRequest,
+): Promise<IntegrationResult<TikTokIntegration>> {
+  return send('/api/admin/integrations/tiktok/activation', 'POST', body);
+}
+
+/** El único parámetro es el código de «Eventos de prueba»: el token lo pone el backend. */
+export function testTikTokConnection(
+  body: TestTikTokIntegrationRequest,
+): Promise<IntegrationResult<TikTokConnectionTest>> {
+  return send('/api/admin/integrations/tiktok/test', 'POST', body);
 }

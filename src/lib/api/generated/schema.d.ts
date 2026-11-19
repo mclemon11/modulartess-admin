@@ -331,6 +331,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/integrations/tiktok": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the TikTok integration status
+         * @description Never returns the Events API token: only whether it is configured and its last four characters. Requires integrations.read.
+         */
+        get: operations["AdminTikTokIntegrationController_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Save the TikTok pixel ID and Events API token
+         * @description The token is WRITE-ONLY: sending it stores a NEW exact version in Secret Manager, omitting it keeps the current one. SAVING NEVER ENABLES ANYTHING and any change invalidates the last test. Requires expectedVersion and integrations.manage.
+         */
+        patch: operations["AdminTikTokIntegrationController_update"];
+        trace?: never;
+    };
+    "/v1/admin/integrations/tiktok/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable or disable TikTok
+         * @description Enabling requires the pixel ID and the token (tiktok_configuration_incomplete) and a successful test after the last change (tiktok_connection_test_required). Disabling is always allowed: the storefront stops loading the pixel and purchases stop being sent. Requires integrations.manage.
+         */
+        post: operations["AdminTikTokIntegrationController_activation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/integrations/tiktok/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a TikTok test purchase
+         * @description Sends ONE CompletePayment with the given test event code from TikTok Events Manager → Test events. TikTok shows it only there and never counts it as a conversion. Requires integrations.manage.
+         */
+        post: operations["AdminTikTokIntegrationController_test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/integrations/wompi": {
         parameters: {
             query?: never;
@@ -1670,6 +1734,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/marketing/tiktok": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * TikTok pixel the storefront may load
+         * @description pixelId is null while the integration is not active. The storefront still loads it ONLY after the shopper accepts advertising cookies. Cached for one minute.
+         */
+        get: operations["PublicMarketingController_tiktokConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/orders": {
         parameters: {
             query?: never;
@@ -2035,7 +2119,7 @@ export interface components {
              * @description Closed reason. For addi_application_rejected: application_rejected (Addi refused the data), client_has_credit (the shopper already has an Addi credit), amount_out_of_range and addi_not_offered. For payment_checkout_not_allowed, the same reasons as Wompi.
              * @enum {string}
              */
-            reason?: "application_rejected" | "client_has_credit" | "amount_out_of_range" | "addi_not_offered" | "order_cancelled" | "order_not_pending_payment" | "payment_already_approved" | "payment_in_progress" | "attempt_not_reconstructable" | "payment_method_offline";
+            reason?: "application_rejected" | "client_has_credit" | "amount_out_of_range" | "addi_not_offered" | "order_cancelled" | "order_not_pending_payment" | "payment_already_approved" | "payment_in_progress" | "attempt_not_reconstructable" | "payment_method_offline" | "payment_attempts_exhausted";
         };
         AddiCheckoutRequestDto: {
             /** @example ana@example.com */
@@ -3454,6 +3538,10 @@ export interface components {
             /** @enum {string} */
             role: "super_admin" | "master_admin" | "moderator";
         };
+        CreateOrderAdvertisingDto: {
+            ttclid?: string;
+            ttp?: string;
+        };
         CreateOrderAnalyticsDto: {
             clientId: string;
             sessionId: string;
@@ -3531,6 +3619,8 @@ export interface components {
             variantId?: string;
         };
         CreateOrderRequestDto: {
+            /** @description TikTok identifiers sent ONLY when the shopper accepted advertising cookies; present even if empty, since its presence records that consent. With it, an approved live purchase is sent to the TikTok Events API with email and phone as SHA-256. Stored internally and never echoed. */
+            advertising?: components["schemas"]["CreateOrderAdvertisingDto"];
             /** @description Pseudonymous GA4 attribution captured only after analytics consent. It contains no name, email, phone, document or address; it is stored internally and never echoed in an order response. */
             analytics?: components["schemas"]["CreateOrderAnalyticsDto"];
             /** @description Identification of the person who buys and pays. Required to create the order once CHECKOUT_BUYER_DATA_ENFORCEMENT=strict; while compatible, omitting it is accepted only for the shop released before this field. When present it is always validated, in both phases. Stored in a private snapshot, separate from the order and from the electronic invoice. It is not echoed in any public order response, listing, email, log or URL. */
@@ -4479,7 +4569,7 @@ export interface components {
              * @description Closed reason. order_cancelled and order_not_pending_payment: the order no longer accepts a payment. payment_already_approved: it is already paid, and a new checkout would be a duplicate charge. payment_in_progress: the provider has a live transaction for it; wait for its outcome. attempt_not_reconstructable: the open attempt predates the stored checkout combination and cannot be reopened. It is re-evaluated inside the same atomic operation that opens the attempt, so an approval that lands between the order read and the opening is still refused.
              * @enum {string}
              */
-            reason?: "order_cancelled" | "order_not_pending_payment" | "payment_already_approved" | "payment_in_progress" | "attempt_not_reconstructable" | "payment_method_offline";
+            reason?: "order_cancelled" | "order_not_pending_payment" | "payment_already_approved" | "payment_in_progress" | "attempt_not_reconstructable" | "payment_method_offline" | "payment_attempts_exhausted";
         };
         PaymentIncidentDto: {
             /** @description Our attempt, if identified. */
@@ -5178,6 +5268,12 @@ export interface components {
             expectedVersion: number;
             inventory: components["schemas"]["SetInventoryControlDto"];
         };
+        SetTikTokActivationRequestDto: {
+            /** @enum {boolean} */
+            confirm: true;
+            enabled: boolean;
+            expectedVersion: number;
+        };
         ShippingAnalysisDto: {
             /** @description Pairs of active zones with the same priority covering a municipality at the same level. */
             conflicts: components["schemas"]["ShippingConflictDto"][];
@@ -5711,6 +5807,60 @@ export interface components {
              */
             status: "queued" | "already_queued";
         };
+        TestTikTokIntegrationRequestDto: {
+            /** @description Code from TikTok Events Manager → Test events. The test purchase is only visible there and never counts as a real conversion. */
+            testEventCode: string;
+        };
+        TikTokConnectionTestDto: {
+            accepted: boolean;
+            errorCode: string | null;
+            /** Format: date-time */
+            testedAt: string;
+        };
+        TikTokIntegrationDto: {
+            /** @description Whether an Events API token version is stored. The token is never returned. */
+            accessTokenConfigured: boolean;
+            /** @example …9fA2 */
+            accessTokenHint: string | null;
+            /** @description What actually happens: enabled and fully configured. Only then does the storefront load the pixel and the backend send purchases. */
+            active: boolean;
+            configured: boolean;
+            /** @description What the panel saved. */
+            enabled: boolean;
+            /**
+             * Format: uri
+             * @description Product feed to paste in TikTok Catalog Manager as a scheduled CSV feed.
+             */
+            feedUrl: string;
+            /** Format: date-time */
+            lastErrorAt: string | null;
+            /** @description Closed code from our own vocabulary. Never a remote body. */
+            lastErrorCode: string | null;
+            /**
+             * Format: date-time
+             * @description Last purchase accepted by the Events API.
+             */
+            lastEventAt: string | null;
+            /** Format: date-time */
+            lastTestedAt: string | null;
+            /** @enum {string|null} */
+            lastTestStatus: "passed" | "failed" | null;
+            /** @description Field names still missing (pixelId, accessToken). Never a value. */
+            missing: string[];
+            /**
+             * @description Public pixel ID. It is not a secret: the storefront embeds it.
+             * @example DBVK47JC77UCDH70UPA0
+             */
+            pixelId: string | null;
+            /** @enum {string} */
+            provider: "tiktok";
+            /** @description Send it back as expectedVersion to change anything. */
+            version: number;
+        };
+        TikTokPublicConfigDto: {
+            /** @description Pixel ID to load in the storefront, or null while the integration is not active. */
+            pixelId: string | null;
+        };
         UpdateAddiIntegrationRequestDto: {
             /** @example industrialmodulartess-ecommerce */
             allySlug?: string;
@@ -5797,6 +5947,13 @@ export interface components {
             /** @description Target index in the gallery (images and videos). The rest keep their order. */
             position?: number;
             title?: string;
+        };
+        UpdateTikTokIntegrationRequestDto: {
+            /** @description WRITE-ONLY. Stored as a new exact version in Secret Manager; never returned. */
+            accessToken?: string;
+            expectedVersion: number;
+            /** @example DBVK47JC77UCDH70UPA0 */
+            pixelId?: string;
         };
         UpdateWompiIntegrationRequestDto: {
             /** @description THIS is what enables charges, and it is a separate decision from saving keys. Turning it on requires the complete configuration for that environment, otherwise wompi_credentials_incomplete names the missing fields. On production it is always refused with wompi_live_payments_not_enabled while the block stands; turning production OFF is always allowed. Turning it off stops new checkouts and deletes nothing: orders, attempts, events and secrets stay, and the webhook keeps closing payments already in flight. */
@@ -7247,6 +7404,220 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AddiConnectionTestDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminTikTokIntegrationController_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TikTokIntegrationDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminTikTokIntegrationController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTikTokIntegrationRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TikTokIntegrationDto"];
+                };
+            };
+            /** @description tiktok_configuration_invalid (issues[].path names the fields) or payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_integration_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_provider_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminTikTokIntegrationController_activation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetTikTokActivationRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TikTokIntegrationDto"];
+                };
+            };
+            /** @description payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description tiktok_configuration_incomplete, tiktok_connection_test_required or payment_integration_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminTikTokIntegrationController_test: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestTikTokIntegrationRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TikTokConnectionTestDto"];
+                };
+            };
+            /** @description tiktok_configuration_invalid or payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
                 };
             };
             /** @description admin_session_required */
@@ -12500,6 +12871,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PublicMarketingController_tiktokConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TikTokPublicConfigDto"];
                 };
             };
         };

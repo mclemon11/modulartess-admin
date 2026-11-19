@@ -998,16 +998,15 @@ describe('catálogo de categorías', () => {
 
 describe('contrato del backend con la edición controlada de pedidos', () => {
   /*
-   * La copia es byte a byte la de `openapi/openapi.json` del backend que filtra el listado de
-   * pedidos por estado y lo exporta en CSV. Si alguien la cambia a mano o la actualiza sin
-   * regenerar, esto falla aquí.
+   * La copia es byte a byte la de `openapi/openapi.json` del backend que publica la integración
+   * con TikTok. Si alguien la cambia a mano o la actualiza sin regenerar, esto falla aquí.
    */
-  it('la copia comiteada es exactamente la del backend con el filtro por estado y la exportación', () => {
+  it('la copia comiteada es exactamente la del backend con la integración de TikTok', () => {
     const digest = createHash('sha256')
       .update(readFileSync('openapi/backend-v1.json'))
       .digest('hex');
 
-    expect(digest).toBe('fe28ce870eaefd3ba949f291a2ad91de7009af27fe5540b83277fde0661abb09');
+    expect(digest).toBe('006a1175e703e169511d81e152be3410e28bcf61424bdf8d205278fe237f8f9f');
   });
 
   /*

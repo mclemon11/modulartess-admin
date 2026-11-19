@@ -2,7 +2,11 @@ import Link from 'next/link';
 
 import catalog from '@/features/panel/catalog.module.css';
 import styles from '@/features/panel/integrations.module.css';
-import { AddiProviderCard, WompiProviderCard } from '@/features/panel/integration-cards';
+import {
+  AddiProviderCard,
+  TikTokProviderCard,
+  WompiProviderCard,
+} from '@/features/panel/integration-cards';
 import { describeIntegrationFailure } from '@/features/panel/integration-errors';
 import {
   OPEN_INCIDENTS_UNAVAILABLE,
@@ -18,8 +22,10 @@ import { can } from '@/features/session/permissions';
 import { isBackendFailure } from '@/lib/api/errors';
 import {
   getAddiIntegration,
+  getTikTokIntegration,
   getWompiIntegration,
   type AddiIntegration,
+  type TikTokIntegration,
 } from '@/lib/api/integrations';
 import { listPaymentIncidents } from '@/lib/api/payment-incidents';
 
@@ -38,7 +44,7 @@ const OPEN_INCIDENTS_PAGE_SIZE = 50;
 /**
  * Integraciones.
  *
- * Una tarjeta por proveedor, las dos con su estado real: Wompi y Addi (ADR 0015).
+ * Una tarjeta por proveedor, cada una con su estado real: Wompi, Addi (ADR 0015) y TikTok.
  *
  * Es un Server Component: las dos lecturas salen del servidor de Next con la sesión de la persona,
  * así que el navegador no conoce la URL del backend ni la cookie. **El navegador tampoco habla con
@@ -137,6 +143,15 @@ export default async function IntegracionesPage() {
     addi = null;
   }
 
+  // TikTok, igual: una lectura propia que, si falla, solo apaga su tarjeta.
+  let tiktok: TikTokIntegration | null = null;
+
+  try {
+    tiktok = await getTikTokIntegration(material);
+  } catch {
+    tiktok = null;
+  }
+
   return (
     <>
       <PanelHeader trail={trail} />
@@ -154,6 +169,7 @@ export default async function IntegracionesPage() {
             openIncidents={openIncidents}
           />
           <AddiProviderCard canManage={can(role, 'integrations.manage')} integration={addi} />
+          <TikTokProviderCard canManage={can(role, 'integrations.manage')} integration={tiktok} />
         </div>
       </div>
     </>

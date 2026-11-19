@@ -307,3 +307,129 @@ export async function testAddiConnection(sessionMaterial: string): Promise<AddiC
 
   return response.data;
 }
+
+/* ──────────────────────── TikTok (píxel y Events API) ──────────────────────── */
+
+export type TikTokIntegration = components['schemas']['TikTokIntegrationDto'];
+export type UpdateTikTokIntegrationRequest =
+  components['schemas']['UpdateTikTokIntegrationRequestDto'];
+export type SetTikTokActivationRequest = components['schemas']['SetTikTokActivationRequestDto'];
+export type TestTikTokIntegrationRequest = components['schemas']['TestTikTokIntegrationRequestDto'];
+export type TikTokConnectionTest = components['schemas']['TikTokConnectionTestDto'];
+
+/**
+ * Códigos de TikTok. Igual que Addi, cada uno lleva a una acción distinta —volver a copiar un
+ * campo, completar la configuración o ejecutar la prueba— y por eso no se aplanan.
+ *
+ * `tiktok_configuration_invalid` trae `issues[].path` con los campos rechazados. El panel no lo
+ * propaga: basta el código cerrado, y el formulario dice en general qué revisar.
+ */
+const TIKTOK_FAILURES: Readonly<Record<string, BackendFailureCode>> = {
+  tiktok_configuration_invalid: 'backend_tiktok_configuration_invalid',
+  tiktok_configuration_incomplete: 'backend_tiktok_configuration_incomplete',
+  tiktok_connection_test_required: 'backend_tiktok_connection_test_required',
+};
+
+function tiktokFailure(status: number, code: string | null): BackendFailure {
+  if ((status === 400 || status === 409) && code !== null && Object.hasOwn(TIKTOK_FAILURES, code)) {
+    return new BackendFailure(TIKTOK_FAILURES[code] as BackendFailureCode);
+  }
+
+  return integrationFailure(status, code);
+}
+
+/** Estado de TikTok. Exige `integrations.read`. Del token, solo si está guardado y su pista. */
+export async function getTikTokIntegration(sessionMaterial: string): Promise<TikTokIntegration> {
+  let response;
+
+  try {
+    response = await backendClient().GET('/v1/admin/integrations/tiktok', {
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw tiktokFailure(response.response.status, backendErrorCode(response.error));
+  }
+
+  return response.data;
+}
+
+/**
+ * Guarda el Pixel ID y el token de Events API. Exige `integrations.manage`.
+ *
+ * Los campos ausentes **conservan** el valor guardado. Guardar nunca activa nada, y cualquier
+ * cambio invalida la última prueba.
+ */
+export async function updateTikTokIntegration(
+  sessionMaterial: string,
+  body: UpdateTikTokIntegrationRequest,
+): Promise<TikTokIntegration> {
+  let response;
+
+  try {
+    response = await backendClient().PATCH('/v1/admin/integrations/tiktok', {
+      body,
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw tiktokFailure(response.response.status, backendErrorCode(response.error));
+  }
+
+  return response.data;
+}
+
+/** Activa o desactiva TikTok, con confirmación explícita. Desactivar siempre se permite. */
+export async function setTikTokActivation(
+  sessionMaterial: string,
+  body: SetTikTokActivationRequest,
+): Promise<TikTokIntegration> {
+  let response;
+
+  try {
+    response = await backendClient().POST('/v1/admin/integrations/tiktok/activation', {
+      body,
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw tiktokFailure(response.response.status, backendErrorCode(response.error));
+  }
+
+  return response.data;
+}
+
+/**
+ * Compra de prueba: el backend envía **un** `CompletePayment` con el código de eventos de prueba.
+ * TikTok solo la muestra en «Eventos de prueba» y nunca la cuenta como conversión.
+ */
+export async function testTikTokConnection(
+  sessionMaterial: string,
+  body: TestTikTokIntegrationRequest,
+): Promise<TikTokConnectionTest> {
+  let response;
+
+  try {
+    response = await backendClient().POST('/v1/admin/integrations/tiktok/test', {
+      body,
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw tiktokFailure(response.response.status, backendErrorCode(response.error));
+  }
+
+  return response.data;
+}

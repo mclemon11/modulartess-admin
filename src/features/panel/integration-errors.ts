@@ -38,6 +38,12 @@ const MESSAGES: Readonly<Partial<Record<BackendFailureCode, string>>> = {
     'Antes de activar Addi, ejecuta la prueba de autenticación con la configuración actual.',
   backend_addi_live_payments_not_enabled:
     'Los pagos con Addi están bloqueados en este despliegue. No es una casilla de configuración: se levanta desde el backend.',
+  backend_tiktok_configuration_invalid:
+    'Algún dato de TikTok no tiene un formato válido. Revisa los campos y cópialos de nuevo.',
+  backend_tiktok_configuration_incomplete:
+    'Para activar TikTok hacen falta el Pixel ID y el token de Events API.',
+  backend_tiktok_connection_test_required:
+    'Antes de activar TikTok, envía una compra de prueba con la configuración actual.',
   backend_payment_incident_not_found: 'Esa incidencia ya no existe.',
   backend_payment_provider_unavailable:
     'La pasarela no respondió, o no se pudo escribir el almacén de secretos.',

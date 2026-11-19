@@ -19,7 +19,10 @@
 
 import type {
   SetAddiActivationRequest,
+  SetTikTokActivationRequest,
+  TestTikTokIntegrationRequest,
   UpdateAddiIntegrationRequest,
+  UpdateTikTokIntegrationRequest,
   UpdateWompiIntegrationRequest,
   WompiEnvironment,
 } from '@/lib/api/integrations';
@@ -211,4 +214,79 @@ export function parseAddiActivation(raw: unknown): SetAddiActivationRequest | nu
   if (version === null || enabled === undefined || body.confirm !== true) return null;
 
   return { expectedVersion: version, enabledForNewPayments: enabled, confirm: true };
+}
+
+/* ──────────────────────── TikTok (píxel y Events API) ──────────────────────── */
+
+/** Topes del contrato: `pixelId` hasta 200, `accessToken` hasta 2048, `testEventCode` hasta 64. */
+const TIKTOK_PIXEL_MAX_LENGTH = 200;
+const TIKTOK_TOKEN_MAX_LENGTH = 2048;
+const TIKTOK_TEST_CODE_MAX_LENGTH = 64;
+
+/**
+ * Un texto opcional del formulario de TikTok: vacío **conserva** lo guardado y no viaja; demasiado
+ * largo o con espacios en medio es un cuerpo sin forma. Se recortan solo los extremos.
+ */
+function tiktokText(raw: unknown, max: number): string | undefined | null {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== 'string' || raw.length > max) return null;
+
+  const value = raw.trim();
+
+  if (value.length === 0) return undefined;
+
+  return /\s/.test(value) ? null : value;
+}
+
+/**
+ * Cuerpo del `PATCH` de TikTok, campo a campo.
+ *
+ * El Pixel ID no es un secreto —la tienda lo incrusta—, pero el token sí: igual que Addi, un campo
+ * vacío **conserva** el guardado y ninguna propiedad fuera del contrato pasa. Sin cambios no hay
+ * llamada.
+ */
+export function parseTikTokUpdate(raw: unknown): UpdateTikTokIntegrationRequest | null {
+  const body = record(raw);
+  if (body === null) return null;
+
+  const version = expectedVersion(body.expectedVersion);
+  if (version === null) return null;
+
+  const pixelId = tiktokText(body.pixelId, TIKTOK_PIXEL_MAX_LENGTH);
+  const accessToken = tiktokText(body.accessToken, TIKTOK_TOKEN_MAX_LENGTH);
+
+  if (pixelId === null || accessToken === null) return null;
+
+  const parsed: UpdateTikTokIntegrationRequest = { expectedVersion: version };
+
+  if (pixelId !== undefined) parsed.pixelId = pixelId;
+  if (accessToken !== undefined) parsed.accessToken = accessToken;
+
+  return Object.keys(parsed).length > 1 ? parsed : null;
+}
+
+/** Activar o desactivar TikTok. Exige `confirm: true` **literal**, igual que Addi. */
+export function parseTikTokActivation(raw: unknown): SetTikTokActivationRequest | null {
+  const body = record(raw);
+  if (body === null) return null;
+
+  const version = expectedVersion(body.expectedVersion);
+  const enabled = boolean(body.enabled);
+
+  if (version === null || enabled === undefined || body.confirm !== true) return null;
+
+  return { expectedVersion: version, enabled, confirm: true };
+}
+
+/**
+ * Cuerpo de la compra de prueba: solo el código de «Eventos de prueba». Es obligatorio; sin él,
+ * TikTok contaría la compra como real.
+ */
+export function parseTikTokTest(raw: unknown): TestTikTokIntegrationRequest | null {
+  const body = record(raw);
+  if (body === null) return null;
+
+  const code = tiktokText(body.testEventCode, TIKTOK_TEST_CODE_MAX_LENGTH);
+
+  return code === null || code === undefined ? null : { testEventCode: code };
 }

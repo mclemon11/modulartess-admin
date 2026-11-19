@@ -68,6 +68,9 @@ export const SESSION_ERROR_CODES = [
   'addi_configuration_incomplete',
   'addi_connection_test_required',
   'addi_live_payments_not_enabled',
+  'tiktok_configuration_invalid',
+  'tiktok_configuration_incomplete',
+  'tiktok_connection_test_required',
   'incident_not_found',
   'provider_unavailable',
   'shipping_zone_not_found',
@@ -177,6 +180,12 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
     'Antes de activar Addi, ejecuta la prueba de autenticación con la configuración actual.',
   addi_live_payments_not_enabled:
     'Los pagos con Addi están bloqueados en este despliegue. No es una casilla de configuración: se levanta desde la infraestructura.',
+  tiktok_configuration_invalid:
+    'Algún dato de TikTok no tiene un formato válido. Revisa los campos y cópialos de nuevo.',
+  tiktok_configuration_incomplete:
+    'Para activar TikTok hacen falta el Pixel ID y el token de Events API.',
+  tiktok_connection_test_required:
+    'Antes de activar TikTok, envía una compra de prueba con la configuración actual.',
   incident_not_found: 'Esa incidencia ya no existe.',
   provider_unavailable: 'La pasarela no respondió. Inténtalo de nuevo en unos momentos.',
   shipping_zone_not_found: 'Esa zona de envío no existe.',
@@ -256,6 +265,9 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   addi_configuration_incomplete: 409,
   addi_connection_test_required: 409,
   addi_live_payments_not_enabled: 409,
+  tiktok_configuration_invalid: 400,
+  tiktok_configuration_incomplete: 409,
+  tiktok_connection_test_required: 409,
   incident_not_found: 404,
   provider_unavailable: 503,
   shipping_zone_not_found: 404,
@@ -406,6 +418,12 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'addi_connection_test_required';
     case 'backend_addi_live_payments_not_enabled':
       return 'addi_live_payments_not_enabled';
+    case 'backend_tiktok_configuration_invalid':
+      return 'tiktok_configuration_invalid';
+    case 'backend_tiktok_configuration_incomplete':
+      return 'tiktok_configuration_incomplete';
+    case 'backend_tiktok_connection_test_required':
+      return 'tiktok_connection_test_required';
     case 'backend_payment_incident_not_found':
       return 'incident_not_found';
     case 'backend_payment_provider_unavailable':

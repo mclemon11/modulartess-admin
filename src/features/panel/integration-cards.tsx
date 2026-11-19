@@ -15,9 +15,11 @@ import {
 import { Icon, SectionHeading } from './section-icon';
 
 import { addiHealth, describeAddiError, describeAddiIncidents } from './addi-integration';
+import { describeTikTokError, tiktokHealth } from './tiktok-integration';
 
 import type {
   AddiIntegration,
+  TikTokIntegration,
   WompiEnvironmentConfig,
   WompiIntegration,
 } from '@/lib/api/integrations';
@@ -233,6 +235,78 @@ export function AddiProviderCard({
 
       <div className={styles.providerActions}>
         <Link className={catalog.buttonPrimary} href="/panel/configuracion/integraciones/addi">
+          {canManage ? 'Configurar' : 'Ver configuración'}
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Tarjeta de TikTok: píxel de la tienda y compras enviadas desde el servidor.
+ *
+ * `integration` es `null` cuando la lectura falló: la tarjeta lo dice y no inventa un estado. Del
+ * token no llega ni la pista: la tarjeta no la necesita.
+ */
+export function TikTokProviderCard({
+  integration,
+  canManage,
+}: {
+  readonly integration: TikTokIntegration | null;
+  readonly canManage: boolean;
+}) {
+  if (integration === null) {
+    return (
+      <section className={styles.provider}>
+        <div className={styles.providerHead}>
+          <span aria-hidden="true" className={styles.providerIcon}>
+            <Icon name="integraciones" />
+          </span>
+          <h3 className={styles.providerName}>TikTok</h3>
+          <span className={styles.healthIncomplete}>Estado no disponible</span>
+        </div>
+        <p className={styles.providerText}>
+          No pudimos leer la configuración de TikTok. Recarga la página en unos momentos.
+        </p>
+      </section>
+    );
+  }
+
+  const { health, label } = tiktokHealth(integration);
+  const error = describeTikTokError(integration.lastErrorCode);
+
+  return (
+    <section className={styles.provider}>
+      <div className={styles.providerHead}>
+        <span aria-hidden="true" className={styles.providerIcon}>
+          <Icon name="integraciones" />
+        </span>
+        <h3 className={styles.providerName}>TikTok</h3>
+        <HealthBadge health={health} label={label} />
+      </div>
+
+      <p className={styles.providerText}>
+        Píxel de la tienda (solo con consentimiento de publicidad) y compras enviadas desde el
+        servidor.
+      </p>
+
+      <dl className={styles.facts}>
+        <Fact label="Estado" value={label} />
+        <Fact label="Último evento enviado" value={dateOrNever(integration.lastEventAt)} />
+        <Fact
+          label="Última prueba"
+          value={
+            integration.lastTestedAt === null
+              ? 'Nunca'
+              : `${formatDateTime(integration.lastTestedAt)} · ${integration.lastTestStatus === 'passed' ? 'superada' : 'fallida'}`
+          }
+        />
+      </dl>
+
+      {error === null ? null : <p className={catalog.hint}>Último error: {error}</p>}
+
+      <div className={styles.providerActions}>
+        <Link className={catalog.buttonPrimary} href="/panel/configuracion/integraciones/tiktok">
           {canManage ? 'Configurar' : 'Ver configuración'}
         </Link>
       </div>

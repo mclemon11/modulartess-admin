@@ -147,6 +147,17 @@ export const BACKEND_FAILURE_CODES = [
   'backend_addi_configuration_incomplete',
   'backend_addi_connection_test_required',
   'backend_addi_live_payments_not_enabled',
+  /**
+   * TikTok (píxel y Events API). Tres códigos propios, igual que Addi:
+   *
+   * - 400 `tiktok_configuration_invalid`: el Pixel ID, el token o el código de prueba no tienen
+   *   forma válida; volver a copiarlo.
+   * - 409 `tiktok_configuration_incomplete`: faltan el Pixel ID o el token para activar.
+   * - 409 `tiktok_connection_test_required`: hay que superar la prueba antes de activar.
+   */
+  'backend_tiktok_configuration_invalid',
+  'backend_tiktok_configuration_incomplete',
+  'backend_tiktok_connection_test_required',
   /** 404 `payment_incident_not_found`: esa incidencia ya no existe. */
   'backend_payment_incident_not_found',
   /**

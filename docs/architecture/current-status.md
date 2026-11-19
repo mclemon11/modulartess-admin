@@ -379,6 +379,21 @@ separada con la frase «ACTIVAR ADDI». Los intentos de Addi aparecen con provee
 ficha; un pedido «Addi (checkout web)» se cuenta por sus intentos y uno «Addi Marketplace» sigue
 siendo manual y conciliable como siempre. Despliegue: backend primero.
 
+### TikTok (píxel y Events API): implementada, sin desplegar
+
+Integraciones muestra una tarjeta de TikTok —píxel de la tienda (solo con consentimiento de
+publicidad) y compras enviadas desde el servidor— junto a Wompi y Addi. Se lee aparte: si su
+lectura falla, la tarjeta dice «Estado no disponible» y el resto de la página sigue. «Configurar
+TikTok» (`integrations.read` para ver, `integrations.manage` para editar) tiene el Pixel ID, el
+token de Events API de solo escritura (solo se ve su pista; vacío conserva el guardado), una compra
+de prueba con el «Código de eventos de prueba» de TikTok (no cuenta como conversión), activación
+separada con la frase «ACTIVAR TIKTOK» y la URL del feed de productos para la carga programada en
+el catálogo de TikTok. Estado: Activa / Configurada, apagada / Incompleta, con último evento
+enviado, última prueba y último error. BFF: `/api/admin/integrations/tiktok` (`PATCH`),
+`/activation` y `/test`. Pruebas: `tiktok-integration.test.tsx` y
+`src/app/api/admin/integrations/tiktok/route.test.ts`. Contrato actualizado con `pnpm api:update` y
+`pnpm api:generate`. Despliegue: backend primero.
+
 ### Paginación numerada de pedidos: implementada
 
 `/panel/pedidos` sustituye «Cargar más pedidos» por una paginación real: «Anterior», «Siguiente»,
@@ -421,6 +436,7 @@ Elementos que forman parte del diseño acordado, pero que aún no existen en el 
 | Búsqueda del catálogo           | Pendiente     | Solo hay `view`, `pageToken` y `pageSize`; no hay texto que buscar. |
 | Listado de la outbox            | Pendiente     | `failedNotifications` se cuenta; no hay pantalla que lo liste.      |
 | Cobros reales con Addi          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR ADDI».         |
+| TikTok                          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR TIKTOK».       |
 | Cobros reales de Wompi          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR PRODUCCIÓN».   |
 | Colecciones, SEO, descuentos    | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.              |
 | Lectura aparte de variantes     | Pendiente     | Viajan dentro del producto; un `GET` propio no tendría uso.         |
