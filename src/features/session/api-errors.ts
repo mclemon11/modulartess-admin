@@ -71,6 +71,9 @@ export const SESSION_ERROR_CODES = [
   'tiktok_configuration_invalid',
   'tiktok_configuration_incomplete',
   'tiktok_connection_test_required',
+  'meta_configuration_invalid',
+  'meta_configuration_incomplete',
+  'meta_connection_test_required',
   'incident_not_found',
   'provider_unavailable',
   'shipping_zone_not_found',
@@ -186,6 +189,12 @@ const MESSAGES: Readonly<Record<SessionErrorCode, string>> = {
     'Para activar TikTok hacen falta el Pixel ID y el token de Events API.',
   tiktok_connection_test_required:
     'Antes de activar TikTok, envía una compra de prueba con la configuración actual.',
+  meta_configuration_invalid:
+    'Algún dato de Meta no tiene un formato válido. Revisa los campos y cópialos de nuevo.',
+  meta_configuration_incomplete:
+    'Para activar Meta hacen falta el ID del conjunto de datos y el token de la API de conversiones.',
+  meta_connection_test_required:
+    'Antes de activar Meta, envía una compra de prueba con la configuración actual.',
   incident_not_found: 'Esa incidencia ya no existe.',
   provider_unavailable: 'La pasarela no respondió. Inténtalo de nuevo en unos momentos.',
   shipping_zone_not_found: 'Esa zona de envío no existe.',
@@ -268,6 +277,9 @@ const STATUSES: Readonly<Record<SessionErrorCode, number>> = {
   tiktok_configuration_invalid: 400,
   tiktok_configuration_incomplete: 409,
   tiktok_connection_test_required: 409,
+  meta_configuration_invalid: 400,
+  meta_configuration_incomplete: 409,
+  meta_connection_test_required: 409,
   incident_not_found: 404,
   provider_unavailable: 503,
   shipping_zone_not_found: 404,
@@ -424,6 +436,12 @@ export function sessionErrorFromBackendFailure(code: BackendFailureCode): Sessio
       return 'tiktok_configuration_incomplete';
     case 'backend_tiktok_connection_test_required':
       return 'tiktok_connection_test_required';
+    case 'backend_meta_configuration_invalid':
+      return 'meta_configuration_invalid';
+    case 'backend_meta_configuration_incomplete':
+      return 'meta_configuration_incomplete';
+    case 'backend_meta_connection_test_required':
+      return 'meta_connection_test_required';
     case 'backend_payment_incident_not_found':
       return 'incident_not_found';
     case 'backend_payment_provider_unavailable':

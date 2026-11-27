@@ -331,6 +331,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/integrations/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the Meta integration status
+         * @description Never returns the Conversions API token: only whether it is configured and its last four characters. Requires integrations.read.
+         */
+        get: operations["AdminMetaIntegrationController_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Save the Meta pixel ID and Conversions API token
+         * @description The token is WRITE-ONLY: sending it stores a NEW exact version in Secret Manager, omitting it keeps the current one. SAVING NEVER ENABLES ANYTHING and any change invalidates the last test. Requires expectedVersion and integrations.manage.
+         */
+        patch: operations["AdminMetaIntegrationController_update"];
+        trace?: never;
+    };
+    "/v1/admin/integrations/meta/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable or disable Meta
+         * @description Enabling requires the pixel ID and the token (meta_configuration_incomplete) and a successful test after the last change (meta_connection_test_required). Disabling is always allowed: the storefront stops loading the pixel and purchases stop being sent. Requires integrations.manage.
+         */
+        post: operations["AdminMetaIntegrationController_activation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/integrations/meta/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a Meta test purchase
+         * @description Sends ONE Purchase with the given test event code from Meta Events Manager → Test events. Meta shows it only there and never counts it as a conversion. Requires integrations.manage.
+         */
+        post: operations["AdminMetaIntegrationController_test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/integrations/tiktok": {
         parameters: {
             query?: never;
@@ -1726,6 +1790,26 @@ export interface paths {
          * @description Same snapshot and cache rules as the department list.
          */
         get: operations["PublicGeographyController_municipalities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/marketing/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Meta pixel the storefront may load
+         * @description pixelId is null while the integration is not active. The storefront still loads it ONLY after the shopper accepts advertising cookies. Cached for one minute.
+         */
+        get: operations["PublicMarketingController_metaConfig"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3539,6 +3623,12 @@ export interface components {
             role: "super_admin" | "master_admin" | "moderator";
         };
         CreateOrderAdvertisingDto: {
+            /** @description User-Agent of the shopper's request, copied by the storefront server. Sent raw to the Meta Conversions API. */
+            clientUserAgent?: string;
+            /** @description Meta _fbc cookie, or the value built from fbclid. */
+            fbc?: string;
+            /** @description Meta _fbp cookie. */
+            fbp?: string;
             ttclid?: string;
             ttp?: string;
         };
@@ -3619,7 +3709,7 @@ export interface components {
             variantId?: string;
         };
         CreateOrderRequestDto: {
-            /** @description TikTok identifiers sent ONLY when the shopper accepted advertising cookies; present even if empty, since its presence records that consent. With it, an approved live purchase is sent to the TikTok Events API with email and phone as SHA-256. Stored internally and never echoed. */
+            /** @description TikTok and Meta identifiers sent ONLY when the shopper accepted advertising cookies; present even if empty, since its presence records that consent for both. With it, an approved live purchase is sent to the TikTok Events API and the Meta Conversions API with email and phone as SHA-256. Stored internally and never echoed. */
             advertising?: components["schemas"]["CreateOrderAdvertisingDto"];
             /** @description Pseudonymous GA4 attribution captured only after analytics consent. It contains no name, email, phone, document or address; it is stored internally and never echoed in an order response. */
             analytics?: components["schemas"]["CreateOrderAnalyticsDto"];
@@ -4214,6 +4304,56 @@ export interface components {
         LinkConversationOrderRequestDto: {
             expectedVersion: number;
             orderId: string | null;
+        };
+        MetaConnectionTestDto: {
+            accepted: boolean;
+            errorCode: string | null;
+            /** Format: date-time */
+            testedAt: string;
+        };
+        MetaIntegrationDto: {
+            /** @description Whether a Conversions API token version is stored. The token is never returned. */
+            accessTokenConfigured: boolean;
+            /** @example …9fA2 */
+            accessTokenHint: string | null;
+            /** @description What actually happens: enabled and fully configured. Only then does the storefront load the pixel and the backend send purchases. */
+            active: boolean;
+            configured: boolean;
+            /** @description What the panel saved. */
+            enabled: boolean;
+            /**
+             * Format: uri
+             * @description Product feed that the Meta catalog "Modulartess Web" reads as a scheduled data feed (the same XML as Google Merchant Center).
+             */
+            feedUrl: string;
+            /** Format: date-time */
+            lastErrorAt: string | null;
+            /** @description Closed code from our own vocabulary. Never a remote body. */
+            lastErrorCode: string | null;
+            /**
+             * Format: date-time
+             * @description Last purchase accepted by the Conversions API.
+             */
+            lastEventAt: string | null;
+            /** Format: date-time */
+            lastTestedAt: string | null;
+            /** @enum {string|null} */
+            lastTestStatus: "passed" | "failed" | null;
+            /** @description Field names still missing (pixelId, accessToken). Never a value. */
+            missing: string[];
+            /**
+             * @description Public pixel ID. It is not a secret: the storefront embeds it.
+             * @example 1234567890123456
+             */
+            pixelId: string | null;
+            /** @enum {string} */
+            provider: "meta";
+            /** @description Send it back as expectedVersion to change anything. */
+            version: number;
+        };
+        MetaPublicConfigDto: {
+            /** @description Pixel ID to load in the storefront, or null while the integration is not active. */
+            pixelId: string | null;
         };
         OrderCreatedDto: {
             /** Format: date-time */
@@ -5268,6 +5408,12 @@ export interface components {
             expectedVersion: number;
             inventory: components["schemas"]["SetInventoryControlDto"];
         };
+        SetMetaActivationRequestDto: {
+            /** @enum {boolean} */
+            confirm: true;
+            enabled: boolean;
+            expectedVersion: number;
+        };
         SetTikTokActivationRequestDto: {
             /** @enum {boolean} */
             confirm: true;
@@ -5807,6 +5953,10 @@ export interface components {
              */
             status: "queued" | "already_queued";
         };
+        TestMetaIntegrationRequestDto: {
+            /** @description Code from Meta Events Manager → Test events (for example TEST12345). The test purchase is only visible there and never counts as a real conversion. */
+            testEventCode: string;
+        };
         TestTikTokIntegrationRequestDto: {
             /** @description Code from TikTok Events Manager → Test events. The test purchase is only visible there and never counts as a real conversion. */
             testEventCode: string;
@@ -5873,6 +6023,13 @@ export interface components {
             /** @description Write-only. */
             clientSecret?: string;
             expectedVersion: number;
+        };
+        UpdateMetaIntegrationRequestDto: {
+            /** @description WRITE-ONLY. Stored as a new exact version in Secret Manager; never returned. */
+            accessToken?: string;
+            expectedVersion: number;
+            /** @example 1234567890123456 */
+            pixelId?: string;
         };
         UpdateOrderStatusRequestDto: {
             /** @description Version the caller last read. */
@@ -7404,6 +7561,220 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AddiConnectionTestDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminMetaIntegrationController_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaIntegrationDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminMetaIntegrationController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMetaIntegrationRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaIntegrationDto"];
+                };
+            };
+            /** @description meta_configuration_invalid (issues[].path names the fields) or payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_integration_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description payment_provider_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminMetaIntegrationController_activation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetMetaActivationRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaIntegrationDto"];
+                };
+            };
+            /** @description payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_session_required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description admin_forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description meta_configuration_incomplete, meta_connection_test_required or payment_integration_conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminMetaIntegrationController_test: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestMetaIntegrationRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaConnectionTestDto"];
+                };
+            };
+            /** @description meta_configuration_invalid or payment_integration_invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
                 };
             };
             /** @description admin_session_required */
@@ -12871,6 +13242,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PublicMarketingController_metaConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaPublicConfigDto"];
                 };
             };
         };

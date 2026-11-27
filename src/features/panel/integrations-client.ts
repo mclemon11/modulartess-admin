@@ -16,12 +16,17 @@
 import type {
   AddiConnectionTest,
   AddiIntegration,
+  MetaConnectionTest,
+  MetaIntegration,
   SetAddiActivationRequest,
+  SetMetaActivationRequest,
   SetTikTokActivationRequest,
+  TestMetaIntegrationRequest,
   TestTikTokIntegrationRequest,
   TikTokConnectionTest,
   TikTokIntegration,
   UpdateAddiIntegrationRequest,
+  UpdateMetaIntegrationRequest,
   UpdateTikTokIntegrationRequest,
   UpdateWompiIntegrationRequest,
   WompiConnectionTest,
@@ -147,4 +152,25 @@ export function testTikTokConnection(
   body: TestTikTokIntegrationRequest,
 ): Promise<IntegrationResult<TikTokConnectionTest>> {
   return send('/api/admin/integrations/tiktok/test', 'POST', body);
+}
+
+/* Meta. Rutas propias del BFF; el navegador nunca habla con Meta ni con el backend. */
+
+export function updateMetaIntegration(
+  body: UpdateMetaIntegrationRequest,
+): Promise<IntegrationResult<MetaIntegration>> {
+  return send('/api/admin/integrations/meta', 'PATCH', body);
+}
+
+export function setMetaActivation(
+  body: SetMetaActivationRequest,
+): Promise<IntegrationResult<MetaIntegration>> {
+  return send('/api/admin/integrations/meta/activation', 'POST', body);
+}
+
+/** El único parámetro es el código de «Probar eventos»: el token lo pone el backend. */
+export function testMetaConnection(
+  body: TestMetaIntegrationRequest,
+): Promise<IntegrationResult<MetaConnectionTest>> {
+  return send('/api/admin/integrations/meta/test', 'POST', body);
 }

@@ -16,10 +16,12 @@ import {
 import { SectionHeading } from './section-icon';
 
 import { addiHealth, describeAddiError, describeAddiIncidents } from './addi-integration';
+import { describeMetaError, metaHealth } from './meta-integration';
 import { describeTikTokError, tiktokHealth } from './tiktok-integration';
 
 import type {
   AddiIntegration,
+  MetaIntegration,
   TikTokIntegration,
   WompiEnvironmentConfig,
   WompiIntegration,
@@ -57,6 +59,7 @@ const PROVIDER_LOGOS = {
   wompi: '/assets/integrations/wompi.svg',
   addi: '/assets/integrations/addi.svg',
   tiktok: '/assets/integrations/tiktok.svg',
+  meta: '/assets/integrations/meta.svg',
 } as const;
 
 function ProviderLogo({ provider }: { readonly provider: keyof typeof PROVIDER_LOGOS }) {
@@ -317,6 +320,74 @@ export function TikTokProviderCard({
 
       <div className={styles.providerActions}>
         <Link className={catalog.buttonPrimary} href="/panel/configuracion/integraciones/tiktok">
+          {canManage ? 'Configurar' : 'Ver configuración'}
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Tarjeta de Meta: píxel de la tienda y compras enviadas desde el servidor (API de conversiones).
+ *
+ * `integration` es `null` cuando la lectura falló: la tarjeta lo dice y no inventa un estado. Del
+ * token no llega ni la pista: la tarjeta no la necesita.
+ */
+export function MetaProviderCard({
+  integration,
+  canManage,
+}: {
+  readonly integration: MetaIntegration | null;
+  readonly canManage: boolean;
+}) {
+  if (integration === null) {
+    return (
+      <section className={styles.provider}>
+        <div className={styles.providerHead}>
+          <ProviderLogo provider="meta" />
+          <h3 className={styles.providerName}>Meta</h3>
+          <span className={styles.healthIncomplete}>Estado no disponible</span>
+        </div>
+        <p className={styles.providerText}>
+          No pudimos leer la configuración de Meta. Recarga la página en unos momentos.
+        </p>
+      </section>
+    );
+  }
+
+  const { health, label } = metaHealth(integration);
+  const error = describeMetaError(integration.lastErrorCode);
+
+  return (
+    <section className={styles.provider}>
+      <div className={styles.providerHead}>
+        <ProviderLogo provider="meta" />
+        <h3 className={styles.providerName}>Meta</h3>
+        <HealthBadge health={health} label={label} />
+      </div>
+
+      <p className={styles.providerText}>
+        Píxel de Facebook e Instagram en la tienda (solo con consentimiento de publicidad) y compras
+        enviadas desde el servidor.
+      </p>
+
+      <dl className={styles.facts}>
+        <Fact label="Estado" value={label} />
+        <Fact label="Última compra enviada" value={dateOrNever(integration.lastEventAt)} />
+        <Fact
+          label="Última prueba"
+          value={
+            integration.lastTestedAt === null
+              ? 'Nunca'
+              : `${formatDateTime(integration.lastTestedAt)} · ${integration.lastTestStatus === 'passed' ? 'superada' : 'fallida'}`
+          }
+        />
+      </dl>
+
+      {error === null ? null : <p className={catalog.hint}>Último error: {error}</p>}
+
+      <div className={styles.providerActions}>
+        <Link className={catalog.buttonPrimary} href="/panel/configuracion/integraciones/meta">
           {canManage ? 'Configurar' : 'Ver configuración'}
         </Link>
       </div>

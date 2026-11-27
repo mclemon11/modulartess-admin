@@ -4,6 +4,7 @@ import catalog from '@/features/panel/catalog.module.css';
 import styles from '@/features/panel/integrations.module.css';
 import {
   AddiProviderCard,
+  MetaProviderCard,
   TikTokProviderCard,
   WompiProviderCard,
 } from '@/features/panel/integration-cards';
@@ -22,9 +23,11 @@ import { can } from '@/features/session/permissions';
 import { isBackendFailure } from '@/lib/api/errors';
 import {
   getAddiIntegration,
+  getMetaIntegration,
   getTikTokIntegration,
   getWompiIntegration,
   type AddiIntegration,
+  type MetaIntegration,
   type TikTokIntegration,
 } from '@/lib/api/integrations';
 import { listPaymentIncidents } from '@/lib/api/payment-incidents';
@@ -44,7 +47,7 @@ const OPEN_INCIDENTS_PAGE_SIZE = 50;
 /**
  * Integraciones.
  *
- * Una tarjeta por proveedor, cada una con su estado real: Wompi, Addi (ADR 0015) y TikTok.
+ * Una tarjeta por proveedor, cada una con su estado real: Wompi, Addi (ADR 0015), TikTok y Meta.
  *
  * Es un Server Component: las dos lecturas salen del servidor de Next con la sesión de la persona,
  * así que el navegador no conoce la URL del backend ni la cookie. **El navegador tampoco habla con
@@ -152,6 +155,15 @@ export default async function IntegracionesPage() {
     tiktok = null;
   }
 
+  // Meta, igual: una lectura propia que, si falla, solo apaga su tarjeta.
+  let meta: MetaIntegration | null = null;
+
+  try {
+    meta = await getMetaIntegration(material);
+  } catch {
+    meta = null;
+  }
+
   return (
     <>
       <PanelHeader trail={trail} />
@@ -170,6 +182,7 @@ export default async function IntegracionesPage() {
           />
           <AddiProviderCard canManage={can(role, 'integrations.manage')} integration={addi} />
           <TikTokProviderCard canManage={can(role, 'integrations.manage')} integration={tiktok} />
+          <MetaProviderCard canManage={can(role, 'integrations.manage')} integration={meta} />
         </div>
       </div>
     </>

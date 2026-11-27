@@ -158,6 +158,17 @@ export const BACKEND_FAILURE_CODES = [
   'backend_tiktok_configuration_invalid',
   'backend_tiktok_configuration_incomplete',
   'backend_tiktok_connection_test_required',
+  /**
+   * Meta (píxel y API de conversiones). Los mismos tres códigos propios que TikTok:
+   *
+   * - 400 `meta_configuration_invalid`: el ID del conjunto de datos, el token o el código de prueba
+   *   no tienen forma válida; volver a copiarlo.
+   * - 409 `meta_configuration_incomplete`: faltan el ID o el token para activar.
+   * - 409 `meta_connection_test_required`: hay que superar la prueba antes de activar.
+   */
+  'backend_meta_configuration_invalid',
+  'backend_meta_configuration_incomplete',
+  'backend_meta_connection_test_required',
   /** 404 `payment_incident_not_found`: esa incidencia ya no existe. */
   'backend_payment_incident_not_found',
   /**

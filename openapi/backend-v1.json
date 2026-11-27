@@ -4250,6 +4250,24 @@
       },
       "CreateOrderAdvertisingDto": {
         "properties": {
+          "clientUserAgent": {
+            "description": "User-Agent of the shopper's request, copied by the storefront server. Sent raw to the Meta Conversions API.",
+            "maxLength": 512,
+            "pattern": "^[\\x20-\\x7e]+$",
+            "type": "string"
+          },
+          "fbc": {
+            "description": "Meta _fbc cookie, or the value built from fbclid.",
+            "maxLength": 600,
+            "pattern": "^fb\\.\\d\\.\\d+\\.[A-Za-z0-9._~-]+$",
+            "type": "string"
+          },
+          "fbp": {
+            "description": "Meta _fbp cookie.",
+            "maxLength": 200,
+            "pattern": "^fb\\.\\d\\.\\d+\\.[A-Za-z0-9._-]+$",
+            "type": "string"
+          },
           "ttclid": {
             "maxLength": 500,
             "pattern": "^[A-Za-z0-9._~-]+$",
@@ -4441,7 +4459,7 @@
                 "$ref": "#/components/schemas/CreateOrderAdvertisingDto"
               }
             ],
-            "description": "TikTok identifiers sent ONLY when the shopper accepted advertising cookies; present even if empty, since its presence records that consent. With it, an approved live purchase is sent to the TikTok Events API with email and phone as SHA-256. Stored internally and never echoed."
+            "description": "TikTok and Meta identifiers sent ONLY when the shopper accepted advertising cookies; present even if empty, since its presence records that consent for both. With it, an approved live purchase is sent to the TikTok Events API and the Meta Conversions API with email and phone as SHA-256. Stored internally and never echoed."
           },
           "analytics": {
             "allOf": [
@@ -5884,6 +5902,139 @@
         "required": [
           "expectedVersion",
           "orderId"
+        ],
+        "type": "object"
+      },
+      "MetaConnectionTestDto": {
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "errorCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "testedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accepted",
+          "testedAt",
+          "errorCode"
+        ],
+        "type": "object"
+      },
+      "MetaIntegrationDto": {
+        "properties": {
+          "accessTokenConfigured": {
+            "description": "Whether a Conversions API token version is stored. The token is never returned.",
+            "type": "boolean"
+          },
+          "accessTokenHint": {
+            "example": "…9fA2",
+            "nullable": true,
+            "type": "string"
+          },
+          "active": {
+            "description": "What actually happens: enabled and fully configured. Only then does the storefront load the pixel and the backend send purchases.",
+            "type": "boolean"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "description": "What the panel saved.",
+            "type": "boolean"
+          },
+          "feedUrl": {
+            "description": "Product feed that the Meta catalog \"Modulartess Web\" reads as a scheduled data feed (the same XML as Google Merchant Center).",
+            "format": "uri",
+            "type": "string"
+          },
+          "lastErrorAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastErrorCode": {
+            "description": "Closed code from our own vocabulary. Never a remote body.",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastEventAt": {
+            "description": "Last purchase accepted by the Conversions API.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastTestedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastTestStatus": {
+            "enum": [
+              "passed",
+              "failed"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "missing": {
+            "description": "Field names still missing (pixelId, accessToken). Never a value.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "pixelId": {
+            "description": "Public pixel ID. It is not a secret: the storefront embeds it.",
+            "example": "1234567890123456",
+            "nullable": true,
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "meta"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "description": "Send it back as expectedVersion to change anything.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "provider",
+          "version",
+          "enabled",
+          "active",
+          "configured",
+          "missing",
+          "pixelId",
+          "accessTokenConfigured",
+          "accessTokenHint",
+          "feedUrl",
+          "lastTestedAt",
+          "lastTestStatus",
+          "lastEventAt",
+          "lastErrorCode",
+          "lastErrorAt"
+        ],
+        "type": "object"
+      },
+      "MetaPublicConfigDto": {
+        "properties": {
+          "pixelId": {
+            "description": "Pixel ID to load in the storefront, or null while the integration is not active.",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "pixelId"
         ],
         "type": "object"
       },
@@ -8773,6 +8924,28 @@
         ],
         "type": "object"
       },
+      "SetMetaActivationRequestDto": {
+        "properties": {
+          "confirm": {
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "expectedVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "enabled",
+          "confirm"
+        ],
+        "type": "object"
+      },
       "SetTikTokActivationRequestDto": {
         "properties": {
           "confirm": {
@@ -10620,6 +10793,19 @@
         ],
         "type": "object"
       },
+      "TestMetaIntegrationRequestDto": {
+        "properties": {
+          "testEventCode": {
+            "description": "Code from Meta Events Manager → Test events (for example TEST12345). The test purchase is only visible there and never counts as a real conversion.",
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "testEventCode"
+        ],
+        "type": "object"
+      },
       "TestTikTokIntegrationRequestDto": {
         "properties": {
           "testEventCode": {
@@ -10794,6 +10980,27 @@
           },
           "expectedVersion": {
             "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ],
+        "type": "object"
+      },
+      "UpdateMetaIntegrationRequestDto": {
+        "properties": {
+          "accessToken": {
+            "description": "WRITE-ONLY. Stored as a new exact version in Secret Manager; never returned.",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "expectedVersion": {
+            "type": "number"
+          },
+          "pixelId": {
+            "example": "1234567890123456",
+            "maxLength": 200,
+            "type": "string"
           }
         },
         "required": [
@@ -13403,6 +13610,286 @@
           }
         ],
         "summary": "Test Addi authentication",
+        "tags": [
+          "admin-integrations"
+        ]
+      }
+    },
+    "/v1/admin/integrations/meta": {
+      "get": {
+        "description": "Never returns the Conversions API token: only whether it is configured and its last four characters. Requires integrations.read.",
+        "operationId": "AdminMetaIntegrationController_read",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaIntegrationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Read the Meta integration status",
+        "tags": [
+          "admin-integrations"
+        ]
+      },
+      "patch": {
+        "description": "The token is WRITE-ONLY: sending it stores a NEW exact version in Secret Manager, omitting it keeps the current one. SAVING NEVER ENABLES ANYTHING and any change invalidates the last test. Requires expectedVersion and integrations.manage.",
+        "operationId": "AdminMetaIntegrationController_update",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMetaIntegrationRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaIntegrationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "meta_configuration_invalid (issues[].path names the fields) or payment_integration_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "payment_integration_conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "payment_provider_unavailable"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Save the Meta pixel ID and Conversions API token",
+        "tags": [
+          "admin-integrations"
+        ]
+      }
+    },
+    "/v1/admin/integrations/meta/activation": {
+      "post": {
+        "description": "Enabling requires the pixel ID and the token (meta_configuration_incomplete) and a successful test after the last change (meta_connection_test_required). Disabling is always allowed: the storefront stops loading the pixel and purchases stop being sent. Requires integrations.manage.",
+        "operationId": "AdminMetaIntegrationController_activation",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMetaActivationRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaIntegrationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "payment_integration_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "meta_configuration_incomplete, meta_connection_test_required or payment_integration_conflict"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Enable or disable Meta",
+        "tags": [
+          "admin-integrations"
+        ]
+      }
+    },
+    "/v1/admin/integrations/meta/test": {
+      "post": {
+        "description": "Sends ONE Purchase with the given test event code from Meta Events Manager → Test events. Meta shows it only there and never counts it as a conversion. Requires integrations.manage.",
+        "operationId": "AdminMetaIntegrationController_test",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestMetaIntegrationRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaConnectionTestDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "meta_configuration_invalid or payment_integration_invalid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_session_required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            },
+            "description": "admin_forbidden"
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "Send a Meta test purchase",
         "tags": [
           "admin-integrations"
         ]
@@ -21297,6 +21784,29 @@
         "summary": "Municipalities, districts and non-municipalized areas of a department",
         "tags": [
           "geography"
+        ]
+      }
+    },
+    "/v1/marketing/meta": {
+      "get": {
+        "description": "pixelId is null while the integration is not active. The storefront still loads it ONLY after the shopper accepts advertising cookies. Cached for one minute.",
+        "operationId": "PublicMarketingController_metaConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaPublicConfigDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Meta pixel the storefront may load",
+        "tags": [
+          "marketing"
         ]
       }
     },

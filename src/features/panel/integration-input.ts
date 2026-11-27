@@ -19,9 +19,12 @@
 
 import type {
   SetAddiActivationRequest,
+  SetMetaActivationRequest,
   SetTikTokActivationRequest,
+  TestMetaIntegrationRequest,
   TestTikTokIntegrationRequest,
   UpdateAddiIntegrationRequest,
+  UpdateMetaIntegrationRequest,
   UpdateTikTokIntegrationRequest,
   UpdateWompiIntegrationRequest,
   WompiEnvironment,
@@ -224,10 +227,10 @@ const TIKTOK_TOKEN_MAX_LENGTH = 2048;
 const TIKTOK_TEST_CODE_MAX_LENGTH = 64;
 
 /**
- * Un texto opcional del formulario de TikTok: vacío **conserva** lo guardado y no viaja; demasiado
+ * Un texto opcional de los formularios de TikTok y Meta: vacío **conserva** lo guardado y no viaja; demasiado
  * largo o con espacios en medio es un cuerpo sin forma. Se recortan solo los extremos.
  */
-function tiktokText(raw: unknown, max: number): string | undefined | null {
+function adsText(raw: unknown, max: number): string | undefined | null {
   if (raw === undefined) return undefined;
   if (typeof raw !== 'string' || raw.length > max) return null;
 
@@ -252,8 +255,8 @@ export function parseTikTokUpdate(raw: unknown): UpdateTikTokIntegrationRequest 
   const version = expectedVersion(body.expectedVersion);
   if (version === null) return null;
 
-  const pixelId = tiktokText(body.pixelId, TIKTOK_PIXEL_MAX_LENGTH);
-  const accessToken = tiktokText(body.accessToken, TIKTOK_TOKEN_MAX_LENGTH);
+  const pixelId = adsText(body.pixelId, TIKTOK_PIXEL_MAX_LENGTH);
+  const accessToken = adsText(body.accessToken, TIKTOK_TOKEN_MAX_LENGTH);
 
   if (pixelId === null || accessToken === null) return null;
 
@@ -286,7 +289,69 @@ export function parseTikTokTest(raw: unknown): TestTikTokIntegrationRequest | nu
   const body = record(raw);
   if (body === null) return null;
 
-  const code = tiktokText(body.testEventCode, TIKTOK_TEST_CODE_MAX_LENGTH);
+  const code = adsText(body.testEventCode, TIKTOK_TEST_CODE_MAX_LENGTH);
 
   return code === null || code === undefined ? null : { testEventCode: code };
+}
+
+/* ──────────────────────── Meta (píxel y API de conversiones) ──────────────────────── */
+
+/** Topes del contrato: `pixelId` hasta 200, `accessToken` hasta 2048, `testEventCode` hasta 64. */
+const META_PIXEL_MAX_LENGTH = 200;
+const META_TOKEN_MAX_LENGTH = 2048;
+const META_TEST_CODE_MAX_LENGTH = 64;
+
+/**
+ * Cuerpo del `PATCH` de Meta, campo a campo.
+ *
+ * Mismas reglas que TikTok: el ID del conjunto de datos no es un secreto, el token sí; un campo
+ * vacío **conserva** el guardado y ninguna propiedad fuera del contrato pasa. El ID de Meta es
+ * siempre numérico, así que algo que no sean dígitos es un cuerpo sin forma. Sin cambios no hay
+ * llamada. La longitud exacta y el resto de reglas las decide el backend.
+ */
+export function parseMetaUpdate(raw: unknown): UpdateMetaIntegrationRequest | null {
+  const body = record(raw);
+  if (body === null) return null;
+
+  const version = expectedVersion(body.expectedVersion);
+  if (version === null) return null;
+
+  const pixelId = adsText(body.pixelId, META_PIXEL_MAX_LENGTH);
+  const accessToken = adsText(body.accessToken, META_TOKEN_MAX_LENGTH);
+
+  if (pixelId === null || accessToken === null) return null;
+  if (pixelId !== undefined && !/^\d+$/.test(pixelId)) return null;
+
+  const parsed: UpdateMetaIntegrationRequest = { expectedVersion: version };
+
+  if (pixelId !== undefined) parsed.pixelId = pixelId;
+  if (accessToken !== undefined) parsed.accessToken = accessToken;
+
+  return Object.keys(parsed).length > 1 ? parsed : null;
+}
+
+/** Activar o desactivar Meta. Exige `confirm: true` **literal**, igual que TikTok. */
+export function parseMetaActivation(raw: unknown): SetMetaActivationRequest | null {
+  const body = record(raw);
+  if (body === null) return null;
+
+  const version = expectedVersion(body.expectedVersion);
+  const enabled = boolean(body.enabled);
+
+  if (version === null || enabled === undefined || body.confirm !== true) return null;
+
+  return { expectedVersion: version, enabled, confirm: true };
+}
+
+/**
+ * Cuerpo de la compra de prueba: solo el código de «Probar eventos», en mayúsculas como lo muestra
+ * Meta. Es obligatorio; sin él, Meta contaría la compra como real.
+ */
+export function parseMetaTest(raw: unknown): TestMetaIntegrationRequest | null {
+  const body = record(raw);
+  if (body === null) return null;
+
+  const code = adsText(body.testEventCode, META_TEST_CODE_MAX_LENGTH);
+
+  return code === null || code === undefined ? null : { testEventCode: code.toUpperCase() };
 }

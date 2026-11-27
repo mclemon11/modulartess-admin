@@ -433,3 +433,129 @@ export async function testTikTokConnection(
 
   return response.data;
 }
+
+/* ──────────────────────── Meta (píxel y API de conversiones) ──────────────────────── */
+
+export type MetaIntegration = components['schemas']['MetaIntegrationDto'];
+export type UpdateMetaIntegrationRequest = components['schemas']['UpdateMetaIntegrationRequestDto'];
+export type SetMetaActivationRequest = components['schemas']['SetMetaActivationRequestDto'];
+export type TestMetaIntegrationRequest = components['schemas']['TestMetaIntegrationRequestDto'];
+export type MetaConnectionTest = components['schemas']['MetaConnectionTestDto'];
+
+/**
+ * Códigos de Meta. Igual que TikTok, cada uno lleva a una acción distinta —volver a copiar un
+ * campo, completar la configuración o ejecutar la prueba— y por eso no se aplanan.
+ *
+ * `meta_configuration_invalid` trae `issues[].path` con los campos rechazados. El panel no lo
+ * propaga: basta el código cerrado, y el formulario dice en general qué revisar.
+ */
+const META_FAILURES: Readonly<Record<string, BackendFailureCode>> = {
+  meta_configuration_invalid: 'backend_meta_configuration_invalid',
+  meta_configuration_incomplete: 'backend_meta_configuration_incomplete',
+  meta_connection_test_required: 'backend_meta_connection_test_required',
+};
+
+function metaFailure(status: number, code: string | null): BackendFailure {
+  if ((status === 400 || status === 409) && code !== null && Object.hasOwn(META_FAILURES, code)) {
+    return new BackendFailure(META_FAILURES[code] as BackendFailureCode);
+  }
+
+  return integrationFailure(status, code);
+}
+
+/** Estado de Meta. Exige `integrations.read`. Del token, solo si está guardado y su pista. */
+export async function getMetaIntegration(sessionMaterial: string): Promise<MetaIntegration> {
+  let response;
+
+  try {
+    response = await backendClient().GET('/v1/admin/integrations/meta', {
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw metaFailure(response.response.status, backendErrorCode(response.error));
+  }
+
+  return response.data;
+}
+
+/**
+ * Guarda el ID del conjunto de datos (píxel) y el token de la API de conversiones. Exige
+ * `integrations.manage`.
+ *
+ * Los campos ausentes **conservan** el valor guardado. Guardar nunca activa nada, y cualquier
+ * cambio invalida la última prueba.
+ */
+export async function updateMetaIntegration(
+  sessionMaterial: string,
+  body: UpdateMetaIntegrationRequest,
+): Promise<MetaIntegration> {
+  let response;
+
+  try {
+    response = await backendClient().PATCH('/v1/admin/integrations/meta', {
+      body,
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw metaFailure(response.response.status, backendErrorCode(response.error));
+  }
+
+  return response.data;
+}
+
+/** Activa o desactiva Meta, con confirmación explícita. Desactivar siempre se permite. */
+export async function setMetaActivation(
+  sessionMaterial: string,
+  body: SetMetaActivationRequest,
+): Promise<MetaIntegration> {
+  let response;
+
+  try {
+    response = await backendClient().POST('/v1/admin/integrations/meta/activation', {
+      body,
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw metaFailure(response.response.status, backendErrorCode(response.error));
+  }
+
+  return response.data;
+}
+
+/**
+ * Compra de prueba: el backend envía **un** `Purchase` con el código de eventos de prueba. Meta solo
+ * la muestra en «Probar eventos» y nunca la cuenta como conversión.
+ */
+export async function testMetaConnection(
+  sessionMaterial: string,
+  body: TestMetaIntegrationRequest,
+): Promise<MetaConnectionTest> {
+  let response;
+
+  try {
+    response = await backendClient().POST('/v1/admin/integrations/meta/test', {
+      body,
+      headers: sessionHeaders(sessionMaterial),
+    });
+  } catch (error) {
+    throw toFailure(error);
+  }
+
+  if (response.error !== undefined || response.data === undefined) {
+    throw metaFailure(response.response.status, backendErrorCode(response.error));
+  }
+
+  return response.data;
+}

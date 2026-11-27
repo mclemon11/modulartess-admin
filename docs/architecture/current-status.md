@@ -394,6 +394,23 @@ enviado, última prueba y último error. BFF: `/api/admin/integrations/tiktok` (
 `src/app/api/admin/integrations/tiktok/route.test.ts`. Contrato actualizado con `pnpm api:update` y
 `pnpm api:generate`. Despliegue: backend primero.
 
+### Meta (píxel y API de conversiones): implementada, sin desplegar
+
+Integraciones muestra una tarjeta de Meta —píxel de Facebook e Instagram en la tienda (solo con
+consentimiento de publicidad) y compras enviadas desde el servidor— junto a Wompi, Addi y TikTok. Se
+lee aparte: si su lectura falla, la tarjeta dice «Estado no disponible» y el resto de la página
+sigue. «Configurar Meta» (`integrations.read` para ver, `integrations.manage` para editar) tiene el
+ID del conjunto de datos (solo dígitos), el token de la API de conversiones de solo escritura (solo
+se ve su pista; vacío conserva el guardado), una compra de prueba con el código TEST… de «Probar
+eventos» del Administrador de eventos (no cuenta como conversión), activación separada con la frase
+«ACTIVAR META» y la URL del feed del catálogo de Meta «Modulartess Web». Una vez activa, la tienda
+carga el píxel con consentimiento de publicidad y el backend envía a Meta las compras aprobadas con
+el correo y el teléfono cifrados (SHA-256). Estado: Activa / Configurada, apagada / Incompleta, con
+última compra enviada, última prueba y último error (los códigos `meta_*` se traducen al español).
+BFF: `/api/admin/integrations/meta` (`PATCH`), `/activation` y `/test`. Pruebas:
+`meta-integration.test.tsx` y `src/app/api/admin/integrations/meta/route.test.ts`. Contrato
+actualizado con `pnpm api:update` y `pnpm api:generate`. Despliegue: backend primero.
+
 ### Paginación numerada de pedidos: implementada
 
 `/panel/pedidos` sustituye «Cargar más pedidos» por una paginación real: «Anterior», «Siguiente»,
@@ -437,6 +454,7 @@ Elementos que forman parte del diseño acordado, pero que aún no existen en el 
 | Listado de la outbox            | Pendiente     | `failedNotifications` se cuenta; no hay pantalla que lo liste.      |
 | Cobros reales con Addi          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR ADDI».         |
 | TikTok                          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR TIKTOK».       |
+| Meta                            | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR META».         |
 | Cobros reales de Wompi          | Sin activar   | El control existe; activarlo exige escribir «ACTIVAR PRODUCCIÓN».   |
 | Colecciones, SEO, descuentos    | Pendiente     | Sin publicar en OpenAPI; las referencias los muestran.              |
 | Lectura aparte de variantes     | Pendiente     | Viajan dentro del producto; un `GET` propio no tendría uso.         |
